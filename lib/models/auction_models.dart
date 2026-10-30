@@ -331,10 +331,22 @@ class Item {
   Duration get timeUntilStart =>
       isScheduled ? startTime.toLocal().difference(DateTime.now()) : Duration.zero;
 
-  int get currentPrice => bids.isEmpty ? startPrice : bids.first.amount;
+  Bid? get topBid {
+    if (bids.isEmpty) return null;
+    Bid highest = bids.first;
+    for (int i = 1; i < bids.length; i++) {
+      if (bids[i].amount > highest.amount) {
+        highest = bids[i];
+      }
+    }
+    return highest;
+  }
+
+  int get currentPrice =>
+      (isCancelled || topBid == null) ? startPrice : topBid!.amount;
 
   String? get highestBidder =>
-      (isCancelled || bids.isEmpty) ? null : bids.first.bidder;
+      (isCancelled || topBid == null) ? null : topBid!.bidder;
 
   bool get isEnded =>
       isCancelled ||

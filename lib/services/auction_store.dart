@@ -553,7 +553,11 @@ class AuctionStore extends ChangeNotifier {
       if (bidsByItem.containsKey(item.id)) {
         item.bids.clear();
         final list = bidsByItem[item.id]!;
-        list.sort((a, b) => b.time.compareTo(a.time));
+        list.sort((a, b) {
+          final cmp = b.amount.compareTo(a.amount);
+          if (cmp != 0) return cmp;
+          return b.time.compareTo(a.time);
+        });
         item.bids.addAll(list);
       }
     }
@@ -1081,6 +1085,13 @@ class AuctionStore extends ChangeNotifier {
                 ),
               );
             }
+            for (final it in loadedItems) {
+              it.bids.sort((a, b) {
+                final cmp = b.amount.compareTo(a.amount);
+                if (cmp != 0) return cmp;
+                return b.time.compareTo(a.time);
+              });
+            }
           }
         }
 
@@ -1313,7 +1324,7 @@ class AuctionStore extends ChangeNotifier {
       return tr('هذا المزاد خاص، أدخل رمز PIN أولاً',
           'Private auction: enter PIN code first');
     }
-    if (item.highestBidder == me) {
+    if (isUserMe(item.highestBidder ?? '')) {
       return tr('أنت صاحب أعلى مزايدة بالفعل',
           'You are already the highest bidder');
     }
@@ -1346,6 +1357,11 @@ class AuctionStore extends ChangeNotifier {
 
     final newBid = Bid(me, amount, DateTime.now());
     item.bids.insert(0, newBid);
+    item.bids.sort((a, b) {
+      final cmp = b.amount.compareTo(a.amount);
+      if (cmp != 0) return cmp;
+      return b.time.compareTo(a.time);
+    });
 
     // رد المزايدين التلقائيين الآخرين (إن وجدوا)
     _resolveCounterAutoBids(item, currentBidder: me);
