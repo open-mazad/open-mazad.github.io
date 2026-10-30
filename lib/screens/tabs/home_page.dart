@@ -18,7 +18,7 @@ class _HomePageState extends State<HomePage> {
   String sortBy = 'الأقرب انتهاءً';
 
   List<String> get titles => [
-        tr('Open Mazad • أوبن مزاد', 'Open Mazad'),
+        tr('المزاد المفتوح', 'Open Mazad'),
         tr('المفضلة', 'Watchlist'),
         tr('مزايداتي', 'My Bids'),
         tr('سلعي', 'My Listings'),

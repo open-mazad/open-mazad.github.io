@@ -1,6 +1,6 @@
 {
-    "name": "Open Mazad",
-    "short_name": "Open Mazad",
+    "name": "المزاد المفتوح | Open Mazad",
+    "short_name": "المزاد المفتوح",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

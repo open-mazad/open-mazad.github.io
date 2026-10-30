@@ -435,9 +435,9 @@ class SettingsStore extends ChangeNotifier {
   /// نص رسالة كود التحقق المرسلة عبر واتساب (إنشاء حساب أو استعادة كلمة المرور)
   String buildWhatsAppOtpMessage(String code, {bool isPasswordReset = false}) {
     if (isPasswordReset) {
-      return '🔐 *Open Mazad*\nرمز استعادة وتغيير كلمة المرور لحسابك هو: *$code*\nأدخل هذا الرمز في التطبيق لتعيين كلمة المرور الجديدة.';
+      return '🔐 *المزاد المفتوح - Open Mazad*\nرمز استعادة وتغيير كلمة المرور لحسابك هو: *$code*\nأدخل هذا الرمز في التطبيق لتعيين كلمة المرور الجديدة.';
     }
-    return '🟢 *Open Mazad*\nرمز التحقق لتأكيد رقم هاتفك وإنشاء حسابك هو: *$code*\nلا تشارك هذا الرمز مع أي شخص.';
+    return '🟢 *المزاد المفتوح - Open Mazad*\nرمز التحقق لتأكيد رقم هاتفك وإنشاء حسابك هو: *$code*\nلا تشارك هذا الرمز مع أي شخص.';
   }
 
   /// يرسل رمز التحقق (OTP) إلى رقم الهاتف عبر Meta WhatsApp Cloud API (قالب رسائل Template)
@@ -2165,7 +2165,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         SnackBar(
           backgroundColor: Colors.green.shade700,
           content: Text(
-            tr('تم إنشاء حسابك وتفعيله بنجاح! أهلاً بك في Open Mazad 🎉',
+            tr('تم إنشاء حسابك وتفعيله بنجاح! أهلاً بك في المزاد المفتوح 🎉',
                 'Account created successfully! Welcome to Open Mazad 🎉'),
           ),
         ),
@@ -3083,7 +3083,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             size: 56, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 12),
         Text(
-          tr('إنشاء حساب جديد في Open Mazad', 'Create New Account in Open Mazad'),
+          tr('إنشاء حساب جديد في المزاد المفتوح', 'Create New Account in Open Mazad'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),

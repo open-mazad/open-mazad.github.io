@@ -105280,7 +105280,7 @@ A.P4.prototype={
 H(a){return new A.fc(new A.a9x(),null,$.be(),null)}}
 A.a9x.prototype={
 $2(a,b){var s=null,r=$.be().a
-return new A.u3(B.Ny,new A.a9w(),"Open Mazad",A.vq(s,s,B.aG,!0),A.vq(B.aR,s,B.aG,!0),r,B.V4,!1,s)},
+return new A.u3(B.Ny,new A.a9w(),"\u0627\u0644\u0645\u0632\u0627\u062f \u0627\u0644\u0645\u0641\u062a\u0648\u062d",A.vq(s,s,B.aG,!0),A.vq(B.aR,s,B.aG,!0),r,B.V4,!1,s)},
 $S:662}
 A.a9w.prototype={
 $2(a,b){var s,r,q,p=null,o=A.bS(a,p,t.w).w,n=o.a.a
@@ -106853,7 +106853,7 @@ s.r="\u0643\u0644 \u0627\u0644\u0645\u062d\u0627\u0641\u0638\u0627\u062a"
 s.f="\u0627\u0644\u0643\u0644"},
 $S:0}
 A.aFC.prototype={
-$2(a,b){var s,r,q,p,o=null,n=this.a,m=A.p(["Open Mazad \u2022 \u0623\u0648\u0628\u0646 \u0645\u0632\u0627\u062f","\u0627\u0644\u0645\u0641\u0636\u0644\u0629","\u0645\u0632\u0627\u064a\u062f\u0627\u062a\u064a","\u0633\u0644\u0639\u064a","\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"][n.d],o,o,o,o,o,o,o),l=A.ew(o,o,o,B.tf,o,o,new A.aFw(a),o,o,o,"\u0631\u0627\u062f\u0627\u0631 \u0627\u0644\u0628\u062d\u062b \u0627\u0644\u0630\u0643\u064a",o),k=$.bf(),j=t.p
+$2(a,b){var s,r,q,p,o=null,n=this.a,m=A.p(["\u0627\u0644\u0645\u0632\u0627\u062f \u0627\u0644\u0645\u0641\u062a\u0648\u062d","\u0627\u0644\u0645\u0641\u0636\u0644\u0629","\u0645\u0632\u0627\u064a\u062f\u0627\u062a\u064a","\u0633\u0644\u0639\u064a","\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"][n.d],o,o,o,o,o,o,o),l=A.ew(o,o,o,B.tf,o,o,new A.aFw(a),o,o,o,"\u0631\u0627\u062f\u0627\u0631 \u0627\u0644\u0628\u062d\u062b \u0627\u0644\u0630\u0643\u064a",o),k=$.bf(),j=t.p
 l=A.b([l,A.ew(o,o,o,A.aSA(B.PE,k.gRg()>0,A.p(""+k.gRg(),o,o,o,o,o,o,o)),o,o,new A.aFx(a),o,o,o,"\u0645\u0631\u0643\u0632 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a",o)],j)
 s=$.be()
 if(s.d!=null&&s.c)l.push(A.ew(o,o,o,B.QA,o,o,new A.aFy(a),o,o,o,"\u0644\u0648\u062d\u0629 \u062a\u062d\u0643\u0645 \u0627\u0644\u0625\u062f\u0627\u0631\u0629",o))
@@ -109828,7 +109828,7 @@ if(n!=null){p.M(new A.aAL(p,n))
 p.c.W(l).f.ct(A.cJ(null,null,null,B.bR,null,B.o,null,A.p(n,null,null,null,null,null,null,null),null,B.a1,null,null,null,null,null,null,null,null,null,null))}else{m=p.c
 m.toString
 A.bR(m,!1).dm(null)
-p.c.W(l).f.ct(A.cJ(null,null,null,B.aW,null,B.o,null,A.p("\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628\u0643 \u0648\u062a\u0641\u0639\u064a\u0644\u0647 \u0628\u0646\u062c\u0627\u062d! \u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a Open Mazad \ud83c\udf89",null,null,null,null,null,null,null),null,B.a1,null,null,null,null,null,null,null,null,null,null))}case 1:return A.w(q,r)}})
+p.c.W(l).f.ct(A.cJ(null,null,null,B.aW,null,B.o,null,A.p("\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628\u0643 \u0648\u062a\u0641\u0639\u064a\u0644\u0647 \u0628\u0646\u062c\u0627\u062d! \u0623\u0647\u0644\u0627\u064b \u0628\u0643 \u0641\u064a \u0627\u0644\u0645\u0632\u0627\u062f \u0627\u0644\u0645\u0641\u062a\u0648\u062d \ud83c\udf89",null,null,null,null,null,null,null),null,B.a1,null,null,null,null,null,null,null,null,null,null))}case 1:return A.w(q,r)}})
 return A.x($async$Cu,r)},
 tC(){return this.an7()},
 an7(){var s=0,r=A.y(t.H),q,p=this,o,n,m,l,k,j
@@ -109987,7 +109987,7 @@ s.push(A.aS(A.b([A.vi(B.tr,A.p("\u0625\u0639\u0627\u062f\u0629 \u0625\u0631\u063
 return A.jc(s,B.Z,i,!1,!1)}h=j.c
 h.toString
 h=A.cA(B.P3,A.P(h).ax.b,i,56)
-s=A.p("\u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628 \u062c\u062f\u064a\u062f \u0641\u064a Open Mazad",i,i,i,i,B.ci,B.aH,i)
+s=A.p("\u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628 \u062c\u062f\u064a\u062f \u0641\u064a \u0627\u0644\u0645\u0632\u0627\u062f \u0627\u0644\u0645\u0641\u062a\u0648\u062d",i,i,i,i,B.ci,B.aH,i)
 q=A.p("\u0627\u0644\u062e\u0637\u0648\u0629 1 \u0645\u0646 3: \u0623\u062f\u062e\u0644 \u0631\u0642\u0645 \u0647\u0627\u062a\u0641\u0643 \u0627\u0644\u0639\u0631\u0627\u0642\u064a \u0644\u062a\u0623\u0643\u064a\u062f\u0647 \u0628\u0631\u0633\u0627\u0644\u0629 \u0639\u0628\u0631 \u0648\u0627\u062a\u0633\u0627\u0628",i,i,i,i,B.en,B.aH,i)
 p=A.dc(i,B.a5,!1,i,!0,B.o,i,A.dn(),j.fr,i,i,i,i,i,2,B.Rw,B.D,!0,i,!0,i,!1,i,B.a8,i,i,i,i,B.hR,i,i,i,1,i,i,!1,"\u2022",i,i,i,i,i,!1,i,i,!1,i,!0,i,B.Z,i,i,i,i,i,i,i,i,i,i,i,i,!0,B.K,i,B.ai,B.R,i,i,i)
 o=j.id

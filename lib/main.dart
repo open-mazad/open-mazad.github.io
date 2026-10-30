@@ -76,7 +76,7 @@ class AuctionApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => MaterialApp(
-        title: 'Open Mazad',
+        title: 'المزاد المفتوح',
         debugShowCheckedModeBanner: false,
         locale: const Locale('ar'),
         themeMode: settings.themeMode,
