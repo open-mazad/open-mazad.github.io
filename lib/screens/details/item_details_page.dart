@@ -16,9 +16,37 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   final commentCtrl = TextEditingController();
   int bidMode = 0; // 0: مزايدة مفتوحة عادية, 1: مزايدة تلقائية
   int currentImageIndex = 0;
+  late final PageController _imagePageCtrl;
+  Timer? _imageAutoSlideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _imagePageCtrl = PageController();
+    _startImageTimer();
+  }
+
+  void _startImageTimer() {
+    _imageAutoSlideTimer?.cancel();
+    _imageAutoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_imagePageCtrl.hasClients) return;
+      final validImages = widget.item.imagePaths
+          .where((p) => resolveSmartImageProvider(p) != null)
+          .toList();
+      if (validImages.length <= 1) return;
+      final next = (currentImageIndex + 1) % validImages.length;
+      _imagePageCtrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
   @override
   void dispose() {
+    _imageAutoSlideTimer?.cancel();
+    _imagePageCtrl.dispose();
     amountCtrl.dispose();
     autoLimitCtrl.dispose();
     commentCtrl.dispose();
@@ -469,14 +497,26 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       child: Stack(
         children: [
           PageView.builder(
+            controller: _imagePageCtrl,
             itemCount: validImages.length,
             onPageChanged: (idx) => setState(() => currentImageIndex = idx),
-            itemBuilder: (context, idx) => ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: buildSmartImage(
-                validImages[idx],
-                width: double.infinity,
-                fit: BoxFit.cover,
+            itemBuilder: (context, idx) => GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FullscreenImageViewer(
+                    images: validImages,
+                    initialIndex: idx,
+                  ),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: buildSmartImage(
+                  validImages[idx],
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -515,7 +555,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Widget _buildDealContactCard(Item item, String winner) {
     final otherPerson = item.seller == me ? winner : item.seller;
-    final phone = store.getUserPhone(otherPerson);
 
     return Card(
       color: Colors.green.shade50,
@@ -552,10 +591,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   fontWeight: FontWeight.bold, color: Colors.black87),
             ),
             Text(
-              '${tr("رقم الهاتف الموثق:", "Verified Phone:")} $phone',
-              style: const TextStyle(color: Colors.black87),
-            ),
-            Text(
               '${tr("طريقة التسليم المتفق عليها:", "Delivery:")} ${item.deliveryMethod} (${item.location} - ${item.area})',
               style: const TextStyle(fontSize: 12, color: Colors.black87),
             ),
@@ -566,22 +601,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
               children: [
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(
-                        text:
-                            'https://wa.me/$phone?text=${Uri.encodeComponent("مرحباً، أتواصل معك لإتمام استلام مزاد: ${item.title}")}'));
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(tr(
-                          'تم نسخ رابط ورقم واتساب ($phone) للتواصل المباشر 💬',
-                          'WhatsApp link & phone copied ($phone) 💬')),
-                      backgroundColor: Colors.green.shade700,
-                    ));
-                  },
-                  icon: const Icon(Icons.phone_in_talk, size: 18),
-                  label: Text(tr('التواصل عبر واتساب', 'Contact via WhatsApp')),
-                ),
-                OutlinedButton.icon(
+                    backgroundColor: Colors.green.shade700,
+                  ),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1305,55 +1326,98 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                           'No bids yet. Be the first to bid!'))),
                 )
               else
-                ...item.bids.map(
-                  (b) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => showUserProfileSheet(context, b.bidder),
-                    leading: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: b.isAuto
-                          ? Colors.indigo.shade100
-                          : scheme.primaryContainer,
-                      child: Icon(
-                        b.isAuto ? Icons.auto_mode : Icons.person_outline,
-                        size: 18,
-                        color: b.isAuto
-                            ? Colors.indigo
-                            : scheme.onPrimaryContainer,
-                      ),
-                    ),
-                    title: Row(
-                      children: [
-                        Text(displayName(b.bidder),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        if (b.isAuto) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.indigo.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                              border:
-                                  Border.all(color: Colors.indigo.shade200),
-                            ),
-                            child: Text(tr('تلقائية ⚡', 'Auto ⚡'),
-                                style: const TextStyle(
-                                    fontSize: 10, color: Colors.indigo)),
+                ...() {
+                  final sortedBids = List<Bid>.from(item.bids)..sort((a, b) {
+                    final cmp = b.amount.compareTo(a.amount);
+                    if (cmp != 0) return cmp;
+                    return b.time.compareTo(a.time);
+                  });
+                  return sortedBids.asMap().entries.map(
+                    (entry) {
+                      final index = entry.key;
+                      final b = entry.value;
+                      final isTopBid = index == 0;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        onTap: () => showUserProfileSheet(context, b.bidder),
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: isTopBid
+                              ? Colors.amber.shade200
+                              : (b.isAuto
+                                  ? Colors.indigo.shade100
+                                  : scheme.primaryContainer),
+                          child: Icon(
+                            isTopBid
+                                ? Icons.emoji_events
+                                : (b.isAuto
+                                    ? Icons.auto_mode
+                                    : Icons.person_outline),
+                            size: 18,
+                            color: isTopBid
+                                ? Colors.brown.shade800
+                                : (b.isAuto
+                                    ? Colors.indigo
+                                    : scheme.onPrimaryContainer),
                           ),
-                        ],
-                      ],
-                    ),
-                    subtitle: Text(ago(b.time)),
-                    trailing: Text(formatPrice(b.amount),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: scheme.primary,
-                        )),
-                  ),
-                ),
+                        ),
+                        title: Row(
+                          children: [
+                            Text(displayName(b.bidder),
+                                style: TextStyle(
+                                    fontWeight: isTopBid
+                                        ? FontWeight.bold
+                                        : FontWeight.w600)),
+                            if (isTopBid) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: Colors.amber.shade400),
+                                ),
+                                child: Text(tr('أعلى مزايدة 👑', 'Top Bid 👑'),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.brown.shade800)),
+                              ),
+                            ],
+                            if (b.isAuto) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: Colors.indigo.shade200),
+                                ),
+                                child: Text(tr('تلقائية ⚡', 'Auto ⚡'),
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.indigo)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Text(ago(b.time)),
+                        trailing: Text(formatPrice(b.amount),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: isTopBid
+                                  ? Colors.green.shade800
+                                  : scheme.primary,
+                            )),
+                      );
+                    },
+                  );
+                }(),
 
               const Divider(height: 32),
 
@@ -1451,4 +1515,82 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 );
 }
 }
+
+// ======================= عارض الصور بملء الشاشة مع التكبير والتصغير =======================
+
+class FullscreenImageViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const FullscreenImageViewer({
+    super.key,
+    required this.images,
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<FullscreenImageViewer> createState() => _FullscreenImageViewerState();
+}
+
+class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
+  late int _currentIndex;
+  late final PageController _pageCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageCtrl = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          '${_currentIndex + 1} / ${widget.images.length}',
+          style: const TextStyle(fontSize: 16, color: Colors.white),
+        ),
+        actions: [
+          IconButton(
+            tooltip: tr('إغلاق', 'Close'),
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      body: PageView.builder(
+        controller: _pageCtrl,
+        itemCount: widget.images.length,
+        onPageChanged: (idx) => setState(() => _currentIndex = idx),
+        itemBuilder: (context, idx) {
+          return Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5.0,
+              panEnabled: true,
+              scaleEnabled: true,
+              child: buildSmartImage(
+                widget.images[idx],
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 

@@ -29,12 +29,12 @@ class _DirectChatPageState extends State<DirectChatPage> {
     if (txt.isEmpty) return;
     store.sendDirectMessage(widget.item, widget.otherParty, txt);
     textCtrl.clear();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final phone = store.getUserPhone(widget.otherParty);
     final isDealClosed = item.isEnded &&
         item.highestBidder != null &&
         (item.seller == me || item.highestBidder == me);
@@ -42,7 +42,12 @@ class _DirectChatPageState extends State<DirectChatPage> {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final msgs = store.getDirectMessages(item.id);
+        final allMsgs = store.getDirectMessages(item.id);
+        final msgs = allMsgs.where((m) =>
+            (m.sender == me && m.receiver == widget.otherParty) ||
+            (m.sender == widget.otherParty && m.receiver == me) ||
+            m.sender == widget.otherParty ||
+            m.receiver == widget.otherParty).toList();
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -69,65 +74,46 @@ class _DirectChatPageState extends State<DirectChatPage> {
               constraints: const BoxConstraints(maxWidth: 680),
               child: Column(
                 children: [
-                  // شريط واتساب ورقم الهاتف عند الفوز وإتمام الصفقة
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                color: isDealClosed
-                    ? Colors.green.shade50
-                    : Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: Row(
-                  children: [
-                    Icon(
-                      isDealClosed ? Icons.verified : Icons.chat_bubble_outline,
-                      color: isDealClosed ? Colors.green.shade700 : Colors.indigo,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isDealClosed
-                                ? tr('بيانات الاتصال المباشر لإتمام التسليم:',
-                                    'Direct Contact for Delivery:')
-                                : tr('محادثة مباشرة بخصوص السلعة',
-                                    'Direct inquiry about this item'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          Text(
-                            isDealClosed
-                                ? '${tr("رقم الهاتف:", "Phone:")} $phone (${tr("واتساب متاح", "WhatsApp Available")})'
-                                : tr('يظهر رقم الهاتف والانتقال لواتساب تلقائياً فور الفوز بالمزاد',
-                                    'Phone & WhatsApp unlock automatically upon winning'),
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isDealClosed)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          visualDensity: VisualDensity.compact,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    color: isDealClosed
+                        ? Colors.green.shade50
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: Row(
+                      children: [
+                        Icon(
+                          isDealClosed ? Icons.verified : Icons.chat_bubble_outline,
+                          color: isDealClosed ? Colors.green.shade700 : Colors.indigo,
                         ),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(
-                              text: 'https://wa.me/$phone?text=${Uri.encodeComponent("مرحباً، أتواصل معك بخصوص مزاد: ${item.title}")}'));
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(tr(
-                                'تم نسخ رابط ورقم واتساب ($phone) - جاهز للمراسلة المباشرة 💬',
-                                'WhatsApp link & number ($phone) copied!')),
-                            backgroundColor: Colors.green.shade700,
-                          ));
-                        },
-                        icon: const Icon(Icons.phone_in_talk, size: 16),
-                        label: Text(tr('واتساب', 'WhatsApp')),
-                      ),
-                  ],
-                ),
-              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isDealClosed
+                                    ? tr('محادثة إتمام الصفقة والتسليم بين الطرفين',
+                                        'Deal Completion & Direct Chat')
+                                    : tr('محادثة مباشرة بخصوص السلعة',
+                                        'Direct inquiry about this item'),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              Text(
+                                isDealClosed
+                                    ? tr('يمكنكم التنسيق واستلام السلعة عبر هذه المحادثة الفورية بكل أمان',
+                                        'Coordinate delivery directly via this chat safely')
+                                    : tr('تواصل مع البائع للاستفسار عن أي تفاصيل للسلعة',
+                                        'Chat directly to ask about item details'),
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               Expanded(
                 child: msgs.isEmpty
                     ? Center(

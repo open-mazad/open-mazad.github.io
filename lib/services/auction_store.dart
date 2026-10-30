@@ -530,8 +530,11 @@ class AuctionStore extends ChangeNotifier {
         item.comments.addAll(commentsByItem[item.id]!);
       }
     }
-    directChats.clear();
-    directChats.addAll(newDirectChats);
+    for (final entry in newDirectChats.entries) {
+      for (final msg in entry.value) {
+        _mergeIncomingDirectMessage(entry.key, msg);
+      }
+    }
     notifyListeners();
   }
 
@@ -1007,7 +1010,6 @@ class AuctionStore extends ChangeNotifier {
         if (msgCode >= 200 && msgCode < 300) {
           final msgList = jsonDecode(msgBody);
           if (msgList is List) {
-            directChats.clear();
             for (final m in msgList.whereType<Map<String, dynamic>>()) {
               final itemId = '${m['item_id'] ?? ''}';
               final item = byId[itemId];
@@ -1018,12 +1020,12 @@ class AuctionStore extends ChangeNotifier {
               final time = parseToLocal(m['created_at']);
 
               if (receiverUuid == null || receiverUuid.isEmpty) {
-                item?.comments.add(AuctionComment(sender, text, time));
+                if (item != null && !item.comments.any((c) => c.author == sender && c.text == text && c.time.difference(time).abs().inSeconds < 10)) {
+                  item.comments.add(AuctionComment(sender, text, time));
+                }
               } else {
                 final receiver = userUuidToName[receiverUuid] ?? 'مستخدم';
-                directChats
-                    .putIfAbsent(itemId, () => [])
-                    .add(DirectMessage(sender, receiver, text, time));
+                _mergeIncomingDirectMessage(itemId, DirectMessage(sender, receiver, text, time));
               }
             }
           }
@@ -1702,13 +1704,53 @@ class AuctionStore extends ChangeNotifier {
     _recordCommentToCloud(item, comment);
   }
 
-  List<DirectMessage> getDirectMessages(String itemId) =>
-      directChats.putIfAbsent(itemId, () => []);
+  String _normalizeItemKey(String itemId) {
+    for (final it in items) {
+      if (it.id == itemId || itemToUuid(it.id) == itemId) {
+        return it.id;
+      }
+    }
+    return itemId;
+  }
+
+  void _mergeIncomingDirectMessage(String rawItemId, DirectMessage msg) {
+    final key = _normalizeItemKey(rawItemId);
+    final list = directChats.putIfAbsent(key, () => []);
+    final exists = list.any((em) =>
+        em.sender == msg.sender &&
+        em.receiver == msg.receiver &&
+        em.text == msg.text &&
+        em.time.difference(msg.time).abs().inSeconds < 10);
+    if (!exists) {
+      list.add(msg);
+      list.sort((a, b) => a.time.compareTo(b.time));
+    }
+  }
+
+  List<DirectMessage> getDirectMessages(String itemId) {
+    final key = _normalizeItemKey(itemId);
+    final list = directChats.putIfAbsent(key, () => []);
+    final altKey = itemToUuid(itemId);
+    if (altKey != key && directChats.containsKey(altKey)) {
+      final altList = directChats[altKey]!;
+      for (final m in altList) {
+        if (!list.any((x) =>
+            x.sender == m.sender &&
+            x.receiver == m.receiver &&
+            x.text == m.text)) {
+          list.add(m);
+        }
+      }
+      list.sort((a, b) => a.time.compareTo(b.time));
+    }
+    return list;
+  }
 
   void sendDirectMessage(Item item, String otherParty, String text) {
     final list = getDirectMessages(item.id);
     list.add(DirectMessage(me, otherParty, text, DateTime.now()));
-    _persistAndSync();
+    _saveToDisk();
+    notifyListeners();
     _recordDirectMessageToCloud(item.id, otherParty, text);
 
     // رد تفاعلي تلقائي فقط للبائعين التجريبيين (لا يعمل مع المستخدمين الحقيقيين)
@@ -1722,7 +1764,8 @@ class AuctionStore extends ChangeNotifier {
               'Hello! The item is available in great condition, feel free to ask anything.'),
           DateTime.now(),
         ));
-        _persistAndSync();
+        _saveToDisk();
+        notifyListeners();
       });
     }
   }

@@ -174,6 +174,7 @@ class SettingsStore extends ChangeNotifier {
   String governorate = '';
   String? photoPath;
   String passwordHash = '';
+  bool needsProfileOnboarding = false;
 
   /// رابط الصورة المرفوع لجدول profiles مع حفظ بصمة كلمة المرور المشفرة بأمان
   String? get cloudPhotoUrl => packCloudPhotoUrl(photoPath, passwordHash);
@@ -256,6 +257,7 @@ class SettingsStore extends ChangeNotifier {
         'governorate': governorate,
         'photoPath': photoPath,
         'passwordHash': passwordHash,
+        'needsProfileOnboarding': needsProfileOnboarding,
         'supabaseUrl': supabaseUrl,
         'supabaseAnonKey': supabaseAnonKey,
       };
@@ -289,6 +291,8 @@ class SettingsStore extends ChangeNotifier {
       photoPath = cleanPhoto;
       passwordHash =
           (map['passwordHash'] as String?)?.trim() ?? extractedHash ?? '';
+      needsProfileOnboarding =
+          (map['needsProfileOnboarding'] as bool?) ?? false;
       final loadedUrl = (map['supabaseUrl'] as String?)?.trim() ?? '';
       supabaseUrl = loadedUrl.isEmpty ? defaultSupabaseUrl : loadedUrl;
       final loadedKey = (map['supabaseAnonKey'] as String?)?.trim() ?? '';
@@ -447,8 +451,9 @@ class SettingsStore extends ChangeNotifier {
             isAdm == 1 ||
             phone == '07700000000' ||
             phone == '+9647700000000';
+        needsProfileOnboarding = secondName.isEmpty || secondName == '-';
       } else {
-        // حساب جديد لأول مرة: ربط الحساب وإنشاء سجل في جدول profiles
+        // حساب جديد لأول مرة: طلب إكمال المعلومات في صفحة الإعدادات
         final defaultGov = 'بغداد';
         final profileRow = {
           'id': uid,
@@ -468,6 +473,7 @@ class SettingsStore extends ChangeNotifier {
         thirdName = tName;
         governorate = defaultGov;
         photoPath = avatarUrl.isNotEmpty ? avatarUrl : null;
+        needsProfileOnboarding = true;
       }
     } catch (e) {
       debugPrint('Error linking Google account in Supabase: $e');
@@ -477,6 +483,7 @@ class SettingsStore extends ChangeNotifier {
       secondName = sName;
       thirdName = tName;
       if (avatarUrl.isNotEmpty) photoPath = avatarUrl;
+      needsProfileOnboarding = true;
     }
 
     _saveToDisk();
@@ -645,7 +652,20 @@ class SettingsStore extends ChangeNotifier {
     photoPath = null;
     passwordHash = '';
     isAdmin = false;
+    needsProfileOnboarding = false;
     _saveToDisk();
+  }
+
+  /// إكمال بيانات الحساب الجديد لأول مرة وحفظها سحابياً ومحلياً
+  Future<String?> completeOnboarding(ProfileData d) async {
+    final err = await updateProfile(d);
+    if (err == null) {
+      needsProfileOnboarding = false;
+      _saveToDisk();
+      notifyListeners();
+      onAuthChanged?.call();
+    }
+    return err;
   }
 
   Future<void> logout() async {
@@ -881,13 +901,82 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: settings,
-      builder: (context, _) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            children: [
-              settings.isLoggedIn ? profileCard(context) : guestCard(context),
+      builder: (context, _) {
+        if (settings.isLoggedIn && settings.needsProfileOnboarding) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Card(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.person_add_alt_1_rounded,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 28),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              tr('إكمال معلومات الحساب لأول مرة',
+                                  'Complete Profile Information'),
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        tr(
+                          'أهلاً بك في المزاد المفتوح! يرجى إكمال اسمك ومحافظتك للمتابعة (الصورة اختيارية وتعتمد على حساب Google تلقائياً):',
+                          'Welcome! Please complete your name and governorate to continue:',
+                        ),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const Divider(height: 24),
+                      Expanded(
+                        child: ProfileEditor(
+                          initial: settings.profileData,
+                          submitLabel: tr('التالي / إكمال التسجيل',
+                              'Next / Complete Registration'),
+                          onSubmit: (data) async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final err =
+                                await settings.completeOnboarding(data);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(err ??
+                                    tr('تم إكمال حسابك بنجاح! مرحباً بك 🎉',
+                                        'Profile completed successfully! Welcome 🎉')),
+                                backgroundColor:
+                                    err == null ? Colors.green : Colors.red,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              children: [
+                settings.isLoggedIn ? profileCard(context) : guestCard(context),
               const SizedBox(height: 24),
               Text(tr('المظهر', 'Appearance'),
                   style:
@@ -998,9 +1087,10 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 }
 
 // ======================= نموذج الملف الشخصي (يُستخدم في التسجيل والتعديل) =======================

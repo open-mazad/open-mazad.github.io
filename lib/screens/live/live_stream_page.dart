@@ -312,7 +312,7 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
                             ),
                           ),
                         ),
-                      for (final b in item.bids.take(5))
+                      for (final b in (List<Bid>.from(item.bids)..sort((x, y) => y.amount.compareTo(x.amount))).take(5))
                         Container(
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.symmetric(
