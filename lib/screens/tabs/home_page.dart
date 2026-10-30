@@ -19,9 +19,9 @@ class _HomePageState extends State<HomePage> {
 
   List<String> get titles => [
         tr('المزاد المفتوح', 'Open Mazad'),
-        tr('المفضلة', 'Watchlist'),
         tr('مزايداتي', 'My Bids'),
         tr('سلعي', 'My Listings'),
+        tr('الرسائل', 'Messages'),
         tr('الإعدادات', 'Settings'),
       ];
 
@@ -29,11 +29,9 @@ class _HomePageState extends State<HomePage> {
     Iterable<Item> list = store.items;
 
     if (tab == 1) {
-      list = list.where((i) => store.isFavorite(i.id));
-    } else if (tab == 2) {
       list = list.where((i) => i.bids.any((b) => b.bidder == me));
-    } else if (tab == 3) {
-      list = list.where((i) => i.seller == me);
+    } else if (tab == 2) {
+      list = list.where((i) => i.seller == me || store.isItemSeller(i));
     } else {
       list = list.where((i) {
         final matchCat = category == 'الكل' || i.category == category;
@@ -354,6 +352,18 @@ class _HomePageState extends State<HomePage> {
           title: Text(titles[tab]),
           actions: [
             IconButton(
+              tooltip: tr('المفضلة', 'Watchlist'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FavoritesPage()),
+              ),
+              icon: Badge(
+                isLabelVisible: store.favorites.isNotEmpty,
+                label: Text('${store.favorites.length}'),
+                child: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
+              ),
+            ),
+            IconButton(
               tooltip: tr('رادار البحث الذكي', 'Smart Search Radar'),
               onPressed: () => Navigator.push(
                 context,
@@ -392,60 +402,69 @@ class _HomePageState extends State<HomePage> {
         ),
         body: tab == 4
             ? const SettingsPage()
-            : Column(
-                children: [
-                  if (tab == 0) searchArea(),
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final list = visibleItems();
-                        if (list.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  tab == 1
-                                      ? Icons.favorite_border
-                                      : Icons.inventory_2_outlined,
-                                  size: 64,
-                                  color: Colors.grey,
+            : tab == 3
+                ? MessagesInboxView(
+                    onGoToSettings: () => setState(() => tab = 4),
+                  )
+                : Column(
+                    children: [
+                      if (tab == 0) searchArea(),
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final list = visibleItems();
+                            if (list.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      tab == 1
+                                          ? Icons.gavel_outlined
+                                          : Icons.inventory_2_outlined,
+                                      size: 64,
+                                      color: Colors.grey,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      tab == 1
+                                          ? tr(
+                                              'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
+                                              'No bids yet. Browse items and place bids to see them here.',
+                                            )
+                                          : tab == 2
+                                              ? tr(
+                                                  'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
+                                                  'You have not listed any items yet.',
+                                                )
+                                              : tr('لا توجد عناصر مطابقة للبحث',
+                                                  'No matching items found'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          fontSize: 15, color: Colors.grey),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  tab == 1
-                                      ? tr(
-                                          'قائمة المفضلة فارغة\nاضغط على أيقونة القلب على أي سلعة لمتابعتها هنا',
-                                          'Watchlist is empty.\nTap the heart icon on any item to save it here.',
-                                        )
-                                      : tr('لا توجد عناصر مطابقة للبحث',
-                                          'No matching items found'),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      fontSize: 15, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
-                          itemCount: list.length,
-                          itemBuilder: (context, i) => ItemCard(item: list[i]),
-                        );
-                      },
-                    ),
+                              );
+                            }
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+                              itemCount: list.length,
+                              itemBuilder: (context, i) => ItemCard(item: list[i]),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-        floatingActionButton: tab == 4
+        floatingActionButton: (tab == 3 || tab == 4)
             ? null
             : FloatingActionButton.extended(
                 onPressed: () {
                   if (!settings.isLoggedIn) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(tr('سجّل حساباً أولاً من الإعدادات',
-                            'Register an account in Settings first'))));
+                        content: Text(tr('سجّل الدخول أولاً من الإعدادات',
+                            'Sign in from Settings first'))));
                     setState(() => tab = 4);
                     return;
                   }
@@ -470,19 +489,6 @@ class _HomePageState extends State<HomePage> {
               label: tr('المزادات', 'Auctions'),
             ),
             NavigationDestination(
-              icon: Badge(
-                isLabelVisible: store.favorites.isNotEmpty,
-                label: Text('${store.favorites.length}'),
-                child: const Icon(Icons.favorite_border),
-              ),
-              selectedIcon: Badge(
-                isLabelVisible: store.favorites.isNotEmpty,
-                label: Text('${store.favorites.length}'),
-                child: const Icon(Icons.favorite),
-              ),
-              label: tr('المفضلة', 'Watchlist'),
-            ),
-            NavigationDestination(
               icon: const Icon(Icons.gavel_outlined),
               selectedIcon: const Icon(Icons.gavel),
               label: tr('مزايداتي', 'My Bids'),
@@ -490,7 +496,20 @@ class _HomePageState extends State<HomePage> {
             NavigationDestination(
               icon: const Icon(Icons.inventory_2_outlined),
               selectedIcon: const Icon(Icons.inventory_2),
-              label: tr('سلعي', 'My Items'),
+              label: tr('سلعي', 'My Listings'),
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: store.totalMessagesCount > 0,
+                label: Text('${store.totalMessagesCount}'),
+                child: const Icon(Icons.chat_bubble_outline),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: store.totalMessagesCount > 0,
+                label: Text('${store.totalMessagesCount}'),
+                child: const Icon(Icons.chat_bubble),
+              ),
+              label: tr('الرسائل', 'Messages'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.settings_outlined),
@@ -500,6 +519,107 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ======================= صفحة المفضلة (Favorites Page) =======================
+
+class FavoritesPage extends StatelessWidget {
+  const FavoritesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final favItems =
+            store.items.where((i) => store.isFavorite(i.id)).toList();
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              favItems.isNotEmpty
+                  ? '${tr('المفضلة', 'Watchlist')} (${favItems.length})'
+                  : tr('المفضلة', 'Watchlist'),
+            ),
+            actions: [
+              if (favItems.isNotEmpty)
+                IconButton(
+                  tooltip: tr('مسح الكل', 'Clear All'),
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(tr('مسح المفضلة', 'Clear Watchlist')),
+                        content: Text(tr(
+                            'هل تريد إزالة جميع السلع من قائمة المفضلة؟',
+                            'Remove all items from watchlist?')),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(tr('إلغاء', 'Cancel')),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(tr('مسح', 'Clear')),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      store.clearFavorites();
+                    }
+                  },
+                ),
+            ],
+          ),
+          body: favItems.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.favorite_border,
+                        size: 72,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        tr('قائمة المفضلة فارغة', 'Watchlist is empty'),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          tr('اضغط على أيقونة القلب على أي سلعة لحفظها والوصول إليها بسرعة هنا.',
+                              'Tap the heart icon on any item to save it here for quick access.'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                      itemCount: favItems.length,
+                      itemBuilder: (context, i) =>
+                          ItemCard(item: favItems[i]),
+                    ),
+                  ),
+                ),
+        );
+      },
     );
   }
 }

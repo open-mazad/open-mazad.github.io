@@ -72,6 +72,20 @@ class DirectMessage {
       );
 }
 
+class ChatConversation {
+  final Item item;
+  final String otherParty;
+  final DirectMessage lastMessage;
+  final int totalMessages;
+
+  const ChatConversation({
+    required this.item,
+    required this.otherParty,
+    required this.lastMessage,
+    this.totalMessages = 1,
+  });
+}
+
 class UserReview {
   final String reviewer;
   final int stars;

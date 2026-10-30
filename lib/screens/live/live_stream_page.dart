@@ -19,9 +19,9 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.item.seller == me) {
-      widget.item.isLiveStreaming = true;
-      store.pushToSupabase();
+    final isSeller = widget.item.seller == me || store.isItemSeller(widget.item);
+    if (isSeller) {
+      store.setLiveStreamStatus(widget.item, true);
     } else {
       widget.item.liveViewers++;
       store.pushToSupabase();
@@ -32,9 +32,9 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
   void dispose() {
     msgCtrl.dispose();
     bidCtrl.dispose();
-    if (widget.item.seller == me) {
-      widget.item.isLiveStreaming = false;
-      store.pushToSupabase();
+    final isSeller = widget.item.seller == me || store.isItemSeller(widget.item);
+    if (isSeller) {
+      store.setLiveStreamStatus(widget.item, false);
     } else {
       if (widget.item.liveViewers > 0) {
         widget.item.liveViewers--;

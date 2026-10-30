@@ -1051,7 +1051,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   const SizedBox(height: 12),
 
                   // شريط البث المباشر وعداد المشاهدين (يظهر فقط إذا كان البائع يبث أو للمعلن لبدء البث)
-                  if (!item.isEnded && (item.seller == me || item.isLiveStreaming)) ...[
+                  if (!item.isEnded && (item.seller == me || store.isItemSeller(item) || item.isLiveStreaming)) ...[
                     Row(
                       children: [
                         if (item.liveViewers > 0)
@@ -1087,7 +1087,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                 builder: (_) => LiveStreamPage(item: item)),
                           ),
                           icon: const Icon(Icons.videocam, size: 18),
-                          label: Text(item.seller == me
+                          label: Text((item.seller == me || store.isItemSeller(item))
                               ? (item.isLiveStreaming
                                   ? tr('استئناف البث المباشر 🔴', 'Resume Live 🔴')
                                   : tr('افتح البث المباشر 🔴', 'Go Live 🔴'))

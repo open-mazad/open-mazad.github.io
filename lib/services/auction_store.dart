@@ -1727,6 +1727,104 @@ class AuctionStore extends ChangeNotifier {
     }
   }
 
+  void clearFavorites() {
+    favorites.clear();
+    _persistAndSync();
+    notifyListeners();
+  }
+
+  bool isItemSeller(Item item) {
+    if (item.seller == me) return true;
+    if (settings.userId != null && settings.userId!.isNotEmpty) {
+      final sellerUuid = userToUuid(item.seller);
+      if (sellerUuid == settings.userId) return true;
+    }
+    if (settings.phone.isNotEmpty) {
+      final ph = getUserPhone(item.seller);
+      if (ph == settings.phone) return true;
+    }
+    return false;
+  }
+
+  Future<void> setLiveStreamStatus(Item item, bool isLive) async {
+    item.isLiveStreaming = isLive;
+    _persistAndSync();
+    notifyListeners();
+    if (!settings.isCloudConfigured) return;
+    try {
+      final client = supabaseClient;
+      if (client != null) {
+        final itemUuid = itemToUuid(item.id);
+        final attrsWithMeta = <String, String>{
+          ...item.attributes,
+          '_area': item.area,
+          '_live': isLive ? '1' : '0',
+        };
+        await client.from('items').update({
+          'attributes': attrsWithMeta,
+        }).eq('id', itemUuid);
+        debugPrint('Directly updated live stream in Supabase for item ${item.id} -> isLive=$isLive');
+      }
+    } catch (e) {
+      debugPrint('Direct live update error: $e');
+    }
+  }
+
+  List<ChatConversation> getMyConversations() {
+    final Map<String, ChatConversation> convs = {};
+    for (final entry in directChats.entries) {
+      final itemId = entry.key;
+      final item = items.firstWhere(
+        (i) => i.id == itemId || itemToUuid(i.id) == itemId,
+        orElse: () => Item(
+          id: itemId,
+          title: 'مزاد سابق',
+          description: '',
+          category: 'عام',
+          seller: 'مستخدم',
+          startPrice: 0,
+          startTime: DateTime.now(),
+          endTime: DateTime.now(),
+        ),
+      );
+
+      for (final msg in entry.value) {
+        if (msg.sender == me || msg.receiver == me) {
+          final otherParty = (msg.sender == me) ? msg.receiver : msg.sender;
+          final key = '${itemId}_$otherParty';
+          final existing = convs[key];
+          final count = (existing?.totalMessages ?? 0) + 1;
+          if (existing == null || msg.time.isAfter(existing.lastMessage.time)) {
+            convs[key] = ChatConversation(
+              item: item,
+              otherParty: otherParty,
+              lastMessage: msg,
+              totalMessages: count,
+            );
+          } else {
+            convs[key] = ChatConversation(
+              item: existing.item,
+              otherParty: existing.otherParty,
+              lastMessage: existing.lastMessage,
+              totalMessages: count,
+            );
+          }
+        }
+      }
+    }
+    final list = convs.values.toList();
+    list.sort((a, b) => b.lastMessage.time.compareTo(a.lastMessage.time));
+    return list;
+  }
+
+  int get totalMessagesCount {
+    int total = 0;
+    for (final list in directChats.values) {
+      total += list.where((m) => m.sender == me || m.receiver == me).length;
+    }
+    return total;
+  }
+
   // ----------------------- دوال الحفظ المباشر في السحابة (Cloud Direct Actions) -----------------------
 
   Future<void> _recordBidToCloud(Item item, Bid bid) async {

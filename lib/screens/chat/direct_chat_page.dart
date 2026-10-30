@@ -221,9 +221,300 @@ class _DirectChatPageState extends State<DirectChatPage> {
           ),
         ),
       ),
+        );
+      },
     );
-  },
-);
+  }
 }
+
+// ======================= صفحة قائمة الرسائل والمحادثات (Messages Inbox) =======================
+
+class MessagesInboxView extends StatefulWidget {
+  final VoidCallback? onGoToSettings;
+  const MessagesInboxView({super.key, this.onGoToSettings});
+
+  @override
+  State<MessagesInboxView> createState() => _MessagesInboxViewState();
+}
+
+class _MessagesInboxViewState extends State<MessagesInboxView> {
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    if (!settings.isLoggedIn) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Card(
+            margin: const EdgeInsets.all(20),
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chat_bubble_outline,
+                      size: 64, color: Colors.indigo),
+                  const SizedBox(height: 16),
+                  Text(
+                    tr('الرسائل والمحادثات المباشرة', 'Direct Messages & Inquiries'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('سجّل الدخول بحساب Google للدردشة مع البائعين والمشترين ومتابعة صفقاتك.',
+                        'Sign in to chat with buyers and sellers and track your deals.'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (widget.onGoToSettings != null) {
+                        widget.onGoToSettings!();
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SettingsPage()),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.login),
+                    label: Text(tr('تسجيل الدخول من الإعدادات', 'Go to Settings to Sign In')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        var convs = store.getMyConversations();
+        final q = _searchQuery.trim().toLowerCase();
+        if (q.isNotEmpty) {
+          convs = convs.where((c) {
+            return c.otherParty.toLowerCase().contains(q) ||
+                displayName(c.otherParty).toLowerCase().contains(q) ||
+                c.item.title.toLowerCase().contains(q) ||
+                c.lastMessage.text.toLowerCase().contains(q);
+          }).toList();
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => store.pullFromSupabase(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Column(
+                children: [
+                  // شريط البحث في المحادثات
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      decoration: InputDecoration(
+                        hintText: tr('ابحث في الرسائل أو أسماء البائعين...', 'Search messages or users...'),
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        isDense: true,
+                        filled: true,
+                        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                    ),
+                  ),
+
+                  // قائمة المحادثات
+                  Expanded(
+                    child: convs.isEmpty
+                        ? ListView(
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.forum_outlined,
+                                      size: 72,
+                                      color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchQuery.isNotEmpty
+                                          ? tr('لا توجد محادثات تطابق بحثك', 'No matching conversations')
+                                          : tr('لا توجد رسائل بعد', 'No messages yet'),
+                                      style: const TextStyle(
+                                          fontSize: 17, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                                      child: Text(
+                                        _searchQuery.isNotEmpty
+                                            ? tr('جرّب كتابة اسم شخص آخر أو سلعة أخرى.',
+                                                'Try a different user or item name.')
+                                            : tr('ابدأ محادثة مع أي بائع عبر الضغط على زر (مراسلة) في صفحة تفاصيل أي مزاد.',
+                                                'Start a chat with any seller via the (Chat) button on item details.'),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: convs.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
+                            itemBuilder: (context, i) {
+                              final conv = convs[i];
+                              final isLastFromMe = conv.lastMessage.sender == me;
+                              final otherName = displayName(conv.otherParty);
+                              final item = conv.item;
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 6),
+                                leading: CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: scheme.primaryContainer,
+                                  foregroundColor: scheme.onPrimaryContainer,
+                                  child: Text(
+                                    otherName.characters.isNotEmpty
+                                        ? otherName.characters.first
+                                        : '؟',
+                                    style: const TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        otherName,
+                                        style: const TextStyle(
+                                            fontSize: 15, fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text(
+                                      ago(conv.lastMessage.time),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            categoryIcon(item.category),
+                                            size: 12,
+                                            color: scheme.primary,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              item.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: scheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isLastFromMe
+                                          ? '${tr("أنت:", "You:")} ${conv.lastMessage.text}'
+                                          : conv.lastMessage.text,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isLastFromMe
+                                            ? scheme.onSurfaceVariant
+                                            : scheme.onSurface,
+                                        fontWeight: isLastFromMe
+                                            ? FontWeight.normal
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: const Icon(Icons.chevron_left, size: 20),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DirectChatPage(
+                                      item: conv.item,
+                                      otherParty: conv.otherParty,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
