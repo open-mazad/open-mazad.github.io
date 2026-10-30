@@ -43,11 +43,23 @@ class _DirectChatPageState extends State<DirectChatPage> {
       listenable: store,
       builder: (context, _) {
         final allMsgs = store.getDirectMessages(item.id);
-        final msgs = allMsgs.where((m) =>
-            (m.sender == me && m.receiver == widget.otherParty) ||
-            (m.sender == widget.otherParty && m.receiver == me) ||
-            m.sender == widget.otherParty ||
-            m.receiver == widget.otherParty).toList();
+        final otherUuid = AuctionStore.userToUuid(widget.otherParty);
+        final otherName = displayName(widget.otherParty);
+        final msgs = allMsgs.where((m) {
+          final isMeSender = store.isUserMe(m.sender);
+          final isMeReceiver = store.isUserMe(m.receiver);
+          final isOtherSender = m.sender == widget.otherParty ||
+              AuctionStore.userToUuid(m.sender) == otherUuid ||
+              displayName(m.sender) == otherName;
+          final isOtherReceiver = m.receiver == widget.otherParty ||
+              AuctionStore.userToUuid(m.receiver) == otherUuid ||
+              displayName(m.receiver) == otherName;
+
+          return (isMeSender && isOtherReceiver) ||
+              (isMeReceiver && isOtherSender) ||
+              isOtherSender ||
+              isOtherReceiver;
+        }).toList();
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -129,7 +141,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         itemCount: msgs.length,
                         itemBuilder: (context, i) {
                           final m = msgs[i];
-                          final isMe = m.sender == me;
+                          final isMe = store.isUserMe(m.sender);
                           return Align(
                             alignment: isMe
                                 ? AlignmentDirectional.centerStart

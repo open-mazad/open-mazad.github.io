@@ -31,6 +31,10 @@ class AuctionStore extends ChangeNotifier {
   DateTime? lastSyncTime;
   static const String _storeFilePath = 'muzaida_store.json';
 
+  String get _cleanBaseUrl => settings.supabaseUrl
+      .replaceAll(RegExp(r'/rest/v1/?$'), '')
+      .replaceAll(RegExp(r'/$'), '');
+
   SupabaseClient? get supabaseClient {
     try {
       return Supabase.instance.client;
@@ -355,6 +359,58 @@ class AuctionStore extends ChangeNotifier {
     } catch (_) {}
   }
 
+  bool isUserMe(String identifier) {
+    if (identifier == me || identifier == 'أنا') return true;
+    if (settings.userId != null &&
+        settings.userId!.isNotEmpty &&
+        identifier == settings.userId) {
+      return true;
+    }
+    if (userToUuid(me) == identifier) return true;
+    return false;
+  }
+
+  Future<void> _ensureItemExists(Item item) async {
+    final client = supabaseClient;
+    if (client == null) return;
+    try {
+      final sellerUuid = userToUuid(item.seller);
+      await _ensureProfileExists(sellerUuid, item.seller);
+      final itemUuid = itemToUuid(item.id);
+      final attrsWithMeta = <String, String>{
+        ...item.attributes,
+        '_area': item.area,
+        '_live': item.isLiveStreaming ? '1' : '0',
+      };
+      await client.from('items').upsert({
+        'id': itemUuid,
+        'seller_id': sellerUuid,
+        'title': item.title,
+        'description': item.description,
+        'category': item.category,
+        'condition': item.condition.isEmpty ? 'ممتازة' : item.condition,
+        'location': item.location.isEmpty ? 'بغداد' : item.location,
+        'delivery_method':
+            item.deliveryMethod.isEmpty ? 'يداً بيد' : item.deliveryMethod,
+        'attributes': attrsWithMeta,
+        'images': item.imagePaths,
+        'video_url': item.videoPath,
+        'start_price': item.startPrice,
+        'current_price': item.currentPrice,
+        'highest_bidder_id': item.highestBidder == null
+            ? null
+            : userToUuid(item.highestBidder!),
+        'start_time': toIsoUtc(item.startTime),
+        'end_time': toIsoUtc(item.endTime),
+        'pin_code': item.pinCode,
+        'is_ended_early': item.isEndedEarlyBySeller,
+        'is_cancelled': item.isCancelled,
+      }, onConflict: 'id');
+    } catch (e) {
+      debugPrint('Ensure item in cloud error: $e');
+    }
+  }
+
   // ----------------------- معالجات البث اللحظي (Realtime Stream Handlers) -----------------------
 
   void _applyProfilesStream(List<Map<String, dynamic>> rows) {
@@ -511,16 +567,27 @@ class AuctionStore extends ChangeNotifier {
     for (final m in rows) {
       final itemId = '${m['item_id'] ?? ''}';
       final senderUuid = '${m['sender_id'] ?? ''}';
-      final sender = userDisplayNames[senderUuid] ?? 'مستخدم';
       final receiverUuid = m['receiver_id'] as String?;
       final text = '${m['content'] ?? ''}';
       final time = parseToLocal(m['created_at']);
 
       if (receiverUuid == null || receiverUuid.isEmpty) {
-        commentsByItem.putIfAbsent(itemId, () => []).add(AuctionComment(sender, text, time));
+        final sender = isUserMe(senderUuid)
+            ? me
+            : (userDisplayNames[senderUuid] ?? 'مستخدم');
+        commentsByItem
+            .putIfAbsent(itemId, () => [])
+            .add(AuctionComment(sender, text, time));
       } else {
-        final receiver = userDisplayNames[receiverUuid] ?? 'مستخدم';
-        newDirectChats.putIfAbsent(itemId, () => []).add(DirectMessage(sender, receiver, text, time));
+        final sender = isUserMe(senderUuid)
+            ? me
+            : (userDisplayNames[senderUuid] ?? senderUuid);
+        final receiver = isUserMe(receiverUuid)
+            ? me
+            : (userDisplayNames[receiverUuid] ?? receiverUuid);
+        newDirectChats
+            .putIfAbsent(itemId, () => [])
+            .add(DirectMessage(sender, receiver, text, time));
       }
     }
 
@@ -744,8 +811,32 @@ class AuctionStore extends ChangeNotifier {
       // إضافة رسائل الدردشة الخاصة (receiver_id محدد) إلى جدول messages
       directChats.forEach((itemId, msgs) {
         final itemUuid = itemToUuid(itemId);
-        final itemExists = items.any((i) => i.id == itemId || itemToUuid(i.id) == itemUuid);
-        if (!itemExists) return;
+        final it = items.cast<Item?>().firstWhere(
+            (i) => i!.id == itemId || itemToUuid(i.id) == itemUuid,
+            orElse: () => null);
+        if (it == null && !itemRows.any((r) => r['id'] == itemUuid)) {
+          itemRows.add({
+            'id': itemUuid,
+            'seller_id': userToUuid(me),
+            'title': 'محادثة مزاد',
+            'description': 'محادثة مباشرة بين مستخدمين',
+            'category': 'عام',
+            'condition': 'ممتازة',
+            'location': 'بغداد',
+            'delivery_method': 'يداً بيد',
+            'attributes': <String, String>{},
+            'images': <String>[],
+            'video_url': null,
+            'start_price': 0,
+            'current_price': 0,
+            'highest_bidder_id': null,
+            'start_time': toIsoUtc(DateTime.now()),
+            'end_time': toIsoUtc(DateTime.now().add(const Duration(days: 30))),
+            'pin_code': null,
+            'is_ended_early': false,
+            'is_cancelled': false,
+          });
+        }
         for (final m in msgs) {
           messageRows.add({
             'id': _toUuid(
@@ -1013,19 +1104,31 @@ class AuctionStore extends ChangeNotifier {
             for (final m in msgList.whereType<Map<String, dynamic>>()) {
               final itemId = '${m['item_id'] ?? ''}';
               final item = byId[itemId];
-              final sender =
-                  userUuidToName['${m['sender_id'] ?? ''}'] ?? 'مستخدم';
+              final senderUuid = '${m['sender_id'] ?? ''}';
               final receiverUuid = m['receiver_id'] as String?;
               final text = '${m['content'] ?? ''}';
               final time = parseToLocal(m['created_at']);
 
               if (receiverUuid == null || receiverUuid.isEmpty) {
-                if (item != null && !item.comments.any((c) => c.author == sender && c.text == text && c.time.difference(time).abs().inSeconds < 10)) {
+                final sender = isUserMe(senderUuid)
+                    ? me
+                    : (userUuidToName[senderUuid] ?? 'مستخدم');
+                if (item != null &&
+                    !item.comments.any((c) =>
+                        c.author == sender &&
+                        c.text == text &&
+                        c.time.difference(time).abs().inSeconds < 10)) {
                   item.comments.add(AuctionComment(sender, text, time));
                 }
               } else {
-                final receiver = userUuidToName[receiverUuid] ?? 'مستخدم';
-                _mergeIncomingDirectMessage(itemId, DirectMessage(sender, receiver, text, time));
+                final sender = isUserMe(senderUuid)
+                    ? me
+                    : (userUuidToName[senderUuid] ?? senderUuid);
+                final receiver = isUserMe(receiverUuid)
+                    ? me
+                    : (userUuidToName[receiverUuid] ?? receiverUuid);
+                _mergeIncomingDirectMessage(
+                    itemId, DirectMessage(sender, receiver, text, time));
               }
             }
           }
@@ -1751,7 +1854,7 @@ class AuctionStore extends ChangeNotifier {
     list.add(DirectMessage(me, otherParty, text, DateTime.now()));
     _saveToDisk();
     notifyListeners();
-    _recordDirectMessageToCloud(item.id, otherParty, text);
+    _recordDirectMessageToCloud(item, otherParty, text);
 
     // رد تفاعلي تلقائي فقط للبائعين التجريبيين (لا يعمل مع المستخدمين الحقيقيين)
     const demoSellers = {'علي', 'زينب', 'حسن', 'ليلى', 'كرار'};
@@ -1832,8 +1935,8 @@ class AuctionStore extends ChangeNotifier {
       );
 
       for (final msg in entry.value) {
-        if (msg.sender == me || msg.receiver == me) {
-          final otherParty = (msg.sender == me) ? msg.receiver : msg.sender;
+        if (isUserMe(msg.sender) || isUserMe(msg.receiver)) {
+          final otherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
           final key = '${itemId}_$otherParty';
           final existing = convs[key];
           final count = (existing?.totalMessages ?? 0) + 1;
@@ -1863,7 +1966,7 @@ class AuctionStore extends ChangeNotifier {
   int get totalMessagesCount {
     int total = 0;
     for (final list in directChats.values) {
-      total += list.where((m) => m.sender == me || m.receiver == me).length;
+      total += list.where((m) => isUserMe(m.sender) || isUserMe(m.receiver)).length;
     }
     return total;
   }
@@ -1873,11 +1976,12 @@ class AuctionStore extends ChangeNotifier {
   Future<void> _recordBidToCloud(Item item, Bid bid) async {
     if (!settings.isCloudConfigured) return;
     try {
+      final bidderUuid = userToUuid(bid.bidder);
+      await _ensureProfileExists(bidderUuid, bid.bidder);
+      await _ensureItemExists(item);
+      final itemUuid = itemToUuid(item.id);
       final client = supabaseClient;
       if (client != null) {
-        final bidderUuid = userToUuid(bid.bidder);
-        await _ensureProfileExists(bidderUuid, bid.bidder);
-        final itemUuid = itemToUuid(item.id);
         await client.from('bids').insert({
           'id': generateUuid(),
           'item_id': itemUuid,
@@ -1901,11 +2005,12 @@ class AuctionStore extends ChangeNotifier {
   Future<void> _recordCommentToCloud(Item item, AuctionComment comment) async {
     if (!settings.isCloudConfigured) return;
     try {
+      final senderUuid = userToUuid(comment.author);
+      await _ensureProfileExists(senderUuid, comment.author);
+      await _ensureItemExists(item);
+      final itemUuid = itemToUuid(item.id);
       final client = supabaseClient;
       if (client != null) {
-        final senderUuid = userToUuid(comment.author);
-        await _ensureProfileExists(senderUuid, comment.author);
-        final itemUuid = itemToUuid(item.id);
         await client.from('messages').insert({
           'id': generateUuid(),
           'item_id': itemUuid,
@@ -1922,28 +2027,50 @@ class AuctionStore extends ChangeNotifier {
   }
 
   Future<void> _recordDirectMessageToCloud(
-      String itemId, String otherParty, String text) async {
+      Item item, String otherParty, String text) async {
     if (!settings.isCloudConfigured) return;
     try {
+      final senderUuid = userToUuid(me);
+      final receiverUuid = userToUuid(otherParty);
+      final itemUuid = itemToUuid(item.id);
+
+      await _ensureProfileExists(senderUuid, me);
+      await _ensureProfileExists(receiverUuid, otherParty);
+      await _ensureItemExists(item);
+
+      final msgRow = {
+        'id': generateUuid(),
+        'item_id': itemUuid,
+        'sender_id': senderUuid,
+        'receiver_id': receiverUuid,
+        'content': text,
+        'created_at': toIsoUtc(DateTime.now()),
+      };
+
       final client = supabaseClient;
       if (client != null) {
+        await client.from('messages').insert(msgRow);
+        return;
+      }
+      await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+    } catch (e) {
+      debugPrint('Cloud record direct message error: $e');
+      try {
         final senderUuid = userToUuid(me);
         final receiverUuid = userToUuid(otherParty);
-        await _ensureProfileExists(senderUuid, me);
-        await _ensureProfileExists(receiverUuid, otherParty);
-        final itemUuid = itemToUuid(itemId);
-        await client.from('messages').insert({
+        final itemUuid = itemToUuid(item.id);
+        final msgRow = {
           'id': generateUuid(),
           'item_id': itemUuid,
           'sender_id': senderUuid,
           'receiver_id': receiverUuid,
           'content': text,
           'created_at': toIsoUtc(DateTime.now()),
-        });
-        return;
+        };
+        await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+      } catch (httpErr) {
+        debugPrint('Fallback HTTP direct message error: $httpErr');
       }
-    } catch (e) {
-      debugPrint('Cloud record direct message error: $e');
     }
   }
 
@@ -1977,7 +2104,7 @@ class AuctionStore extends ChangeNotifier {
       final client = supabaseClient;
       if (client != null) {
         await client.from('items').upsert({
-          'id': item.id,
+          'id': itemToUuid(item.id),
           'seller_id': sellerUuid,
           'title': item.title,
           'description': item.description,
