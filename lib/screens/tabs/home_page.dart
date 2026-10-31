@@ -42,6 +42,8 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  int myBidsSubTab = 0; // 0: الكل, 1: مزايداتي, 2: سلعي
+
   void _onSettingsAuthChanged() {
     if (!mounted) return;
     _checkProfileOnboarding();
@@ -63,20 +65,31 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<String> get titles => [
-        tr('المزاد المفتوح', 'Open Mazad'),
+        tr('الرئيسية', 'Home'),
         tr('الرسائل', 'Messages'),
-        tr('مزايداتي', 'My Bids'),
-        tr('سلعي', 'My Listings'),
+        tr('أضف مزاداً', 'List Auction'),
+        tr('المزايدات', 'Bids & Auctions'),
         tr('الإعدادات', 'Settings'),
       ];
 
   List<Item> visibleItems() {
     Iterable<Item> list = store.items;
 
-    if (tab == 2) {
-      list = list.where((i) => i.bids.any((b) => b.bidder == me));
-    } else if (tab == 3) {
-      list = list.where((i) => i.seller == me || store.isItemSeller(i));
+    if (tab == 3) {
+      // تبويب المزايدات المدمج:
+      // 0: الكل (مزايداتي وسلعي مرتبة زمنياً حسب الإضافة/النشر)
+      // 1: مزايداتي (التي شارك بها المستخدم)
+      // 2: سلعي (التي طرحها للبيع)
+      if (myBidsSubTab == 1) {
+        list = list.where((i) => i.bids.any((b) => b.bidder == me || store.isUserMe(b.bidder)));
+      } else if (myBidsSubTab == 2) {
+        list = list.where((i) => i.seller == me || store.isItemSeller(i));
+      } else {
+        list = list.where((i) =>
+            i.seller == me ||
+            store.isItemSeller(i) ||
+            i.bids.any((b) => b.bidder == me || store.isUserMe(b.bidder)));
+      }
     } else {
       list = list.where((i) {
         final matchCat = category == 'الكل' || i.category == category;
@@ -105,6 +118,10 @@ class _HomePageState extends State<HomePage> {
     final result = list.toList();
 
     result.sort((a, b) {
+      if (tab == 3 && myBidsSubTab == 0) {
+        // الكل: مرتبة زمنياً حسب تاريخ الإضافة/النشر (الأحدث أولاً)
+        return b.startTime.compareTo(a.startTime);
+      }
       if (a.isEnded != b.isEnded) return a.isEnded ? 1 : -1;
       switch (sortBy) {
         case 'الأحدث':
@@ -772,6 +789,33 @@ class _HomePageState extends State<HomePage> {
                 : Column(
                     children: [
                       if (tab == 0) searchArea(),
+                      if (tab == 3) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                          child: SegmentedButton<int>(
+                            showSelectedIcon: false,
+                            segments: [
+                              ButtonSegment(
+                                value: 0,
+                                label: Text(tr('الكل', 'All')),
+                                icon: const Icon(Icons.all_inbox_outlined, size: 16),
+                              ),
+                              ButtonSegment(
+                                value: 1,
+                                label: Text(tr('مزايداتي', 'My Bids')),
+                                icon: const Icon(Icons.gavel_outlined, size: 16),
+                              ),
+                              ButtonSegment(
+                                value: 2,
+                                label: Text(tr('سلعي', 'My Listings')),
+                                icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                              ),
+                            ],
+                            selected: {myBidsSubTab},
+                            onSelectionChanged: (set) => setState(() => myBidsSubTab = set.first),
+                          ),
+                        ),
+                      ],
                       Expanded(
                         child: Builder(
                           builder: (context) {
@@ -782,26 +826,33 @@ class _HomePageState extends State<HomePage> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      tab == 2
-                                          ? Icons.gavel_outlined
+                                      tab == 3
+                                          ? (myBidsSubTab == 2
+                                              ? Icons.inventory_2_outlined
+                                              : Icons.gavel_outlined)
                                           : Icons.inventory_2_outlined,
                                       size: 64,
                                       color: Colors.grey,
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      tab == 2
-                                          ? tr(
-                                              'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
-                                              'No bids yet. Browse items and place bids to see them here.',
-                                            )
-                                          : tab == 3
+                                      tab == 3
+                                          ? (myBidsSubTab == 2
                                               ? tr(
                                                   'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
                                                   'You have not listed any items yet.',
                                                 )
-                                              : tr('لا توجد عناصر مطابقة للبحث',
-                                                  'No matching items found'),
+                                              : myBidsSubTab == 1
+                                                  ? tr(
+                                                      'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
+                                                      'No bids yet. Browse items and place bids to see them here.',
+                                                    )
+                                                  : tr(
+                                                      'لا توجد مشاركات أو سلع حتى الآن\nابدأ بالمزايدة أو اعرض سلعة جديدة',
+                                                      'No bids or listings yet. Start bidding or list an item.',
+                                                    ))
+                                          : tr('لا توجد عناصر مطابقة للبحث',
+                                              'No matching items found'),
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                           fontSize: 15, color: Colors.grey),
@@ -820,36 +871,35 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-        floatingActionButton: (tab == 1 || tab == 4)
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: () {
-                  if (!settings.isLoggedIn) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(tr('سجّل الدخول أولاً من الإعدادات',
-                            'Sign in from Settings first'))));
-                    setState(() => tab = 4);
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddItemPage()),
-                  );
-                },
-                icon: const Icon(Icons.add),
-                label: Text(tr('أضف مزاداً', 'List Auction')),
-              ),
+        floatingActionButton: null,
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
-          onDestinationSelected: (i) => setState(() {
-            tab = i;
-            query = '';
-          }),
+          onDestinationSelected: (i) {
+            if (i == 2) {
+              // عنصر أضف مزاداً في شريط التنقل
+              if (!settings.isLoggedIn) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(tr('سجّل الدخول أولاً من الإعدادات',
+                        'Sign in from Settings first'))));
+                setState(() => tab = 4);
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddItemPage()),
+              );
+              return;
+            }
+            setState(() {
+              tab = i;
+              query = '';
+            });
+          },
           destinations: [
             NavigationDestination(
-              icon: const Icon(Icons.storefront_outlined),
-              selectedIcon: const Icon(Icons.storefront),
-              label: tr('المزادات', 'Auctions'),
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home),
+              label: tr('الرئيسية', 'Home'),
             ),
             NavigationDestination(
               icon: Badge(
@@ -865,14 +915,14 @@ class _HomePageState extends State<HomePage> {
               label: tr('الرسائل', 'Messages'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.gavel_outlined),
-              selectedIcon: const Icon(Icons.gavel),
-              label: tr('مزايداتي', 'My Bids'),
+              icon: const Icon(Icons.add_circle_outline),
+              selectedIcon: const Icon(Icons.add_circle),
+              label: tr('أضف مزاداً', 'List Auction'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.inventory_2_outlined),
-              selectedIcon: const Icon(Icons.inventory_2),
-              label: tr('سلعي', 'My Listings'),
+              icon: const Icon(Icons.gavel_outlined),
+              selectedIcon: const Icon(Icons.gavel),
+              label: tr('المزايدات', 'Bids & Auctions'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.settings_outlined),

@@ -85,7 +85,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
                   Tab(
                     icon: const Icon(Icons.people_alt_outlined),
-                    text: '${tr("المستخدمون والحظر", "Users & Bans")} (${store.allKnownUsers.length})',
+                    text: '${tr("المستخدمين", "Users")} (${store.allKnownUsers.length})',
                   ),
                   Tab(
                     icon: const Icon(Icons.cloud_sync_outlined),
@@ -458,20 +458,36 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      child: Text(displayName(user).characters.first),
-                                    ),
-                                    title: Text(
-                                      '${displayName(user)} ${isCurrent ? tr("(حسابك)", "(You)") : ""}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    subtitle: Text(
-                                      '⭐ ${rating.toStringAsFixed(1)} • ${tr("الإنذارات:", "Warnings:")} $warns',
-                                    ),
-                                    trailing: isAdmin
-                                        // استثناء المسؤولين من زري الإنذار والحظر ووضع شارة مسؤول ثابتة
-                                        ? Container(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          child: Text(displayName(user).characters.first),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${displayName(user)} ${isCurrent ? tr("(حسابك)", "(You)") : ""}',
+                                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '⭐ ${rating.toStringAsFixed(1)} • ${tr("الإنذارات:", "Warnings:")} $warns',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // أزرار التحكم مدفوعة بالكامل جهة اليسار
+                                        if (isAdmin)
+                                          Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
                                               color: Colors.teal.withValues(alpha: 0.15),
@@ -494,9 +510,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                               ],
                                             ),
                                           )
-                                        : Wrap(
-                                            spacing: 4,
-                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                        else
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               OutlinedButton(
                                                 style: OutlinedButton.styleFrom(
@@ -506,6 +522,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                                 onPressed: () => store.warnUser(user, null),
                                                 child: Text(tr('+ إنذار', '+ Warn')),
                                               ),
+                                              const SizedBox(width: 6),
                                               FilledButton.tonal(
                                                 style: FilledButton.styleFrom(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -526,10 +543,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                                   ),
                                                 ),
                                               ),
-                                              if (!isCurrent)
+                                              if (!isCurrent) ...[
+                                                const SizedBox(width: 4),
                                                 IconButton(
                                                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                                                   tooltip: tr('حذف المستخدم نهائياً', 'Delete User'),
+                                                  visualDensity: VisualDensity.compact,
                                                   onPressed: () async {
                                                     final ok = await showDialog<bool>(
                                                       context: context,
@@ -557,8 +576,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                                     }
                                                   },
                                                 ),
+                                              ],
                                             ],
                                           ),
+                                      ],
+                                    ),
                                   ),
                                 );
                               },

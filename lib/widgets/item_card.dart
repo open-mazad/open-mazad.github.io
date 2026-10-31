@@ -195,13 +195,44 @@ class ItemCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      formatPrice(item.currentPrice),
-                      style: TextStyle(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                    Wrap(
+                      spacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          formatPrice(item.currentPrice),
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        if (item.bids.isNotEmpty)
+                          Text(
+                            '(${tr("البداية:", "Start:")} ${formatPrice(item.startPrice)})',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        if (item.buyNowPrice != null && item.buyNowPrice! > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.green.shade600, width: 0.8),
+                            ),
+                            child: Text(
+                              '${tr("شراء فوري:", "Buy Now:")} ${formatPrice(item.buyNowPrice!)}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

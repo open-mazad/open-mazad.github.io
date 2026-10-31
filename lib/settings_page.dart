@@ -923,6 +923,10 @@ class SettingsStore extends ChangeNotifier {
       // تنفيذ الـ Update المباشر في قاعدة البيانات بصورة دائمة
       await client.from('profiles').update(updateData).eq('id', targetId);
 
+      // تفريغ وتحديث الكاش المحلي لضمان عدم استرجاع البيانات القديمة عند إعادة فتح الشاشة
+      _apply(d);
+      await _loadProfile();
+
       onProfileUpdated?.call(targetId, d.fullName, d.photoPath);
       return null;
     } catch (e) {

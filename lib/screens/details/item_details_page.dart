@@ -928,23 +928,54 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     color: scheme.secondaryContainer,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      child: Column(
                         children: [
-                          statBox(tr('السعر الحالي', 'Current Bid'),
-                              formatPrice(item.currentPrice)),
-                          statBox(
-                            item.isScheduled
-                                ? tr('يبدأ خلال', 'Starts In')
-                                : tr('الوقت المتبقي', 'Time Left'),
-                            item.isCancelled
-                                ? tr('ملغي', 'Cancelled')
-                                : (item.isEndedEarlyBySeller
-                                    ? tr('تم الإرساء', 'Settled')
-                                    : (item.isScheduled
-                                        ? formatDuration(item.timeUntilStart)
-                                        : formatDuration(item.timeLeft))),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              statBox(
+                                item.bids.isEmpty
+                                    ? tr('سعر بداية المزاد', 'Starting Price')
+                                    : tr('السعر الحالي', 'Current Bid'),
+                                formatPrice(item.currentPrice),
+                              ),
+                              if (item.bids.isNotEmpty)
+                                statBox(
+                                  tr('سعر البداية', 'Start Price'),
+                                  formatPrice(item.startPrice),
+                                ),
+                              statBox(
+                                item.isScheduled
+                                    ? tr('يبدأ خلال', 'Starts In')
+                                    : tr('الوقت المتبقي', 'Time Left'),
+                                item.isCancelled
+                                    ? tr('ملغي', 'Cancelled')
+                                    : (item.isEndedEarlyBySeller
+                                        ? tr('تم الإرساء', 'Settled')
+                                        : (item.isScheduled
+                                            ? formatDuration(item.timeUntilStart)
+                                            : formatDuration(item.timeLeft))),
+                              ),
+                            ],
                           ),
+                          if (item.buyNowPrice != null && item.buyNowPrice! > 0) ...[
+                            const Divider(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.flash_on, color: Colors.green, size: 20),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${tr("سعر الشراء الفوري (السعر النهائي):", "Buy Now (Final Price):")} ${formatPrice(item.buyNowPrice!)}',
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),

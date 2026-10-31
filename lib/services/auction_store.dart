@@ -532,6 +532,10 @@ class AuctionStore extends ChangeNotifier {
       }
       if (settings.isLoggedIn &&
           (id == myUuid || (settings.phone.isNotEmpty && ph == settings.phone.trim()))) {
+        // تحديث حالة الحظر فورياً في جلسة المستخدم الحالي وقفلها إذا تم حظره
+        if (row['is_banned'] == true) {
+          settings.logout();
+        }
         if (settings.isAdmin != isAdminVal) {
           settings.isAdmin = isAdminVal;
           settings.save();
@@ -2992,6 +2996,31 @@ class AuctionStore extends ChangeNotifier {
 
   void warnUser(String user, String? reportId) {
     userWarnings[user] = (userWarnings[user] ?? 0) + 1;
+    final userUuid = userToUuid(user);
+
+    // إرسال إشعار فوري للمستخدم بتلقيه إنذاراً رسمياً
+    _pushNotification(
+      title: tr('تنبيه: إنذار رسمي من إدارة المزاد ⚠️', 'Official Warning from Admin ⚠️'),
+      body: tr(
+        'تم تسجيل إنذار رسمي على حسابك (${userWarnings[user]}/3) لمخالفة سياسات المزاد. تكرار المخالفة يعرض حسابك للحظر النهائي.',
+        'An official warning (${userWarnings[user]}/3) was issued on your account.',
+      ),
+      icon: Icons.warning_amber_rounded,
+      color: Colors.orange,
+    );
+
+    // تحديث قاعدة البيانات سحابياً (warnings_count)
+    if (settings.isCloudConfigured) {
+      try {
+        final client = supabaseClient;
+        if (client != null) {
+          client.from('profiles').update({
+            'warnings_count': userWarnings[user],
+          }).eq('id', userUuid).ignore();
+        }
+      } catch (_) {}
+    }
+
     if (reportId != null) {
       for (final r in reports) {
         if (r.id == reportId) r.isResolved = true;
@@ -3003,13 +3032,35 @@ class AuctionStore extends ChangeNotifier {
       }
     }
     if ((userWarnings[user] ?? 0) >= 3) {
-      bannedUsers.add(user);
+      banUser(user, reportId);
+      return;
     }
     _persistAndSync();
   }
 
   void banUser(String user, String? reportId) {
     bannedUsers.add(user);
+    final userUuid = userToUuid(user);
+    bannedUsers.add(userUuid);
+    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+
+    // قفل الجلسة فورياً إن كان المستخدم هو الحساب الحالي
+    if (isUserMe(user)) {
+      settings.logout();
+    }
+
+    // تحديث قاعدة البيانات سحابياً (is_banned = true)
+    if (settings.isCloudConfigured) {
+      try {
+        final client = supabaseClient;
+        if (client != null) {
+          client.from('profiles').update({
+            'is_banned': true,
+          }).eq('id', userUuid).ignore();
+        }
+      } catch (_) {}
+    }
+
     if (reportId != null) {
       for (final r in reports) {
         if (r.id == reportId) r.isResolved = true;
@@ -3024,11 +3075,33 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void toggleBanUser(String user) {
-    if (bannedUsers.contains(user)) {
-      bannedUsers.remove(user);
-    } else {
+    final userUuid = userToUuid(user);
+    final isCurrentlyBanned = bannedUsers.contains(user) || bannedUsers.contains(userUuid);
+    final bool newBanStatus = !isCurrentlyBanned;
+
+    if (newBanStatus) {
       bannedUsers.add(user);
+      bannedUsers.add(userUuid);
+      if (isUserMe(user)) {
+        settings.logout();
+      }
+    } else {
+      bannedUsers.remove(user);
+      bannedUsers.remove(userUuid);
     }
+    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+
+    if (settings.isCloudConfigured) {
+      try {
+        final client = supabaseClient;
+        if (client != null) {
+          client.from('profiles').update({
+            'is_banned': newBanStatus,
+          }).eq('id', userUuid).ignore();
+        }
+      } catch (_) {}
+    }
+
     _persistAndSync();
   }
 

@@ -41,8 +41,8 @@ class _AddItemPageState extends State<AddItemPage> {
   bool _hasCategoryError = false;
 
   bool get isEditing => widget.itemToEdit != null;
-  /// إذا كان المزاد قد انطلق بالفعل ولم يعد مجدولاً، يقيد التعديل ويسمح فقط بإضافة ملحق معلومات
-  bool get isPublished => isEditing && !widget.itemToEdit!.isScheduled;
+  /// المزاد المنشور (سواء كان جارياً أو مجدولاً): قفل الحقول الحساسة مع السماح بإضافة صور جديدة وتعديل العنوان والفئة
+  bool get isPublished => isEditing;
 
   static const durationLabels = [
     'دقيقتان (للتجربة)',
@@ -141,11 +141,25 @@ class _AddItemPageState extends State<AddItemPage> {
   }
 
   Future<void> pickMultipleImages() async {
+    final currentCount = pickedImages.length + existingImages.length;
+    if (currentCount >= 12) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('الحد الأقصى للصور هو 12 صورة لكل مزاد ⚠️', 'Maximum 12 photos per auction ⚠️')),
+      ));
+      return;
+    }
     try {
       final imgs = await picker.pickMultiImage(imageQuality: 85);
       if (imgs.isNotEmpty) {
+        final remainingSlots = 12 - currentCount;
+        final toAdd = imgs.take(remainingSlots).toList();
+        if (imgs.length > remainingSlots && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('تمت إضافة أول $remainingSlots صور للوصول للحد الأقصى (12 صورة)', 'Added first $remainingSlots photos (max 12)')),
+          ));
+        }
         setState(() {
-          pickedImages.addAll(imgs);
+          pickedImages.addAll(toAdd);
           _hasImageError = false;
         });
       }
@@ -159,6 +173,13 @@ class _AddItemPageState extends State<AddItemPage> {
   }
 
   Future<void> pickFromCamera() async {
+    final currentCount = pickedImages.length + existingImages.length;
+    if (currentCount >= 12) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('الحد الأقصى للصور هو 12 صورة لكل مزاد ⚠️', 'Maximum 12 photos per auction ⚠️')),
+      ));
+      return;
+    }
     try {
       final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
       if (img != null) {
@@ -299,30 +320,6 @@ class _AddItemPageState extends State<AddItemPage> {
       if (!mounted || settings.needsProfileOnboarding) return;
     }
 
-    // إذا كان المزاد منشوراً، نقيد العملية بحفظ الملحق الإضافي فقط لمنع التلاعب
-    if (isPublished) {
-      final info = additionalInfoCtrl.text.trim();
-      if (info.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(tr(
-              'يرجى كتابة المعلومات التي ترغب بإضافتها كملحق للإعلان 📝',
-              'Please enter the update info to append 📝')),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ));
-        return;
-      }
-      await store.appendItemInformation(widget.itemToEdit!, info);
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(tr('تمت إضافة المعلومات وتحديث الإعلان بنجاح ✅',
-            'Information added to listing ✅')),
-        backgroundColor: Colors.teal.shade800,
-      ));
-      return;
-    }
-
     // التحقق من الحقول الإلزامية وعرض التنبيهات الحمراء أسفل كل حقل
     final totalImages = pickedImages.length + existingImages.length;
     final hasImg = totalImages > 0;
@@ -367,28 +364,30 @@ class _AddItemPageState extends State<AddItemPage> {
     }
 
     if (isEditing) {
-      // تعديل كامل للمزاد قبل انطلاقه (حالة الجدولة)
+      // تعديل المزاد: الحقول القابلة للتعديل هي (الصور الإضافية حتى 12، الفئة، وعنوان الإعلان)
+      // والحقول المقفلة تبقى كما هي دون تغيير
+      final originalItem = widget.itemToEdit!;
       await store.updateItemDetails(
-        item: widget.itemToEdit!,
+        item: originalItem,
         title: titleCtrl.text.trim(),
-        description: descCtrl.text.trim(),
-        startPrice: startPrice,
-        location: location,
-        condition: condition,
+        description: originalItem.description,
+        startPrice: originalItem.startPrice,
+        location: originalItem.location,
+        condition: originalItem.condition,
         category: category,
-        area: district.isNotEmpty ? district : (areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim()),
-        deliveryMethod: deliveryMethod,
+        area: originalItem.area,
+        deliveryMethod: originalItem.deliveryMethod,
         imagePaths: portableImages,
-        attributes: attrs,
-        pinCode: isPrivateAuction ? pinCtrl.text.trim() : null,
-        buyNowPrice: buyNowPrice,
+        attributes: originalItem.attributes,
+        pinCode: originalItem.pinCode,
+        buyNowPrice: originalItem.buyNowPrice,
       );
 
       if (!mounted) return;
       nav.pop();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(tr('تم حفظ كامل تعديلات المزاد بنجاح ✅',
+          content: Text(tr('تم حفظ تعديلات المزاد بنجاح ✅',
               'Auction details updated successfully ✅')),
           backgroundColor: Colors.teal.shade800,
         ),
@@ -433,11 +432,9 @@ class _AddItemPageState extends State<AddItemPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isPublished
-            ? tr('إضافة معلومات للمزاد المنشور', 'Add Info to Listing')
-            : isEditing
-                ? tr('تعديل تفاصيل المزاد المجدول', 'Edit Scheduled Auction')
-                : tr('إضافة إعلان مزاد جديد', 'Create New Auction')),
+        title: Text(isEditing
+            ? tr('تعديل المزاد', 'Edit Auction')
+            : tr('إضافة إعلان مزاد جديد', 'Create New Auction')),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -450,85 +447,43 @@ class _AddItemPageState extends State<AddItemPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               children: [
-                // في حالة المزاد المنشور: بطاقة تنبيه بأن المزاد منشور ويسمح فقط بإضافة ملحق
-                if (isPublished) ...[
+                // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
+                if (isEditing) ...[
                   Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.12),
+                      color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.amber.shade700, width: 1.5),
+                      border: Border.all(color: Colors.blue.shade700, width: 1.2),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 24),
+                        Icon(Icons.info_outline, color: Colors.blue.shade900, size: 24),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                tr('المزاد منشور ونشط بالفعل 🔒', 'Auction is Already Published 🔒'),
+                                tr('صلاحيات تعديل المزاد 🔒', 'Auction Edit Permissions 🔒'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.amber.shade900,
+                                  color: Colors.blue.shade900,
                                   fontSize: 14,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 tr(
-                                  'لحماية حقوق المزايدين ومنع التلاعب بالشروط أو الأسعار بعد انطلاق المزاد، تم قفل تعديل البيانات الأساسية. يُسمح فقط بإضافة ملحق معلومات وتوضيحات جديدة تظهر للجميع.',
-                                  'To prevent tampering after launch, core fields are locked. You can only append addendum info.',
+                                  'لحماية حقوق ومصداقية المزايدات: يمكنك إضافة صور جديدة (حتى 12 صورة) وتعديل تصنيف الفئة وعنوان الإعلان فقط، مع قفل باقي الحقول كالسعر والموقع والوصف.',
+                                  'You can add new photos (up to 12), update category and title only. Core fields remain locked.',
                                 ),
-                                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.amber.shade900),
+                                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.blue.shade900),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // حقل إضافة المعلومات والملحق
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.indigo.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.note_add_outlined, color: Colors.indigo, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('إضافة معلومات وتحديث للمزاد (ملحق الإعلان) *', 'Append Information to Auction *'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: additionalInfoCtrl,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            hintText: tr(
-                              'اكتب التوضيحات أو المواصفات الإضافية الجديدة هنا...',
-                              'Write additional clarifications or notes here...',
-                            ),
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? tr('يرجى كتابة المعلومات التي ترغب بإضافتها للإعلان', 'Enter information to append')
-                              : null,
                         ),
                       ],
                     ),
@@ -628,26 +583,25 @@ class _AddItemPageState extends State<AddItemPage> {
                                           ),
                                         ),
                                       ),
-                                      if (!isPublished)
-                                        Positioned(
-                                          top: 2,
-                                          right: 2,
-                                          child: InkWell(
-                                            onTap: () => setState(() => pickedImages.removeAt(i)),
-                                            child: const CircleAvatar(
-                                              radius: 12,
-                                              backgroundColor: Colors.black54,
-                                              child: Icon(Icons.close, size: 14, color: Colors.white),
-                                            ),
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: InkWell(
+                                          onTap: () => setState(() => pickedImages.removeAt(i)),
+                                          child: const CircleAvatar(
+                                            radius: 12,
+                                            backgroundColor: Colors.black54,
+                                            child: Icon(Icons.close, size: 14, color: Colors.white),
                                           ),
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
                             ],
                           ),
                         ),
-                      if (!isPublished) ...[
+                      if (totalImagesCount < 12) ...[
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
@@ -702,7 +656,7 @@ class _AddItemPageState extends State<AddItemPage> {
                 const SizedBox(height: 8),
                 InkWell(
                   borderRadius: BorderRadius.circular(14),
-                  onTap: isPublished ? null : () => _showCategoryPickerModal(context),
+                  onTap: () => _showCategoryPickerModal(context),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -828,7 +782,7 @@ class _AddItemPageState extends State<AddItemPage> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: titleCtrl,
-                          enabled: !isPublished,
+                          enabled: true, // عنوان الإعلان متاح للتعديل دائماً
                           decoration: InputDecoration(
                             hintText: tr('مثال: آيفون 15 برو ماكس 256GB بحالة الوكالة', 'e.g. iPhone 15 Pro Max'),
                             border: const OutlineInputBorder(),
@@ -1269,22 +1223,15 @@ class _AddItemPageState extends State<AddItemPage> {
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: isPublished ? Colors.indigo : null,
                   ),
                   onPressed: save,
-                  icon: Icon(isPublished
-                      ? Icons.note_add
-                      : isEditing
-                          ? Icons.save
-                          : Icons.gavel),
+                  icon: Icon(isEditing ? Icons.save : Icons.gavel),
                   label: Text(
-                    isPublished
-                        ? tr('حفظ ونشر الملحق للإعلان', 'Publish Addendum to Listing')
-                        : isEditing
-                            ? tr('حفظ تعديلات المزاد', 'Save Auction Changes')
-                            : scheduleDelayIndex == 0
-                                ? tr('انشر وابدأ المزاد الآن', 'Publish & Start Auction')
-                                : tr('جدولة المزاد في قسم "قريباً" ⏳', 'Schedule Auction ⏳'),
+                    isEditing
+                        ? tr('حفظ تعديلات المزاد', 'Save Auction Changes')
+                        : scheduleDelayIndex == 0
+                            ? tr('انشر وابدأ المزاد الآن', 'Publish & Start Auction')
+                            : tr('جدولة المزاد في قسم "قريباً" ⏳', 'Schedule Auction ⏳'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
