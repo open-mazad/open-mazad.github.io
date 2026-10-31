@@ -17,9 +17,12 @@ class DirectChatPage extends StatefulWidget {
 
 class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObserver {
   final textCtrl = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollCtrl = ScrollController();
   int _visibleLimit = 30;
   bool _showSafetyTips = true;
   bool _hasText = false;
+  int _lastMsgCount = 0;
   Timer? _onlineStatusTimer;
   Timer? _chatPollTimer;
 
@@ -29,11 +32,13 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _hasText = textCtrl.text.trim().isNotEmpty;
     textCtrl.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChanged);
     store.markConversationAsRead(widget.item.id, widget.otherParty);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         store.markConversationAsRead(widget.item.id, widget.otherParty);
         store.pollMessagesForChat(widget.item.id);
+        _scrollToBottom(animate: false);
       }
     });
 
@@ -46,6 +51,42 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     _chatPollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) {
       if (mounted) {
         store.pollMessagesForChat(widget.item.id);
+      }
+    });
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // عند تغير أبعاد الشاشة وظهور الكيبورد، ندفع الرسائل للأعلى مباشرة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom(animate: true);
+      }
+    });
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      // عند التركيز في خانة الكتابة وظهور الكيبورد، تندفع الرسائل للأعلى تلقائياً
+      _scrollToBottom(animate: true);
+      Future.delayed(const Duration(milliseconds: 120), () => _scrollToBottom(animate: true));
+      Future.delayed(const Duration(milliseconds: 280), () => _scrollToBottom(animate: true));
+    }
+  }
+
+  void _scrollToBottom({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      final target = _scrollCtrl.position.maxScrollExtent;
+      if (animate) {
+        _scrollCtrl.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutQuad,
+        );
+      } else {
+        _scrollCtrl.jumpTo(target);
       }
     });
   }
@@ -64,6 +105,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     if (has != _hasText) {
       setState(() => _hasText = has);
     }
+    _scrollToBottom(animate: true);
   }
 
   @override
@@ -73,6 +115,9 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     _chatPollTimer?.cancel();
     textCtrl.removeListener(_onTextChanged);
     textCtrl.dispose();
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -83,6 +128,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     store.sendDirectMessage(widget.item, widget.otherParty, txt);
     textCtrl.clear();
     setState(() {});
+    _scrollToBottom(animate: true);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -1419,9 +1465,15 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
             ? msgs.sublist(msgs.length - _visibleLimit)
             : msgs;
 
+        if (visibleMsgs.length != _lastMsgCount) {
+          _lastMsgCount = visibleMsgs.length;
+          _scrollToBottom(animate: true);
+        }
+
         final isOnline = store.isUserOnline(widget.otherParty);
 
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: InkWell(
               onTap: () => showUserProfileSheet(context, widget.otherParty),
@@ -1751,6 +1803,9 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                             ),
                           )
                         : ListView.builder(
+                            controller: _scrollCtrl,
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: const EdgeInsets.all(12),
                             itemCount:
                                 visibleMsgs.length + (hasOlder ? 1 : 0),
@@ -1935,6 +1990,12 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                                               textDirection: TextDirection.rtl,
                                               child: TextField(
                                                 controller: textCtrl,
+                                                focusNode: _focusNode,
+                                                onTap: () {
+                                                  _scrollToBottom(animate: true);
+                                                  Future.delayed(const Duration(milliseconds: 150), () => _scrollToBottom(animate: true));
+                                                  Future.delayed(const Duration(milliseconds: 300), () => _scrollToBottom(animate: true));
+                                                },
                                                 style: TextStyle(
                                                   color: Theme.of(context).colorScheme.onSurface,
                                                   fontSize: 14,

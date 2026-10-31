@@ -698,7 +698,12 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([store, settings]),
-      builder: (context, _) => Scaffold(
+      builder: (context, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final navColor = isDark ? Colors.white : Colors.black;
+        final unselectedNavColor = isDark ? Colors.white70 : Colors.black87;
+
+        return Scaffold(
         appBar: AppBar(
           title: tab == 0
               ? Row(
@@ -874,20 +879,29 @@ class _HomePageState extends State<HomePage> {
         bottomNavigationBar: NavigationBarTheme(
           data: NavigationBarThemeData(
             height: 56,
+            indicatorColor: isDark
+                ? Colors.white.withValues(alpha: 0.16)
+                : Colors.black.withValues(alpha: 0.08),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
                 fontSize: 10.5,
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected ? navColor : unselectedNavColor,
               );
             }),
             iconTheme: WidgetStateProperty.resolveWith((states) {
-              return const IconThemeData(size: 21);
+              final selected = states.contains(WidgetState.selected);
+              return IconThemeData(
+                size: 21,
+                color: selected ? navColor : unselectedNavColor,
+              );
             }),
           ),
           child: NavigationBar(
             height: 56,
+            backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             selectedIndex: tab,
             onDestinationSelected: (i) {
               if (i == 2) {
@@ -911,20 +925,20 @@ class _HomePageState extends State<HomePage> {
             },
             destinations: [
               NavigationDestination(
-                icon: const Icon(Icons.home_outlined),
-                selectedIcon: const Icon(Icons.home),
+                icon: Icon(Icons.home_outlined, color: unselectedNavColor),
+                selectedIcon: Icon(Icons.home, color: navColor),
                 label: tr('الرئيسية', 'Home'),
               ),
               NavigationDestination(
                 icon: Badge(
                   isLabelVisible: store.unreadDirectMessagesCount > 0,
                   label: Text('${store.unreadDirectMessagesCount}'),
-                  child: const Icon(Icons.chat_bubble_outline),
+                  child: Icon(Icons.chat_bubble_outline, color: unselectedNavColor),
                 ),
                 selectedIcon: Badge(
                   isLabelVisible: store.unreadDirectMessagesCount > 0,
                   label: Text('${store.unreadDirectMessagesCount}'),
-                  child: const Icon(Icons.chat_bubble),
+                  child: Icon(Icons.chat_bubble, color: navColor),
                 ),
                 label: tr('الرسائل', 'Messages'),
               ),
@@ -932,36 +946,37 @@ class _HomePageState extends State<HomePage> {
                 icon: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.12),
+                    color: isDark ? Colors.white.withValues(alpha: 0.14) : Colors.black.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add, color: Colors.redAccent, size: 22),
+                  child: Icon(Icons.add, color: navColor, size: 22),
                 ),
                 selectedIcon: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
+                  decoration: BoxDecoration(
+                    color: navColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 22),
+                  child: Icon(Icons.add, color: isDark ? Colors.black : Colors.white, size: 22),
                 ),
                 label: tr('أضف مزاداً', 'Add Auction'),
               ),
               NavigationDestination(
-                icon: const Icon(Icons.gavel_outlined),
-                selectedIcon: const Icon(Icons.gavel),
+                icon: Icon(Icons.gavel_outlined, color: unselectedNavColor),
+                selectedIcon: Icon(Icons.gavel, color: navColor),
                 label: tr('المزايدات', 'Bids & Auctions'),
               ),
               NavigationDestination(
-                icon: const Icon(Icons.settings_outlined),
-                selectedIcon: const Icon(Icons.settings),
+                icon: Icon(Icons.settings_outlined, color: unselectedNavColor),
+                selectedIcon: Icon(Icons.settings, color: navColor),
                 label: tr('الإعدادات', 'Settings'),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    },
+  );
   }
 }
 

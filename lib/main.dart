@@ -139,11 +139,43 @@ class AuctionApp extends StatelessWidget {
         theme: ThemeData(
           colorSchemeSeed: Colors.indigo,
           useMaterial3: true,
+          navigationBarTheme: NavigationBarThemeData(
+            indicatorColor: Colors.black.withValues(alpha: 0.08),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return IconThemeData(
+                color: selected ? Colors.black : Colors.black87,
+              );
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return TextStyle(
+                color: selected ? Colors.black : Colors.black87,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              );
+            }),
+          ),
         ),
         darkTheme: ThemeData(
           colorSchemeSeed: Colors.indigo,
           brightness: Brightness.dark,
           useMaterial3: true,
+          navigationBarTheme: NavigationBarThemeData(
+            indicatorColor: Colors.white.withValues(alpha: 0.16),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return IconThemeData(
+                color: selected ? Colors.white : Colors.white70,
+              );
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return TextStyle(
+                color: selected ? Colors.white : Colors.white70,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              );
+            }),
+          ),
         ),
         builder: (context, child) {
           final mq = MediaQuery.of(context);
