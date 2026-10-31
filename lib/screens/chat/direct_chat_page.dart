@@ -42,6 +42,224 @@ class _DirectChatPageState extends State<DirectChatPage> {
     setState(() {});
   }
 
+  Future<void> sendImage() async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 75,
+      );
+      if (picked != null) {
+        final portable = await xFileToPortableImage(picked);
+        store.sendDirectMessage(
+            widget.item, widget.otherParty, '[image:$portable]');
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(tr('تعذر اختيار الصورة', 'Failed to pick image'))),
+      );
+    }
+  }
+
+  Future<void> sendLocation() async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    String selectedGov = settings.governorate.isNotEmpty
+        ? settings.governorate
+        : (governorates.contains(widget.item.location)
+            ? widget.item.location
+            : governorates.first);
+    final landmarkCtrl = TextEditingController(
+        text: widget.item.area.isNotEmpty && widget.item.area != 'الكل'
+            ? widget.item.area
+            : '');
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.location_on,
+                      color: Colors.redAccent, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    tr('إرسال موقع اللقاء / التسليم',
+                        'Share Delivery Location'),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: selectedGov,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: tr('المحافظة', 'Governorate'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.map_outlined),
+                ),
+                items: governorates
+                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setSt(() => selectedGov = v);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: landmarkCtrl,
+                decoration: InputDecoration(
+                  labelText: tr(
+                      'المنطقة أو النقطة الدالة (مثال: المنصور، قرب مول بغداد)',
+                      'Area or Landmark'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.place_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.send_rounded),
+                  label:
+                      Text(tr('إرسال الموقع للمحادثة 📍', 'Send Location 📍')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      final landmark = landmarkCtrl.text.trim();
+      final locText =
+          landmark.isNotEmpty ? '$selectedGov - $landmark' : selectedGov;
+      store.sendDirectMessage(
+          widget.item, widget.otherParty, '[location:$locText]');
+      if (mounted) setState(() {});
+    }
+    landmarkCtrl.dispose();
+  }
+
+  Widget _buildMessageContent(DirectMessage m, bool isMe) {
+    if (m.text.startsWith('[image:') && m.text.endsWith(']')) {
+      final imgUrl = m.text.substring(7, m.text.length - 1);
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => FullscreenImageViewer(images: [imgUrl]),
+            ),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 240, maxHeight: 240),
+            color: Colors.black12,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                buildSmartImage(imgUrl,
+                    fit: BoxFit.cover, width: 240, height: 180),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child:
+                      const Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (m.text.startsWith('[location:') && m.text.endsWith(']')) {
+      final loc = m.text.substring(10, m.text.length - 1);
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 260),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isMe ? Colors.white38 : Colors.grey.shade400,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_on, color: Colors.redAccent, size: 24),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('موقع التسليم المتفق عليه 📍', 'Agreed Location 📍'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isMe ? Colors.white70 : Colors.indigo.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    loc,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isMe
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Text(
+      m.text,
+      style: TextStyle(
+        color: isMe
+            ? Colors.white
+            : Theme.of(context).colorScheme.onSecondaryContainer,
+      ),
+    );
+  }
+
   Future<void> _showReportDialog(Item item, String otherName) async {
     final reasonCtrl = TextEditingController();
     String selectedPreset = 'تخلف عن الدفع أو عدم الجدية في الشراء';
@@ -565,16 +783,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          m.text,
-                                          style: TextStyle(
-                                            color: isMe
-                                                ? Colors.white
-                                                : Theme.of(context)
-                                                    .colorScheme
-                                                    .onSecondaryContainer,
-                                          ),
-                                        ),
+                                        _buildMessageContent(m, isMe),
                                         const SizedBox(height: 4),
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -656,6 +865,19 @@ class _DirectChatPageState extends State<DirectChatPage> {
                             padding: const EdgeInsets.all(8.0),
                             child: Row(
                               children: [
+                                IconButton(
+                                  tooltip: tr('إرسال صورة', 'Send Photo'),
+                                  icon: const Icon(Icons.add_photo_alternate_outlined,
+                                      color: Colors.indigo),
+                                  onPressed: sendImage,
+                                ),
+                                IconButton(
+                                  tooltip: tr('إرسال موقع التسليم', 'Send Location'),
+                                  icon: const Icon(Icons.location_on_outlined,
+                                      color: Colors.redAccent),
+                                  onPressed: sendLocation,
+                                ),
+                                const SizedBox(width: 4),
                                 Expanded(
                                   child: TextField(
                                     controller: textCtrl,
@@ -703,6 +925,17 @@ class MessagesInboxView extends StatefulWidget {
 class _MessagesInboxViewState extends State<MessagesInboxView> {
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
+
+  String _formatLastMessage(String text) {
+    if (text.startsWith('[image:') && text.endsWith(']')) {
+      return tr('📷 صورة', '📷 Photo');
+    }
+    if (text.startsWith('[location:') && text.endsWith(']')) {
+      final loc = text.substring(10, text.length - 1);
+      return '📍 $loc';
+    }
+    return text;
+  }
 
   @override
   void dispose() {
@@ -1011,8 +1244,8 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                                         Expanded(
                                           child: Text(
                                             isLastFromMe
-                                                ? '${tr("أنت:", "You:")} ${conv.lastMessage.text}'
-                                                : conv.lastMessage.text,
+                                                ? '${tr("أنت:", "You:")} ${_formatLastMessage(conv.lastMessage.text)}'
+                                                : _formatLastMessage(conv.lastMessage.text),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(

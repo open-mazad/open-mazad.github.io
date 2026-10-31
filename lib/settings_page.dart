@@ -1374,3 +1374,60 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 }
+
+/// نافذة منبثقة لإكمال وتأكيد بيانات الملف الشخصي عند التسجيل لأول مرة
+Future<bool> showCompleteProfileDialog(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.verified_user, color: Colors.blueAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr('إكمال وتأكيد بيانات الحساب', 'Complete Your Profile'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                tr(
+                  'أهلاً بك في تطبيق مزايدة! يرجى تأكيد اسمك ومحافظتك للبدء في المزايدة ونشر المزادات.',
+                  'Welcome to Muzaid! Please confirm your name and governorate to start bidding and creating auctions.',
+                ),
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              ProfileEditor(
+                submitLabel: tr('حفظ ومتابعة للمزاد 🚀', 'Save and Continue 🚀'),
+                initial: ProfileData(
+                  settings.firstName,
+                  settings.secondName,
+                  settings.thirdName,
+                  settings.governorate,
+                  settings.photoPath,
+                ),
+                onSubmit: (data) async {
+                  await settings.completeOnboarding(data);
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  return result ?? false;
+}

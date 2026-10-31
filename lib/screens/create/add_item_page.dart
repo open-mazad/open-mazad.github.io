@@ -122,14 +122,85 @@ class _AddItemPageState extends State<AddItemPage> {
   }
 
   Future<void> save() async {
+    if (!settings.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('يرجى تسجيل الدخول أولاً للتمكن من نشر مزادك ⚠️',
+            'Please sign in first to publish an auction ⚠️')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (settings.needsProfileOnboarding) {
+      await showCompleteProfileDialog(context);
+      if (!mounted || settings.needsProfileOnboarding) return;
+    }
+
+    final title = titleCtrl.text.trim();
+    final desc = descCtrl.text.trim();
+    final priceStr = toLatinDigits(priceCtrl.text.trim()).replaceAll(',', '');
+    final startPrice = int.tryParse(priceStr) ?? 0;
+
+    if (pickedImages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+            'يرجى إضافة صورة واحدة على الأقل للسلعة لكي يتمكن المزايدون من معاينتها 📸',
+            'Please add at least one photo of the item 📸')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('يرجى كتابة اسم أو عنوان السلعة 📝',
+            'Please enter the item title 📝')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('يرجى كتابة تفاصيل ووصف السلعة بشكل واضح 📄',
+            'Please enter the item description 📄')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (startPrice <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('يرجى كتابة سعر بداية صحيح للمزاد 💰',
+            'Please enter a valid start price 💰')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    if (location.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('يرجى تحديد المحافظة وموقع السلعة 📍',
+            'Please specify the item location 📍')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
     if (!formKey.currentState!.validate()) return;
 
-    final startPrice = int.parse(toLatinDigits(priceCtrl.text.trim()));
     if (isPrivateAuction && pinCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-            tr('أدخل رمز PIN للمزاد الخاص', 'Enter a PIN for private auction')),
-        backgroundColor: Colors.red,
+            tr('أدخل رمز PIN للمزاد الخاص 🔒', 'Enter a PIN for private auction 🔒')),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
       ));
       return;
     }

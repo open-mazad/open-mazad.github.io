@@ -61,12 +61,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     super.dispose();
   }
 
-  void submitManualBid() {
+  Future<void> submitManualBid() async {
+    if (settings.needsProfileOnboarding) {
+      await showCompleteProfileDialog(context);
+      if (settings.needsProfileOnboarding) return;
+    }
     final amount =
         int.tryParse(toLatinDigits(amountCtrl.text.trim()).replaceAll(',', ''));
     final error = amount == null
         ? tr('اكتب مبلغاً صحيحاً بالأرقام', 'Enter a valid number')
         : store.placeBid(liveItem, amount);
+    if (!mounted) return;
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(error ?? tr('تمت المزايدة بنجاح ✅', 'Bid placed ✅')),
@@ -75,12 +80,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (error == null) amountCtrl.clear();
   }
 
-  void submitAutoBid() {
+  Future<void> submitAutoBid() async {
+    if (settings.needsProfileOnboarding) {
+      await showCompleteProfileDialog(context);
+      if (settings.needsProfileOnboarding) return;
+    }
     final maxLimit = int.tryParse(
         toLatinDigits(autoLimitCtrl.text.trim()).replaceAll(',', ''));
     final error = maxLimit == null
         ? tr('اكتب سقف المزايدة التلقائية بالأرقام', 'Enter valid max limit')
         : store.setAutoBid(liveItem, maxLimit);
+    if (!mounted) return;
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(error ??

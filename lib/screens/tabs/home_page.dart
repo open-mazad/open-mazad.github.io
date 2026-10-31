@@ -17,6 +17,28 @@ class _HomePageState extends State<HomePage> {
   String statusFilter = 'الكل'; // 'الكل', 'جارية 🔴', 'قريباً ⏳', 'بث مباشر 🎥', 'خاصة 🔒'
   String sortBy = 'الأقرب انتهاءً';
 
+  @override
+  void initState() {
+    super.initState();
+    settings.addListener(_checkProfileOnboarding);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkProfileOnboarding();
+    });
+  }
+
+  @override
+  void dispose() {
+    settings.removeListener(_checkProfileOnboarding);
+    super.dispose();
+  }
+
+  void _checkProfileOnboarding() {
+    if (!mounted) return;
+    if (settings.isLoggedIn && settings.needsProfileOnboarding) {
+      showCompleteProfileDialog(context);
+    }
+  }
+
   List<String> get titles => [
         tr('المزاد المفتوح', 'Open Mazad'),
         tr('مزايداتي', 'My Bids'),
