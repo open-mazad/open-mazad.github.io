@@ -871,40 +871,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: Container(
-          margin: const EdgeInsets.only(top: 24),
-          child: SizedBox(
-            width: 62,
-            height: 62,
-            child: FittedBox(
-              child: FloatingActionButton(
-                elevation: 4,
-                shape: const CircleBorder(),
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                foregroundColor: Colors.redAccent.shade700,
-                onPressed: () {
-                  if (!settings.isLoggedIn) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(tr('سجّل الدخول أولاً من الإعدادات',
-                            'Sign in from Settings first'))));
-                    setState(() => tab = 4);
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddItemPage()),
-                  );
-                },
-                child: const Icon(
-                  Icons.add,
-                  size: 34,
-                  color: Colors.redAccent,
-                ),
-              ),
-            ),
-          ),
-        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) {
@@ -947,8 +913,22 @@ class _HomePageState extends State<HomePage> {
               label: tr('الرسائل', 'Messages'),
             ),
             NavigationDestination(
-              icon: const SizedBox(height: 28),
-              selectedIcon: const SizedBox(height: 28),
+              icon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Colors.redAccent, size: 24),
+              ),
+              selectedIcon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.redAccent,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 24),
+              ),
               label: tr('أضف مزاداً', 'Add Auction'),
             ),
             NavigationDestination(

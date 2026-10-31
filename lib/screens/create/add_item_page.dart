@@ -39,6 +39,10 @@ class _AddItemPageState extends State<AddItemPage> {
   bool _autoValidate = false;
   bool _hasImageError = false;
   bool _hasCategoryError = false;
+  bool _hasTitleError = false;
+  bool _hasDescError = false;
+  bool _hasPriceError = false;
+  bool _showTopErrorBanner = false;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _imagesSectionKey = GlobalKey();
@@ -127,6 +131,26 @@ class _AddItemPageState extends State<AddItemPage> {
       areaCtrl.text = district;
     }
     _syncAttrControllers();
+
+    titleCtrl.addListener(() {
+      if (_hasTitleError && titleCtrl.text.trim().isNotEmpty) {
+        setState(() => _hasTitleError = false);
+      }
+    });
+    descCtrl.addListener(() {
+      if (_hasDescError && descCtrl.text.trim().isNotEmpty) {
+        setState(() => _hasDescError = false);
+      }
+    });
+    priceCtrl.addListener(() {
+      if (_hasPriceError) {
+        final clean = toLatinDigits(priceCtrl.text).replaceAll(',', '').trim();
+        final n = int.tryParse(clean);
+        if (n != null && n > 0) {
+          setState(() => _hasPriceError = false);
+        }
+      }
+    });
   }
 
   void _syncAttrControllers() {
@@ -345,33 +369,42 @@ class _AddItemPageState extends State<AddItemPage> {
       if (!mounted || settings.needsProfileOnboarding) return;
     }
 
-    // التحقق من الحقول الإلزامية وعرض التنبيهات الحمراء أسفل كل حقل
+    // التحقق الصارم من الحقول الإلزامية الخمسة وعرض التنبيهات الحمراء أسفل كل حقل
     final totalImages = pickedImages.length + existingImages.length;
     final hasImg = totalImages > 0;
     final hasCategory = category.trim().isNotEmpty;
+    final hasTitle = titleCtrl.text.trim().isNotEmpty;
+    final hasDesc = descCtrl.text.trim().isNotEmpty;
+    final priceStr = toLatinDigits(priceCtrl.text.trim()).replaceAll(',', '');
+    final startPrice = int.tryParse(priceStr) ?? 0;
+    final hasPrice = startPrice > 0;
 
     setState(() {
       _autoValidate = true;
       _hasImageError = !hasImg;
       _hasCategoryError = !hasCategory;
+      _hasTitleError = !hasTitle;
+      _hasDescError = !hasDesc;
+      _hasPriceError = !hasPrice;
+      _showTopErrorBanner = !hasImg || !hasCategory || !hasTitle || !hasDesc || !hasPrice;
     });
 
     final isValid = formKey.currentState?.validate() ?? false;
-    if (!isValid || !hasImg || !hasCategory) {
+    if (!isValid || !hasImg || !hasCategory || !hasTitle || !hasDesc || !hasPrice) {
       // 1. التمرير السلس لنقل التركيز إلى أول حقل غير مستوفٍ للشروط
       if (!hasImg) {
         _scrollToFirstError(_imagesSectionKey);
       } else if (!hasCategory) {
         _scrollToFirstError(_categorySectionKey);
-      } else if (titleCtrl.text.trim().isEmpty) {
+      } else if (!hasTitle) {
         _scrollToFirstError(_titleSectionKey);
-      } else if (descCtrl.text.trim().isEmpty) {
+      } else if (!hasDesc) {
         _scrollToFirstError(_descSectionKey);
-      } else if (priceCtrl.text.trim().isEmpty || (int.tryParse(toLatinDigits(priceCtrl.text).replaceAll(',', '').trim()) ?? 0) <= 0) {
+      } else if (!hasPrice) {
         _scrollToFirstError(_priceSectionKey);
       }
 
-      // 2. إظهار الإشعار العام بأعلى الشاشة حصراً مع تفعيل فاصل زمني (Cooldown/Throttle 5 ثوانٍ) لمنع التكرار
+      // 2. إظهار الإشعار العام مع تفعيل فاصل زمني (Cooldown/Throttle 5 ثوانٍ) لمنع التكرار
       final now = DateTime.now();
       if (_lastWarningBannerTime == null || now.difference(_lastWarningBannerTime!) >= _bannerCooldown) {
         _lastWarningBannerTime = now;
@@ -395,20 +428,12 @@ class _AddItemPageState extends State<AddItemPage> {
             ),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 130,
-              right: 16,
-              left: 16,
-            ),
             duration: const Duration(seconds: 4),
           ),
         );
       }
       return;
     }
-
-    final priceStr = toLatinDigits(priceCtrl.text.trim()).replaceAll(',', '');
-    final startPrice = int.tryParse(priceStr) ?? 0;
 
     final buyNowStr = toLatinDigits(buyNowPriceCtrl.text.trim()).replaceAll(',', '');
     final buyNowPrice = buyNowStr.isNotEmpty ? int.tryParse(buyNowStr) : null;
@@ -506,13 +531,47 @@ class _AddItemPageState extends State<AddItemPage> {
             autovalidateMode: _autoValidate
                 ? AutovalidateMode.onUserInteraction
                 : AutovalidateMode.disabled,
-            child: ListView(
+            child: SingleChildScrollView(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              children: [
-                // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
-                if (isEditing) ...[
-                  Container(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // إشعار التحقق العام بأعلى الصفحة عند وجود أخطاء
+                  if (_showTopErrorBanner) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.red.shade600, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 24),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              tr(
+                                'يرجى استيفاء كافة الحقول الإلزامية المحددة باللون الأحمر أدناه قبل النشر ⚠️',
+                                'Please complete all required fields in red below before publishing ⚠️',
+                              ),
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
+                  if (isEditing) ...[
+                    Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -858,205 +917,250 @@ class _AddItemPageState extends State<AddItemPage> {
                 const SizedBox(height: 16),
 
                 // 3. كتلة عنوان الإعلان
-                Card(
+                Container(
                   key: _titleSectionKey,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _hasTitleError
+                        ? Colors.red.withValues(alpha: 0.05)
+                        : Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _hasTitleError
+                          ? Colors.red.shade600
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      width: _hasTitleError ? 1.5 : 1,
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('عنوان الإعلان / اسم السلعة *', 'Auction Title *'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('عنوان الإعلان / اسم السلعة *', 'Auction Title *'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _hasTitleError ? Colors.red.shade700 : null,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: titleCtrl,
+                        enabled: true, // عنوان الإعلان متاح للتعديل دائماً
+                        decoration: InputDecoration(
+                          hintText: tr('مثال: آيفون 15 برو ماكس 256GB بحالة الوكالة', 'e.g. iPhone 15 Pro Max'),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.title),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? tr('يرجى كتابة عنوان الإعلان', 'Please enter auction title')
+                            : null,
+                      ),
+                      if (_hasTitleError) ...[
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: titleCtrl,
-                          enabled: true, // عنوان الإعلان متاح للتعديل دائماً
-                          decoration: InputDecoration(
-                            hintText: tr('مثال: آيفون 15 برو ماكس 256GB بحالة الوكالة', 'e.g. iPhone 15 Pro Max'),
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.title),
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? tr('يرجى كتابة عنوان الإعلان', 'Please enter auction title')
-                              : null,
+                        Text(
+                          tr('يرجى كتابة عنوان الإعلان / اسم السلعة قبل النشر *', 'Please enter auction title *'),
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
 
                 // 4. كتلة التفاصيل والوصف + الحقول الذكية المرتبطة بالفئة
-                Card(
+                Container(
                   key: _descSectionKey,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _hasDescError
+                        ? Colors.red.withValues(alpha: 0.05)
+                        : Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _hasDescError
+                          ? Colors.red.shade600
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      width: _hasDescError ? 1.5 : 1,
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('تفاصيل ووصف السلعة *', 'Item Description *'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('تفاصيل ووصف السلعة *', 'Item Description *'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _hasDescError ? Colors.red.shade700 : null,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: descCtrl,
+                        enabled: !isPublished,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: tr('اكتب وصفاً مفصلاً ودقيقاً عن حالة السلعة والمرفقات...',
+                              'Describe the item details...'),
+                          border: const OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? tr('يرجى كتابة تفاصيل ووصف السلعة', 'Please enter item description')
+                            : null,
+                      ),
+                      if (_hasDescError) ...[
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: descCtrl,
-                          enabled: !isPublished,
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            hintText: tr('اكتب وصفاً مفصلاً ودقيقاً عن حالة السلعة والمرفقات...',
-                                'Describe the item details...'),
-                            border: const OutlineInputBorder(),
-                            alignLabelWithHint: true,
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? tr('يرجى كتابة تفاصيل ووصف السلعة', 'Please enter item description')
-                              : null,
+                        Text(
+                          tr('يرجى كتابة تفاصيل ووصف السلعة قبل النشر *', 'Please enter item description *'),
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
-                        if (currentDynamicFields.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.indigo.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(categoryIcon(category), size: 18, color: Colors.indigo),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${tr("الحقول الذكية التلقائية لفئة:", "Smart Fields for:")} $category',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.indigo,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                for (final fieldLabel in currentDynamicFields) ...[
-                                  TextFormField(
-                                    controller: attrCtrls[fieldLabel],
-                                    enabled: !isPublished,
-                                    decoration: InputDecoration(
-                                      labelText: fieldLabel,
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                      filled: true,
+                      ],
+                      if (currentDynamicFields.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(categoryIcon(category), size: 18, color: Colors.indigo),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${tr("الحقول الذكية التلقائية لفئة:", "Smart Fields for:")} $category',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
                                 ],
+                              ),
+                              const SizedBox(height: 10),
+                              for (final fieldLabel in currentDynamicFields) ...[
+                                TextFormField(
+                                  controller: attrCtrls[fieldLabel],
+                                  enabled: !isPublished,
+                                  decoration: InputDecoration(
+                                    labelText: fieldLabel,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                    filled: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
                               ],
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
 
                 // 5. كتلة السعر
-                Card(
+                Container(
                   key: _priceSectionKey,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _hasPriceError
+                        ? Colors.red.withValues(alpha: 0.05)
+                        : Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _hasPriceError
+                          ? Colors.red.shade600
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      width: _hasPriceError ? 1.5 : 1,
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('سعر بداية المزاد (دينار عراقي) *', 'Starting Price (IQD) *'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('سعر بداية المزاد (دينار عراقي) *', 'Starting Price (IQD) *'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _hasPriceError ? Colors.red.shade700 : null,
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: priceCtrl,
-                          enabled: !isPublished,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: InputDecoration(
-                            labelText: tr('السعر الافتتاحي للمزاد *', 'Starting Price *'),
-                            helperText: tr(
-                              'حقل إلزامي: الزيادة مفتوحة للمزايدين بأي مبلغ أعلى من هذا السعر',
-                              'Mandatory: Bidders can increase above this starting price',
-                            ),
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.payments_outlined),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: priceCtrl,
+                        enabled: !isPublished,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          labelText: tr('السعر الافتتاحي للمزاد *', 'Starting Price *'),
+                          helperText: tr(
+                            'حقل إلزامي: الزيادة مفتوحة للمزايدين بأي مبلغ أعلى من هذا السعر',
+                            'Mandatory: Bidders can increase above this starting price',
                           ),
-                          validator: (v) {
-                            final clean = toLatinDigits(v ?? '').replaceAll(',', '').trim();
-                            if (clean.isEmpty) {
-                              return tr('يرجى إدخال سعر بداية المزاد', 'Please enter starting price');
-                            }
-                            final n = int.tryParse(clean);
-                            if (n == null || n <= 0) {
-                              return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Please enter a valid price > 0');
-                            }
-                            return null;
-                          },
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.payments_outlined),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          tr('السعر النهائي / سعر الشراء الفوري (اختياري)', 'Final Price / Buy Now Price (Optional)'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        validator: (v) {
+                          final clean = toLatinDigits(v ?? '').replaceAll(',', '').trim();
+                          if (clean.isEmpty) {
+                            return tr('يرجى إدخال سعر بداية المزاد', 'Please enter starting price');
+                          }
+                          final n = int.tryParse(clean);
+                          if (n == null || n <= 0) {
+                            return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Please enter a valid price > 0');
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_hasPriceError) ...[
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: buyNowPriceCtrl,
-                          enabled: !isPublished,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: InputDecoration(
-                            labelText: tr('سعر الشراء الفوري (اختياري)', 'Buy Now Price (Optional)'),
-                            helperText: tr(
-                              'اختياري: يتيح للمشتري حسم الصفقة فوراً والشراء بهذا السعر دون انتظار نهاية المزاد',
-                              'Optional: lets a buyer win immediately at this price',
-                            ),
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.flash_on_outlined, color: Colors.amber),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return null;
-                            final clean = toLatinDigits(v).replaceAll(',', '').trim();
-                            final n = int.tryParse(clean);
-                            if (n == null || n <= 0) {
-                              return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Enter valid number > 0');
-                            }
-                            final startClean = toLatinDigits(priceCtrl.text).replaceAll(',', '').trim();
-                            final start = int.tryParse(startClean) ?? 0;
-                            if (start > 0 && n <= start) {
-                              return tr('يجب أن يكون سعر الشراء الفوري أعلى من سعر بداية المزاد',
-                                  'Buy now price must be higher than start price');
-                            }
-                            return null;
-                          },
+                        Text(
+                          tr('يرجى إدخال سعر بداية المزاد برقم صحيح أكبر من صفر *', 'Please enter valid starting price > 0 *'),
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
-                    ),
+                      const SizedBox(height: 16),
+                      Text(
+                        tr('السعر النهائي / سعر الشراء الفوري (اختياري)', 'Final Price / Buy Now Price (Optional)'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: buyNowPriceCtrl,
+                        enabled: !isPublished,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          labelText: tr('سعر الشراء الفوري (اختياري)', 'Buy Now Price (Optional)'),
+                          helperText: tr(
+                            'اختياري: يتيح للمشتري حسم الصفقة فوراً والشراء بهذا السعر دون انتظار نهاية المزاد',
+                            'Optional: lets a buyer win immediately at this price',
+                          ),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.flash_on_outlined, color: Colors.amber),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          final clean = toLatinDigits(v).replaceAll(',', '').trim();
+                          final n = int.tryParse(clean);
+                          if (n == null || n <= 0) {
+                            return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Enter valid number > 0');
+                          }
+                          final startClean = toLatinDigits(priceCtrl.text).replaceAll(',', '').trim();
+                          final start = int.tryParse(startClean) ?? 0;
+                          if (start > 0 && n <= start) {
+                            return tr('يجب أن يكون سعر الشراء الفوري أعلى من سعر بداية المزاد',
+                                'Buy now price must be higher than start price');
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -1338,6 +1442,7 @@ class _AddItemPageState extends State<AddItemPage> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

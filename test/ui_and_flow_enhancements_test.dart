@@ -253,4 +253,43 @@ void main() {
       store.stopTimers();
     });
   });
+
+  group('10. Bottom Navigation Bar & Form Validation Tests', () {
+    testWidgets('Home page does not use floatingActionButton and has integrated Add Auction destination', (tester) async {
+      await tester.pumpWidget(const AuctionApp());
+      await tester.pumpAndSettle();
+
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(scaffold.floatingActionButton, isNull);
+
+      final navBar = find.byType(NavigationBar);
+      expect(navBar, findsOneWidget);
+      expect(find.text('أضف مزاداً'), findsOneWidget);
+      store.stopTimers();
+    });
+
+    testWidgets('Add item page strictly enforces all 5 mandatory fields before saving', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: AddItemPage()));
+      await tester.pumpAndSettle();
+
+      final initialItemsCount = store.items.length;
+
+      // Tap publish button without filling fields
+      final publishBtn = find.text('انشر وابدأ المزاد الآن');
+      expect(publishBtn, findsOneWidget);
+      await tester.ensureVisible(publishBtn);
+      await tester.tap(publishBtn);
+      await tester.pumpAndSettle();
+
+      // Ensure no item was created
+      expect(store.items.length, equals(initialItemsCount));
+
+      // Error messages for mandatory fields appear
+      expect(find.textContaining('يرجى إضافة صورة واحدة على الأقل'), findsOneWidget);
+      expect(find.textContaining('يرجى اختيار تصنيف السلعة'), findsOneWidget);
+      expect(find.textContaining('يرجى كتابة عنوان الإعلان'), findsWidgets);
+      expect(find.textContaining('يرجى كتابة تفاصيل ووصف السلعة'), findsWidgets);
+      expect(find.textContaining('يرجى إدخال سعر بداية المزاد'), findsWidgets);
+    });
+  });
 }
