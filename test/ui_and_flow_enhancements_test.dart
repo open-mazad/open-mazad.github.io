@@ -462,6 +462,9 @@ void main() {
     });
 
     testWidgets('ItemDetailsPage enforces PIN protection guard for non-owners', (tester) async {
+      store.unlockedPrivateItems.remove('pin_protected_item');
+      store.unlockedPrivateItems.remove(AuctionStore.itemToUuid('pin_protected_item'));
+
       final pinItem = Item(
         id: 'pin_protected_item',
         title: 'مزاد سري مقفل',

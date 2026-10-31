@@ -2656,14 +2656,31 @@ class AuctionStore extends ChangeNotifier {
       final client = supabaseClient;
       if (client != null) {
         final itemUuid = itemToUuid(itemId);
+        final itemKey = _normalizeItemKey(itemId);
         final myUuid = settings.userId ?? userToUuid(me);
         final otherUuid = userToUuid(otherParty);
+        // 1. تحديث جدول الرسائل
         await client
             .from('messages')
             .update({'is_read': true})
             .eq('item_id', itemUuid)
             .eq('receiver_id', myUuid)
             .eq('sender_id', otherUuid);
+
+        // 2. تحديث جدول أعضاء المحادثات المتطور (conversation_members)
+        final item = items.firstWhere(
+          (it) => it.id == itemId || itemToUuid(it.id) == itemUuid,
+          orElse: () => items.firstWhere((it) => it.id == itemKey, orElse: () => items.first),
+        );
+        final sellerUuid = userToUuid(item.seller);
+        final buyerUuid = (myUuid == sellerUuid) ? otherUuid : myUuid;
+        final convId = _toUuid('conv_${itemUuid}_$buyerUuid');
+
+        await client.from('conversation_members').upsert({
+          'conversation_id': convId,
+          'user_id': myUuid,
+          'last_read_at': toIsoUtc(DateTime.now()),
+        }, onConflict: 'conversation_id,user_id');
       }
     } catch (_) {}
   }
