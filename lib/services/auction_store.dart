@@ -415,23 +415,27 @@ class AuctionStore extends ChangeNotifier {
     final client = supabaseClient;
     if (client == null) return;
     try {
-      final isMeUser = userName == me;
+      final isMeUser = isUserMe(userName) || (settings.userId != null && userUuid == settings.userId);
+      if (!isMeUser) {
+        // لا نعدل بيانات المستخدمين الآخرين حتى لا نمسح معلوماتهم
+        return;
+      }
+      final myGov = settings.governorate.trim();
+      final myDist = settings.district.trim();
+      final govStr = myGov.isNotEmpty
+          ? (myDist.isNotEmpty ? '$myGov - $myDist' : myGov)
+          : 'بغداد';
+
       await client.from('profiles').upsert({
         'id': userUuid,
-        'phone': getUserPhone(userName),
-        'first_name': isMeUser && settings.firstName.trim().isNotEmpty
+        'phone': settings.phone.isNotEmpty ? settings.phone : getUserPhone(userName),
+        'first_name': settings.firstName.trim().isNotEmpty
             ? settings.firstName.trim()
             : userName,
-        'second_name': isMeUser && settings.secondName.trim().isNotEmpty
-            ? settings.secondName.trim()
-            : '-',
-        'third_name': isMeUser && settings.thirdName.trim().isNotEmpty
-            ? settings.thirdName.trim()
-            : '-',
-        'governorate': isMeUser && settings.governorate.trim().isNotEmpty
-            ? settings.governorate.trim()
-            : 'بغداد',
-        'photo_url': isMeUser ? settings.cloudPhotoUrl : null,
+        'second_name': settings.secondName.trim(),
+        'third_name': settings.thirdName.trim(),
+        'governorate': govStr,
+        'photo_url': settings.cloudPhotoUrl,
         'rating': double.parse(getUserRating(userName).toStringAsFixed(1)),
         'is_banned': bannedUsers.contains(userName),
       }, onConflict: 'id');
@@ -965,26 +969,28 @@ class AuctionStore extends ChangeNotifier {
 
       final profileRows = <Map<String, dynamic>>[];
       for (final u in usersSet) {
-        final isMeUser = u == me;
-        profileRows.add({
-          'id': userToUuid(u),
-          'phone': getUserPhone(u),
-          'first_name': isMeUser && settings.firstName.trim().isNotEmpty
-              ? settings.firstName.trim()
-              : u,
-          'second_name': isMeUser && settings.secondName.trim().isNotEmpty
-              ? settings.secondName.trim()
-              : '-',
-          'third_name': isMeUser && settings.thirdName.trim().isNotEmpty
-              ? settings.thirdName.trim()
-              : '-',
-          'governorate': isMeUser && settings.governorate.trim().isNotEmpty
-              ? settings.governorate.trim()
-              : 'بغداد',
-          'photo_url': isMeUser ? settings.cloudPhotoUrl : null,
-          'rating': double.parse(getUserRating(u).toStringAsFixed(1)),
-          'is_banned': bannedUsers.contains(u),
-        });
+        final uUuid = userToUuid(u);
+        final isMeUser = isUserMe(u) || (settings.userId != null && uUuid == settings.userId);
+        if (isMeUser) {
+          final myGov = settings.governorate.trim();
+          final myDist = settings.district.trim();
+          final govStr = myGov.isNotEmpty
+              ? (myDist.isNotEmpty ? '$myGov - $myDist' : myGov)
+              : 'بغداد';
+          profileRows.add({
+            'id': settings.userId ?? uUuid,
+            'phone': settings.phone.isNotEmpty ? settings.phone : getUserPhone(u),
+            'first_name': settings.firstName.trim().isNotEmpty
+                ? settings.firstName.trim()
+                : u,
+            'second_name': settings.secondName.trim(),
+            'third_name': settings.thirdName.trim(),
+            'governorate': govStr,
+            'photo_url': settings.cloudPhotoUrl,
+            'rating': double.parse(getUserRating(u).toStringAsFixed(1)),
+            'is_banned': bannedUsers.contains(u),
+          });
+        }
       }
 
       final (profCode, profBody) =

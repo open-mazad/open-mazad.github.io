@@ -361,7 +361,7 @@ class ProfileData {
   });
 
   String get fullName => [firstName, secondName, thirdName]
-      .where((s) => s.trim().isNotEmpty)
+      .where((s) => s.trim().isNotEmpty && s.trim() != '-')
       .join(' ');
 }
 
@@ -558,7 +558,7 @@ class SettingsStore extends ChangeNotifier {
   bool get isEn => false;
 
   String get fullName => [firstName, secondName, thirdName]
-      .where((s) => s.trim().isNotEmpty)
+      .where((s) => s.trim().isNotEmpty && s.trim() != '-')
       .join(' ');
 
   ProfileData get profileData =>
@@ -706,11 +706,13 @@ class SettingsStore extends ChangeNotifier {
         // حساب موجود مسبقاً: استرجاع البيانات المحفوظة
         userId = uid;
         phone = '${existing['phone'] ?? userIdentifier}';
-        firstName = '${existing['first_name'] ?? fName}';
-        secondName = '${existing['second_name'] ?? sName}';
-        final third = '${existing['third_name'] ?? tName}';
+        firstName = '${existing['first_name'] ?? fName}'.replaceAll('-', '').trim();
+        final second = '${existing['second_name'] ?? sName}'.trim();
+        secondName = second == '-' ? '' : second;
+        final third = '${existing['third_name'] ?? tName}'.trim();
         thirdName = third == '-' ? '' : third;
-        governorate = '${existing['governorate'] ?? 'بغداد'}';
+        final rawGov = '${existing['governorate'] ?? governorate}'.trim();
+        if (rawGov.isNotEmpty) governorate = rawGov;
         final (cleanPhoto, extractedHash) =
             unpackCloudPhotoUrl(existing['photo_url'] as String?);
         photoPath = cleanPhoto ?? (avatarUrl.isNotEmpty ? avatarUrl : null);
@@ -818,16 +820,17 @@ class SettingsStore extends ChangeNotifier {
       if (row != null) {
         userId = '${row['id'] ?? userId}';
         phone = '${row['phone'] ?? phone}';
-        firstName = '${row['first_name'] ?? firstName}';
-        secondName = '${row['second_name'] ?? secondName}';
-        final third = '${row['third_name'] ?? thirdName}';
+        firstName = '${row['first_name'] ?? firstName}'.replaceAll('-', '').trim();
+        final second = '${row['second_name'] ?? secondName}'.trim();
+        secondName = second == '-' ? '' : second;
+        final third = '${row['third_name'] ?? thirdName}'.trim();
         thirdName = third == '-' ? '' : third;
         final rawGov = '${row['governorate'] ?? governorate}'.trim();
         if (rawGov.contains(' - ')) {
           final parts = rawGov.split(' - ');
           governorate = parts[0].trim();
           district = parts.sublist(1).join(' - ').trim();
-        } else {
+        } else if (rawGov.isNotEmpty) {
           governorate = rawGov;
         }
         final (cleanPhoto, extractedHash) =
@@ -1437,9 +1440,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
   void initState() {
     super.initState();
     final i = widget.initial;
-    first = TextEditingController(text: i?.firstName ?? '');
-    second = TextEditingController(text: i?.secondName ?? '');
-    third = TextEditingController(text: i?.thirdName ?? '');
+    first = TextEditingController(text: (i?.firstName ?? '').replaceAll('-', '').trim());
+    second = TextEditingController(text: (i?.secondName ?? '').replaceAll('-', '').trim());
+    third = TextEditingController(text: (i?.thirdName ?? '').replaceAll('-', '').trim());
     governorate = i?.governorate ?? '';
     district = i?.district ?? '';
     if (governorate.isNotEmpty) {
