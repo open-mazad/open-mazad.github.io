@@ -292,4 +292,63 @@ void main() {
       expect(find.textContaining('يرجى إدخال سعر بداية المزاد'), findsWidgets);
     });
   });
+
+  group('11. Timing, Duration & Seller Actions / Buy Now Tests', () {
+    testWidgets('Seller menu contains only 3 actions: Edit, Accept, Delete', (tester) async {
+      final myItem = Item(
+        id: 'seller_test_item',
+        title: 'سلعة تجريبية',
+        description: 'وصف السلعة',
+        category: 'إلكترونيات وأجهزة',
+        seller: me,
+        startPrice: 10000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 10)),
+        endTime: DateTime.now().add(const Duration(hours: 2)),
+        buyNowPrice: 25000,
+      );
+      myItem.bids.add(Bid('مزايد_آخر', 12000, DateTime.now()));
+      store.items.insert(0, myItem);
+
+      await tester.pumpWidget(MaterialApp(home: ItemDetailsPage(item: myItem)));
+      await tester.pumpAndSettle();
+
+      // Open more options menu
+      final popupMenuFinder = find.byType(PopupMenuButton<String>);
+      expect(popupMenuFinder, findsOneWidget);
+      await tester.tap(popupMenuFinder);
+      await tester.pumpAndSettle();
+
+      // Exactly 3 seller options
+      expect(find.text('تعديل المزاد'), findsOneWidget);
+      expect(find.text('قبول أعلى مزايدة'), findsOneWidget);
+      expect(find.text('حذف السلعة'), findsOneWidget);
+      expect(find.textContaining('المصافحة'), findsNothing);
+      expect(find.textContaining('إطلاق'), findsNothing);
+
+      store.items.removeWhere((i) => i.id == 'seller_test_item');
+    });
+
+    test('buyNow completes instant purchase and closes auction', () {
+      final item = Item(
+        id: 'buy_now_item',
+        title: 'آيفون 15',
+        description: 'جديد',
+        category: 'إلكترونيات وأجهزة',
+        seller: 'بائع_آخر',
+        startPrice: 50000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 1)),
+        buyNowPrice: 80000,
+      );
+      store.items.insert(0, item);
+
+      final err = store.buyNow(item);
+      expect(err, isNull);
+      expect(item.currentPrice, equals(80000));
+      expect(item.highestBidder, equals(me));
+      expect(item.isEndedEarlyBySeller, isTrue);
+
+      store.items.removeWhere((i) => i.id == 'buy_now_item');
+    });
+  });
 }

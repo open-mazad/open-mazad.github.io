@@ -210,17 +210,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.handshake, color: Colors.green),
+            const Icon(Icons.check_circle_outline, color: Colors.green),
             const SizedBox(width: 8),
             Expanded(
                 child: Text(
-                    tr('إرساء المزاد والبيع الآن', 'Accept Highest Bid Now'))),
+                    tr('قبول أعلى مزايدة', 'Accept Highest Bid'))),
           ],
         ),
         content: Text(
           tr(
-            'هل توافق على إيقاف المزاد الآن وبيع "${item.title}" إلى أعلى مزايد حالي ($topBidder) بمبلغ $price؟\n\nسيُعتمد $topBidder فائزاً بالسلعة فوراً.',
-            'Stop auction now and sell "${item.title}" to highest bidder ($topBidder) for $price?',
+            'هل توافق على بيع "${item.title}" إلى صاحب أعلى مزايدة ($topBidder) بمبلغ $price؟\n\nسيُعتمد $topBidder فائزاً بالسلعة فوراً.',
+            'Accept highest bid of $price from $topBidder for "${item.title}"?',
           ),
         ),
         actions: [
@@ -234,7 +234,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.check_circle),
             label: Text(
-                tr('نعم، اعتمد البيع وأنهِ المزاد', 'Yes, Sell & End Auction')),
+                tr('قبول المزايدة واعتماد البيع', 'Accept Bid & Confirm Sale')),
           ),
         ],
       ),
@@ -244,7 +244,50 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       final err = store.endAuctionAndSellToHighest(item);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-            err ?? 'تم إنهاء المزاد وبيع السلعة إلى $topBidder بمبلغ $price ✅'),
+            err ?? 'تم قبول أعلى مزايدة وبيع السلعة إلى $topBidder بمبلغ $price ✅'),
+        backgroundColor: err == null ? Colors.green.shade700 : Colors.red,
+      ));
+    }
+  }
+
+  Future<void> confirmBuyNow(Item item) async {
+    if (item.buyNowPrice == null || item.buyNowPrice! <= 0) return;
+    final priceStr = formatPrice(item.buyNowPrice!);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.flash_on, color: Colors.amber),
+            const SizedBox(width: 8),
+            Expanded(child: Text(tr('تأكيد الشراء الفوري', 'Confirm Buy Now'))),
+          ],
+        ),
+        content: Text(
+          tr(
+            'هل أنت متأكد من رغبتك في شراء "${item.title}" فوراً بالسعر النهائي ($priceStr)؟\n\nسيتم حسم الصفقة وإقفال المزاد وتثبيت فوزك بالسلعة مباشرة.',
+            'Are you sure you want to buy "${item.title}" now for $priceStr? The auction will close and you will win immediately.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('إلغاء', 'Cancel')),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.amber.shade800),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.check_circle),
+            label: Text(tr('نعم، شراء فوري الآن ⚡', 'Yes, Buy Now ⚡')),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true && mounted) {
+      final err = store.buyNow(item);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(err ?? tr('تمت عملية الشراء الفوري وإقفال المزاد بنجاح 🎉', 'Buy Now completed successfully 🎉')),
         backgroundColor: err == null ? Colors.green.shade700 : Colors.red,
       ));
     }
@@ -672,32 +715,89 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isMeHighestBidder) ...[
+        // حاوية السعر النهائي / الشراء الفوري لحسم الصفقة مباشرة
+        if (item.buyNowPrice != null && item.buyNowPrice! > 0 && !item.isEnded) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade400),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.amber.shade900.withValues(alpha: 0.12),
+                  Colors.amber.shade700.withValues(alpha: 0.05),
+                ],
+                begin: AlignmentDirectional.topStart,
+                end: AlignmentDirectional.bottomEnd,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.amber.shade600, width: 1.5),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.workspace_premium, color: Colors.amber.shade900, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    tr(
-                      'أنت صاحب أعلى مزايدة حالياً 🥇. لا يمكنك المزايدة مجدداً إلا بعد قيام طرف آخر برفع السعر وتجاوز مزايدتك لمنع التكرار.',
-                      'You are currently the highest bidder 🥇. You cannot bid again until another bidder outbids you.',
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade700,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.flash_on, color: Colors.white, size: 18),
                     ),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber.shade900,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tr('السعر النهائي / الشراء الفوري', 'Buy Now / Final Price'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          Text(
+                            tr('حسم الصفقة وإقفال المزاد مباشرة دون انتظار', 'Settle immediately without waiting'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      formatPrice(item.buyNowPrice!),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                if (item.seller != me && !item.isEnded && !item.isScheduled) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.amber.shade800,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => confirmBuyNow(item),
+                      icon: const Icon(Icons.flash_on, size: 18),
+                      label: Text(
+                        tr('حسم الصفقة وشراء فوري الآن ⚡', 'Buy Now & Settle Deal Now ⚡'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -842,43 +942,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         ],
                       ),
                     ),
-                  if (item.seller == me && item.isScheduled)
-                    PopupMenuItem(
-                      value: 'launch',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.rocket_launch, size: 20, color: Colors.teal),
-                          const SizedBox(width: 10),
-                          Text(
-                            tr('إطلاق وبدء المزاد الآن 🚀', 'Launch Auction Now 🚀'),
-                            style: const TextStyle(color: Colors.teal),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (item.seller == me && item.bids.isNotEmpty && !item.isEnded)
                     PopupMenuItem(
                       value: 'accept',
                       child: Row(
                         children: [
-                          const Icon(Icons.handshake, size: 20, color: Colors.green),
+                          const Icon(Icons.check_circle_outline, size: 20, color: Colors.green),
                           const SizedBox(width: 10),
                           Text(
-                            tr('قبول أعلى مزايدة وإنهاء المزاد 🤝',
-                                'Accept Top Bid & End 🤝'),
+                            tr('قبول أعلى مزايدة', 'Accept Highest Bid'),
                             style: const TextStyle(color: Colors.green),
                           ),
-                        ],
-                      ),
-                    ),
-                  if (item.seller != me)
-                    PopupMenuItem(
-                      value: 'report',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.flag_outlined, size: 20, color: Colors.redAccent),
-                          const SizedBox(width: 10),
-                          Text(tr('إبلاغ عن مخالفة', 'Report Issue')),
                         ],
                       ),
                     ),
@@ -893,6 +967,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                             tr('حذف السلعة', 'Delete Item'),
                             style: const TextStyle(color: Colors.red),
                           ),
+                        ],
+                      ),
+                    ),
+                  if (item.seller != me)
+                    PopupMenuItem(
+                      value: 'report',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.flag_outlined, size: 20, color: Colors.redAccent),
+                          const SizedBox(width: 10),
+                          Text(tr('إبلاغ عن مخالفة', 'Report Issue')),
                         ],
                       ),
                     ),
@@ -945,24 +1030,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                               ),
                             ],
                           ),
-                          if (item.buyNowPrice != null && item.buyNowPrice! > 0) ...[
-                            const Divider(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.flash_on, color: Colors.green, size: 20),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${tr("سعر الشراء الفوري (السعر النهائي):", "Buy Now (Final Price):")} ${formatPrice(item.buyNowPrice!)}',
-                                  style: const TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
                     ),

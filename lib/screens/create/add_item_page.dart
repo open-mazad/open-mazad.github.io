@@ -28,8 +28,9 @@ class _AddItemPageState extends State<AddItemPage> {
   String location = governorates.first;
   String district = 'المركز';
   String deliveryMethod = deliveryMethods.first;
-  int durationIndex = 3;
-  int scheduleDelayIndex = 0; // 0: يبدأ فوراً, 1: بعد دقيقتين, 2: بعد ساعة, 3: غداً
+  int scheduleDelayHours = 0; // 0: يبدأ فوراً (الآن)
+  int durationDays = 1; // 0 إلى 7 أيام
+  int durationHours = 0; // 0 إلى 23 ساعة
   bool isPrivateAuction = false;
 
   final List<XFile> pickedImages = [];
@@ -42,7 +43,6 @@ class _AddItemPageState extends State<AddItemPage> {
   bool _hasTitleError = false;
   bool _hasDescError = false;
   bool _hasPriceError = false;
-  bool _showTopErrorBanner = false;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _imagesSectionKey = GlobalKey();
@@ -51,41 +51,24 @@ class _AddItemPageState extends State<AddItemPage> {
   final GlobalKey _descSectionKey = GlobalKey();
   final GlobalKey _priceSectionKey = GlobalKey();
 
-  DateTime? _lastWarningBannerTime;
-  static const Duration _bannerCooldown = Duration(seconds: 5);
-
   bool get isEditing => widget.itemToEdit != null;
   /// المزاد المنشور (سواء كان جارياً أو مجدولاً): قفل الحقول الحساسة مع السماح بإضافة صور جديدة وتعديل العنوان والفئة
   bool get isPublished => isEditing;
 
-  static const durationLabels = [
-    'دقيقتان (للتجربة)',
-    'ساعة',
-    '6 ساعات',
-    'يوم',
-    '3 أيام',
-    'أسبوع',
-  ];
-  static const durationValues = [
-    Duration(minutes: 2),
-    Duration(hours: 1),
-    Duration(hours: 6),
-    Duration(days: 1),
-    Duration(days: 3),
-    Duration(days: 7),
-  ];
-
-  static const scheduleLabels = [
-    'يبدأ فوراً (الآن)',
-    'بعد دقيقتين (للتجربة)',
-    'بعد ساعة',
-    'غداً',
-  ];
-  static const scheduleValues = [
-    Duration.zero,
-    Duration(minutes: 2),
-    Duration(hours: 1),
-    Duration(days: 1),
+  static const List<MapEntry<int, String>> scheduleOptions = [
+    MapEntry(0, 'يبدأ فوراً (الآن) ⚡'),
+    MapEntry(1, 'بعد ساعة واحدة'),
+    MapEntry(2, 'بعد ساعتين'),
+    MapEntry(4, 'بعد 4 ساعات'),
+    MapEntry(6, 'بعد 6 ساعات'),
+    MapEntry(12, 'بعد 12 ساعة'),
+    MapEntry(24, 'غداً (بعد 24 ساعة)'),
+    MapEntry(48, 'بعد يومين (48 ساعة)'),
+    MapEntry(72, 'بعد 3 أيام'),
+    MapEntry(96, 'بعد 4 أيام'),
+    MapEntry(120, 'بعد 5 أيام'),
+    MapEntry(144, 'بعد 6 أيام'),
+    MapEntry(168, 'بعد أسبوع (7 أيام - الحد الأقصى)'),
   ];
 
   @override
@@ -386,12 +369,11 @@ class _AddItemPageState extends State<AddItemPage> {
       _hasTitleError = !hasTitle;
       _hasDescError = !hasDesc;
       _hasPriceError = !hasPrice;
-      _showTopErrorBanner = !hasImg || !hasCategory || !hasTitle || !hasDesc || !hasPrice;
     });
 
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid || !hasImg || !hasCategory || !hasTitle || !hasDesc || !hasPrice) {
-      // 1. التمرير السلس لنقل التركيز إلى أول حقل غير مستوفٍ للشروط
+      // التمرير السلس لنقل التركيز إلى أول حقل غير مستوفٍ للشروط
       if (!hasImg) {
         _scrollToFirstError(_imagesSectionKey);
       } else if (!hasCategory) {
@@ -402,35 +384,6 @@ class _AddItemPageState extends State<AddItemPage> {
         _scrollToFirstError(_descSectionKey);
       } else if (!hasPrice) {
         _scrollToFirstError(_priceSectionKey);
-      }
-
-      // 2. إظهار الإشعار العام مع تفعيل فاصل زمني (Cooldown/Throttle 5 ثوانٍ) لمنع التكرار
-      final now = DateTime.now();
-      if (_lastWarningBannerTime == null || now.difference(_lastWarningBannerTime!) >= _bannerCooldown) {
-        _lastWarningBannerTime = now;
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    tr(
-                      'يرجى استيفاء كافة الحقول المطلوبة المحددة باللون الأحمر ⚠️',
-                      'Please complete all required fields in red ⚠️',
-                    ),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
       }
       return;
     }
@@ -483,13 +436,20 @@ class _AddItemPageState extends State<AddItemPage> {
       );
     } else {
       // إضافة إعلان جديد
+      final calculatedDuration = Duration(days: durationDays, hours: durationHours);
+      final finalDuration = calculatedDuration < const Duration(hours: 1)
+          ? const Duration(hours: 1)
+          : (calculatedDuration > const Duration(days: 7)
+              ? const Duration(days: 7)
+              : calculatedDuration);
+
       store.addItem(
         title: titleCtrl.text.trim(),
         description: descCtrl.text.trim(),
         category: category,
         startPrice: startPrice,
-        duration: durationValues[durationIndex],
-        startDelay: scheduleValues[scheduleDelayIndex],
+        duration: finalDuration,
+        startDelay: Duration(hours: scheduleDelayHours),
         condition: condition,
         location: location,
         area: district.isNotEmpty ? district : (areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim()),
@@ -504,7 +464,7 @@ class _AddItemPageState extends State<AddItemPage> {
       nav.pop();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(scheduleDelayIndex == 0
+          content: Text(scheduleDelayHours == 0
               ? tr('تمت إضافة السلعة وبدأ المزاد بنجاح ✅',
                   'Auction listed and started ✅')
               : tr('تمت جدولة المزاد في قسم "قريباً" بنجاح ⏳',
@@ -537,38 +497,6 @@ class _AddItemPageState extends State<AddItemPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // إشعار التحقق العام بأعلى الصفحة عند وجود أخطاء
-                  if (_showTopErrorBanner) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.red.shade600, width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 24),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              tr(
-                                'يرجى استيفاء كافة الحقول الإلزامية المحددة باللون الأحمر أدناه قبل النشر ⚠️',
-                                'Please complete all required fields in red below before publishing ⚠️',
-                              ),
-                              style: TextStyle(
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
                   // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
                   if (isEditing) ...[
                     Container(
@@ -1325,44 +1253,128 @@ class _AddItemPageState extends State<AddItemPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            tr('موعد انطلاق المزاد', 'Auction Start Time'),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
+                          Row(
                             children: [
-                              for (var i = 0; i < scheduleLabels.length; i++)
-                                ChoiceChip(
-                                  avatar: Icon(
-                                    i == 0 ? Icons.bolt : Icons.schedule,
-                                    size: 16,
+                              const Icon(Icons.schedule, color: Colors.indigo, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                tr('موعد انطلاق المزاد', 'Auction Start Time'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<int>(
+                            initialValue: scheduleDelayHours,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: tr('جدولة انطلاق المزاد', 'Schedule Start Time'),
+                              border: const OutlineInputBorder(),
+                              prefixIcon: Icon(
+                                scheduleDelayHours == 0 ? Icons.bolt : Icons.calendar_today_outlined,
+                                color: scheduleDelayHours == 0 ? Colors.amber.shade800 : Colors.indigo,
+                              ),
+                            ),
+                            items: scheduleOptions
+                                .map((opt) => DropdownMenuItem<int>(
+                                      value: opt.key,
+                                      child: Text(opt.value),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => scheduleDelayHours = val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              const Icon(Icons.timelapse, color: Colors.indigo, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  tr('مدة المزاد (ساعات وأيام - الحد الأقصى 7 أيام)', 'Duration (Hours & Days - Max 7 days)'),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<int>(
+                                  initialValue: durationDays,
+                                  decoration: InputDecoration(
+                                    labelText: tr('الأيام *', 'Days *'),
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.calendar_month_outlined),
                                   ),
-                                  label: Text(scheduleLabels[i]),
-                                  selected: scheduleDelayIndex == i,
-                                  onSelected: (_) => setState(() => scheduleDelayIndex = i),
+                                  items: List.generate(8, (d) => d)
+                                      .map((d) => DropdownMenuItem<int>(
+                                            value: d,
+                                            child: Text('$d ${d == 1 ? tr("يوم", "day") : (d == 2 ? tr("يومان", "2 days") : (d > 2 && d < 11 ? tr("أيام", "days") : tr("يوم", "day")))}'),
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        durationDays = val;
+                                        if (durationDays == 7) {
+                                          durationHours = 0; // الحد الأقصى 7 أيام
+                                        } else if (durationDays == 0 && durationHours == 0) {
+                                          durationHours = 1; // حد أدنى ساعة واحدة
+                                        }
+                                      });
+                                    }
+                                  },
                                 ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<int>(
+                                  initialValue: durationHours,
+                                  decoration: InputDecoration(
+                                    labelText: tr('الساعات *', 'Hours *'),
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.access_time),
+                                  ),
+                                  items: (durationDays == 7
+                                          ? [0]
+                                          : [0, 1, 2, 3, 4, 6, 8, 12, 18, 23])
+                                      .map((h) => DropdownMenuItem<int>(
+                                            value: h,
+                                            child: Text('$h ${h == 1 ? tr("ساعة", "hour") : (h == 2 ? tr("ساعتان", "2 hours") : (h > 2 && h < 11 ? tr("ساعات", "hours") : tr("ساعة", "hour")))}'),
+                                          ))
+                                      .toList(),
+                                  onChanged: durationDays == 7
+                                      ? null
+                                      : (val) {
+                                          if (val != null) {
+                                            setState(() {
+                                              durationHours = val;
+                                              if (durationDays == 0 && durationHours == 0) {
+                                                durationHours = 1;
+                                              }
+                                            });
+                                          }
+                                        },
+                                ),
+                              ),
                             ],
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            tr('مدة المزاد', 'Auction Duration'),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              for (var i = 0; i < durationLabels.length; i++)
-                                ChoiceChip(
-                                  label: Text(durationLabels[i]),
-                                  selected: durationIndex == i,
-                                  onSelected: (_) => setState(() => durationIndex = i),
-                                ),
-                            ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${tr("إجمالي مدة المزاد المحسوبة:", "Total Duration:")} $durationDays ${tr("يوم", "days")} ${tr("و", "and")} $durationHours ${tr("ساعة", "hours")} ${tr("(الحد الأقصى 7 أيام)", "(Max 7 days)")}',
+                              style: const TextStyle(fontSize: 12, color: Colors.indigo, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),
@@ -1430,7 +1442,7 @@ class _AddItemPageState extends State<AddItemPage> {
                   label: Text(
                     isEditing
                         ? tr('حفظ تعديلات المزاد', 'Save Auction Changes')
-                        : scheduleDelayIndex == 0
+                        : scheduleDelayHours == 0
                             ? tr('انشر وابدأ المزاد الآن', 'Publish & Start Auction')
                             : tr('جدولة المزاد في قسم "قريباً" ⏳', 'Schedule Auction ⏳'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

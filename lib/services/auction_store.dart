@@ -456,6 +456,8 @@ class AuctionStore extends ChangeNotifier {
         ...item.attributes,
         '_area': item.area,
         '_live': item.isLiveStreaming ? '1' : '0',
+        if (item.buyNowPrice != null && item.buyNowPrice! > 0)
+          '_buy_now_price': '${item.buyNowPrice}',
       };
       await client.from('items').upsert({
         'id': itemUuid,
@@ -658,6 +660,8 @@ class AuctionStore extends ChangeNotifier {
         isEndedEarlyBySeller: row['is_ended_early'] as bool? ?? false,
         isCancelled: row['is_cancelled'] as bool? ?? false,
         isLiveStreaming: isLive,
+        buyNowPrice: (row['buy_now_price'] as num?)?.toInt() ??
+            int.tryParse(rawAttrs['_buy_now_price'] ?? ''),
       );
 
       if (existingBids.containsKey(itemId)) {
@@ -1248,6 +1252,8 @@ class AuctionStore extends ChangeNotifier {
             isEndedEarlyBySeller: row['is_ended_early'] as bool? ?? false,
             isCancelled: row['is_cancelled'] as bool? ?? false,
             isLiveStreaming: isLive,
+            buyNowPrice: (row['buy_now_price'] as num?)?.toInt() ??
+                int.tryParse(rawAttrs['_buy_now_price'] ?? ''),
           );
           loadedItems.add(item);
           byId[itemId] = item;
@@ -1793,6 +1799,39 @@ class AuctionStore extends ChangeNotifier {
     return null;
   }
 
+  /// الشراء الفوري وحسم الصفقة بالسعر النهائي المحدد من البائع
+  String? buyNow(Item item) {
+    if (item.seller == me) {
+      return tr('لا يمكنك شراء سلعتك الخاصة', 'Cannot buy your own item');
+    }
+    if (item.isEnded) return tr('انتهى هذا المزاد بالفعل', 'Already ended');
+    if (item.buyNowPrice == null || item.buyNowPrice! <= 0) {
+      return tr('لم يتم تعيين خيار الشراء الفوري لهذا المزاد', 'Buy now not available');
+    }
+
+    final price = item.buyNowPrice!;
+    item.bids.insert(0, Bid(me, price, DateTime.now()));
+    item.isEndedEarlyBySeller = true;
+    item.isLiveStreaming = false;
+    item.endTime = DateTime.now();
+    item.autoBids.clear();
+
+    _pushNotification(
+      title: tr('⚡ تم حسم المزاد بالشراء الفوري!', '⚡ Auction Won via Buy Now!'),
+      body: tr(
+        'تم شراء "${item.title}" فوراً بواسطة $me بسعر الشراء الفوري ${formatPrice(price)}.',
+        'Bought "${item.title}" instantly by $me for ${formatPrice(price)}.',
+      ),
+      icon: Icons.flash_on,
+      color: Colors.amber,
+      itemId: item.id,
+    );
+
+    _persistAndSync();
+    _updateItemStatusInCloud(item);
+    return null;
+  }
+
   /// إلغاء المزاد من قِبل البائع دون بيع السلعة
   String? cancelAuction(Item item) {
     if (item.seller != me) {
@@ -1899,10 +1938,13 @@ class AuctionStore extends ChangeNotifier {
         final client = supabaseClient;
         if (client != null) {
           final itemUuid = itemToUuid(item.id);
+          final finalBuyPrice = buyNowPrice ?? item.buyNowPrice;
           final attrsWithMeta = <String, String>{
             ...(attributes ?? item.attributes),
             '_area': (area != null && area.isNotEmpty) ? area : item.area,
             '_live': item.isLiveStreaming ? '1' : '0',
+            if (finalBuyPrice != null && finalBuyPrice > 0)
+              '_buy_now_price': '$finalBuyPrice',
           };
           await client.from('items').update({
             'title': title.isNotEmpty ? title : item.title,
@@ -1958,6 +2000,7 @@ class AuctionStore extends ChangeNotifier {
         videoPath: current.videoPath,
         attributes: current.attributes,
         pinCode: current.pinCode,
+        buyNowPrice: current.buyNowPrice,
         isEndedEarlyBySeller: current.isEndedEarlyBySeller,
         isCancelled: current.isCancelled,
         isLiveStreaming: current.isLiveStreaming,
@@ -2904,6 +2947,8 @@ class AuctionStore extends ChangeNotifier {
         ...item.attributes,
         '_area': item.area,
         '_live': item.isLiveStreaming ? '1' : '0',
+        if (item.buyNowPrice != null && item.buyNowPrice! > 0)
+          '_buy_now_price': '${item.buyNowPrice}',
       };
       final client = supabaseClient;
       if (client != null) {
