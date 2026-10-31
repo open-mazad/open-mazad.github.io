@@ -831,30 +831,17 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   }
                 },
                 itemBuilder: (context) => [
-                  if (item.seller == me && !item.isEnded) ...[
-                    if (item.isScheduled)
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.edit_outlined, size: 20),
-                            const SizedBox(width: 10),
-                            Text(tr('تعديل كامل تفاصيل الإعلان', 'Edit Full Listing')),
-                          ],
-                        ),
-                      )
-                    else
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.note_add_outlined, size: 20, color: Colors.indigo),
-                            const SizedBox(width: 10),
-                            Text(tr('إضافة معلومات للمزاد ➕', 'Add Info to Listing ➕')),
-                          ],
-                        ),
+                  if (item.seller == me && !item.isEnded)
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit, size: 20, color: Colors.indigo),
+                          const SizedBox(width: 10),
+                          Text(tr('تعديل المزاد', 'Edit Auction')),
+                        ],
                       ),
-                  ],
+                    ),
                   if (item.seller == me && item.isScheduled)
                     PopupMenuItem(
                       value: 'launch',

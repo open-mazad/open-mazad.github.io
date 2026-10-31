@@ -871,12 +871,44 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-        floatingActionButton: null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: Container(
+          margin: const EdgeInsets.only(top: 24),
+          child: SizedBox(
+            width: 62,
+            height: 62,
+            child: FittedBox(
+              child: FloatingActionButton(
+                elevation: 4,
+                shape: const CircleBorder(),
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                foregroundColor: Colors.redAccent.shade700,
+                onPressed: () {
+                  if (!settings.isLoggedIn) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(tr('سجّل الدخول أولاً من الإعدادات',
+                            'Sign in from Settings first'))));
+                    setState(() => tab = 4);
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddItemPage()),
+                  );
+                },
+                child: const Icon(
+                  Icons.add,
+                  size: 34,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ),
+          ),
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) {
             if (i == 2) {
-              // عنصر أضف مزاداً في شريط التنقل
               if (!settings.isLoggedIn) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(tr('سجّل الدخول أولاً من الإعدادات',
@@ -915,9 +947,9 @@ class _HomePageState extends State<HomePage> {
               label: tr('الرسائل', 'Messages'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.add_circle_outline),
-              selectedIcon: const Icon(Icons.add_circle),
-              label: tr('أضف مزاداً', 'List Auction'),
+              icon: const SizedBox(height: 28),
+              selectedIcon: const SizedBox(height: 28),
+              label: tr('أضف مزاداً', 'Add Auction'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.gavel_outlined),

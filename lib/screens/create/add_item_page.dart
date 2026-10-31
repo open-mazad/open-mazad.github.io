@@ -40,6 +40,16 @@ class _AddItemPageState extends State<AddItemPage> {
   bool _hasImageError = false;
   bool _hasCategoryError = false;
 
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _imagesSectionKey = GlobalKey();
+  final GlobalKey _categorySectionKey = GlobalKey();
+  final GlobalKey _titleSectionKey = GlobalKey();
+  final GlobalKey _descSectionKey = GlobalKey();
+  final GlobalKey _priceSectionKey = GlobalKey();
+
+  DateTime? _lastWarningBannerTime;
+  static const Duration _bannerCooldown = Duration(seconds: 5);
+
   bool get isEditing => widget.itemToEdit != null;
   /// المزاد المنشور (سواء كان جارياً أو مجدولاً): قفل الحقول الحساسة مع السماح بإضافة صور جديدة وتعديل العنوان والفئة
   bool get isPublished => isEditing;
@@ -127,6 +137,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     titleCtrl.dispose();
     descCtrl.dispose();
     priceCtrl.dispose();
@@ -138,6 +149,20 @@ class _AddItemPageState extends State<AddItemPage> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _scrollToFirstError(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = key.currentContext;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOutCubic,
+          alignment: 0.1,
+        );
+      }
+    });
   }
 
   Future<void> pickMultipleImages() async {
@@ -333,13 +358,52 @@ class _AddItemPageState extends State<AddItemPage> {
 
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid || !hasImg || !hasCategory) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(tr(
-            'يرجى استيفاء كافة الحقول المطلوبة المحددة باللون الأحمر ⚠️',
-            'Please complete all required fields in red ⚠️')),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+      // 1. التمرير السلس لنقل التركيز إلى أول حقل غير مستوفٍ للشروط
+      if (!hasImg) {
+        _scrollToFirstError(_imagesSectionKey);
+      } else if (!hasCategory) {
+        _scrollToFirstError(_categorySectionKey);
+      } else if (titleCtrl.text.trim().isEmpty) {
+        _scrollToFirstError(_titleSectionKey);
+      } else if (descCtrl.text.trim().isEmpty) {
+        _scrollToFirstError(_descSectionKey);
+      } else if (priceCtrl.text.trim().isEmpty || (int.tryParse(toLatinDigits(priceCtrl.text).replaceAll(',', '').trim()) ?? 0) <= 0) {
+        _scrollToFirstError(_priceSectionKey);
+      }
+
+      // 2. إظهار الإشعار العام بأعلى الشاشة حصراً مع تفعيل فاصل زمني (Cooldown/Throttle 5 ثوانٍ) لمنع التكرار
+      final now = DateTime.now();
+      if (_lastWarningBannerTime == null || now.difference(_lastWarningBannerTime!) >= _bannerCooldown) {
+        _lastWarningBannerTime = now;
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    tr(
+                      'يرجى استيفاء كافة الحقول المطلوبة المحددة باللون الأحمر ⚠️',
+                      'Please complete all required fields in red ⚠️',
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height - 130,
+              right: 16,
+              left: 16,
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
       return;
     }
 
@@ -364,8 +428,8 @@ class _AddItemPageState extends State<AddItemPage> {
     }
 
     if (isEditing) {
-      // تعديل المزاد: الحقول القابلة للتعديل هي (الصور الإضافية حتى 12، الفئة، وعنوان الإعلان)
-      // والحقول المقفلة تبقى كما هي دون تغيير
+      // تعديل المزاد: الحقول القابلة للتعديل هي (الصور الإضافية حتى 12، عنوان الإعلان، وإدارة الغرفة المقفولة PIN)
+      // والحقول المقفلة تشغيلياً (الفئة، الوصف، السعر، الموقع، خيارات التسليم) تبقى ثابتة
       final originalItem = widget.itemToEdit!;
       await store.updateItemDetails(
         item: originalItem,
@@ -374,12 +438,12 @@ class _AddItemPageState extends State<AddItemPage> {
         startPrice: originalItem.startPrice,
         location: originalItem.location,
         condition: originalItem.condition,
-        category: category,
+        category: originalItem.category,
         area: originalItem.area,
         deliveryMethod: originalItem.deliveryMethod,
         imagePaths: portableImages,
         attributes: originalItem.attributes,
-        pinCode: originalItem.pinCode,
+        pinCode: isPrivateAuction ? pinCtrl.text.trim() : null,
         buyNowPrice: originalItem.buyNowPrice,
       );
 
@@ -432,9 +496,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing
-            ? tr('تعديل المزاد', 'Edit Auction')
-            : tr('إضافة إعلان مزاد جديد', 'Create New Auction')),
+        title: Text(tr('المزاد المفتوح', 'Open Mazad')),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -445,6 +507,7 @@ class _AddItemPageState extends State<AddItemPage> {
                 ? AutovalidateMode.onUserInteraction
                 : AutovalidateMode.disabled,
             child: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               children: [
                 // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
@@ -477,8 +540,8 @@ class _AddItemPageState extends State<AddItemPage> {
                               const SizedBox(height: 4),
                               Text(
                                 tr(
-                                  'لحماية حقوق ومصداقية المزايدات: يمكنك إضافة صور جديدة (حتى 12 صورة) وتعديل تصنيف الفئة وعنوان الإعلان فقط، مع قفل باقي الحقول كالسعر والموقع والوصف.',
-                                  'You can add new photos (up to 12), update category and title only. Core fields remain locked.',
+                                  'لحماية حقوق ومصداقية المزايدات: يمكنك إضافة صور جديدة (حتى 12 صورة)، تعديل عنوان الإعلان، وإدارة رمز الدخول السري (PIN)، مع قفل باقي الحقول كالسعر والموقع وتصنيف الفئة.',
+                                  'You can add new photos (up to 12), update title, and manage PIN room. Core fields and category remain locked.',
                                 ),
                                 style: TextStyle(fontSize: 12, height: 1.4, color: Colors.blue.shade900),
                               ),
@@ -492,6 +555,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
                 // 1. قسم صور السلعة في الأعلى مع حد بصري فاصل تحته
                 Container(
+                  key: _imagesSectionKey,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -645,126 +709,157 @@ class _AddItemPageState extends State<AddItemPage> {
                 const SizedBox(height: 12),
 
                 // 2. اختيار الفئة عبر نافذة منبثقة (Popup / Modal)
-                Text(
-                  tr('تصنيف الفئة *', 'Category *'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: _hasCategoryError ? Colors.red.shade700 : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => _showCategoryPickerModal(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
+                Container(
+                  key: _categorySectionKey,
+                  decoration: BoxDecoration(
+                    color: isEditing
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15)
+                        : (_hasCategoryError
+                            ? Colors.red.withValues(alpha: 0.05)
+                            : Theme.of(context).colorScheme.surfaceContainerLow),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
                       color: _hasCategoryError
-                          ? Colors.red.withValues(alpha: 0.05)
-                          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _hasCategoryError
-                            ? Colors.red.shade600
-                            : (category.isEmpty ? Colors.grey.shade400 : Colors.indigo.withValues(alpha: 0.3)),
-                        width: _hasCategoryError ? 1.5 : 1,
-                      ),
+                          ? Colors.red.shade600
+                          : Theme.of(context).colorScheme.outlineVariant,
+                      width: _hasCategoryError ? 1.5 : 1,
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: _hasCategoryError
-                                ? Colors.red.withValues(alpha: 0.1)
-                                : (category.isEmpty ? Colors.grey.withValues(alpha: 0.1) : Colors.indigo.withValues(alpha: 0.1)),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            category.isEmpty ? Icons.category_outlined : categoryIcon(category),
-                            color: _hasCategoryError ? Colors.red.shade700 : (category.isEmpty ? Colors.grey.shade700 : Colors.indigo),
-                            size: 22,
-                          ),
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('تصنيف الفئة *', 'Category *'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _hasCategoryError ? Colors.red.shade700 : null,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: isEditing ? null : () => _showCategoryPickerModal(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isEditing
+                                ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: category.isEmpty ? Colors.grey.shade400 : Colors.indigo.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
                             children: [
-                              Text(
-                                category.isEmpty
-                                    ? tr('تصنيف السلعة', 'Item Category')
-                                    : tr('الفئة المحددة', 'Selected Category'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: category.isEmpty ? Colors.grey.withValues(alpha: 0.1) : Colors.indigo.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  category.isEmpty ? Icons.category_outlined : categoryIcon(category),
+                                  color: category.isEmpty ? Colors.grey.shade700 : Colors.indigo,
+                                  size: 22,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                category.isEmpty ? tr('اختر التصنيف', 'Select Category') : category,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: category.isEmpty ? FontWeight.normal : FontWeight.bold,
-                                  color: category.isEmpty
-                                      ? (_hasCategoryError ? Colors.red.shade700 : Colors.grey.shade600)
-                                      : Colors.indigo,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      category.isEmpty
+                                          ? tr('تصنيف السلعة', 'Item Category')
+                                          : tr('الفئة المحددة', 'Selected Category'),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      category.isEmpty ? tr('اختر التصنيف', 'Select Category') : category,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: category.isEmpty ? FontWeight.normal : FontWeight.bold,
+                                        color: category.isEmpty
+                                            ? Colors.grey.shade600
+                                            : Colors.indigo,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              if (isEditing)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.lock_outline, size: 14, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        tr('مقفول', 'Locked'),
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: category.isEmpty ? Colors.grey.withValues(alpha: 0.15) : Colors.indigo.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        category.isEmpty ? tr('اختر', 'Choose') : tr('تغيير التصنيف', 'Change'),
+                                        style: TextStyle(
+                                          color: category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.keyboard_arrow_down,
+                                        size: 18,
+                                        color: category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        if (!isPublished) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _hasCategoryError
-                                  ? Colors.red.shade50
-                                  : (category.isEmpty ? Colors.grey.withValues(alpha: 0.15) : Colors.indigo.shade50),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  category.isEmpty ? tr('اختر', 'Choose') : tr('تغيير التصنيف', 'Change'),
-                                  style: TextStyle(
-                                    color: _hasCategoryError
-                                        ? Colors.red.shade800
-                                        : (category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 18,
-                                  color: _hasCategoryError
-                                      ? Colors.red.shade800
-                                      : (category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      ),
+                      if (_hasCategoryError) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          tr('يرجى اختيار تصنيف السلعة قبل النشر *', 'Please select a category before publishing *'),
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-                if (_hasCategoryError)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, right: 8, left: 8),
-                    child: Text(
-                      tr('يرجى اختيار تصنيف السلعة قبل النشر *', 'Please select a category before publishing *'),
-                      style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
                 const SizedBox(height: 16),
 
                 // 3. كتلة عنوان الإعلان
                 Card(
+                  key: _titleSectionKey,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -800,6 +895,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
                 // 4. كتلة التفاصيل والوصف + الحقول الذكية المرتبطة بالفئة
                 Card(
+                  key: _descSectionKey,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -881,6 +977,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
                 // 5. كتلة السعر
                 Card(
+                  key: _priceSectionKey,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1194,14 +1291,14 @@ class _AddItemPageState extends State<AddItemPage> {
                             style: const TextStyle(fontSize: 12),
                           ),
                           value: isPrivateAuction,
-                          onChanged: isPublished ? null : (v) => setState(() => isPrivateAuction = v),
+                          onChanged: (v) => setState(() => isPrivateAuction = v),
                         ),
                         if (isPrivateAuction)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                             child: TextFormField(
                               controller: pinCtrl,
-                              enabled: !isPublished,
+                              enabled: true, // إمكانية تعيين وتغيير رمز PIN حتى عند تعديل المزاد
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: tr('رمز الدخول السري (PIN Code) *', 'PIN Code *'),
