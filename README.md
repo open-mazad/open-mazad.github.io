@@ -1,17 +1,31 @@
-# muzaid
+# منصة «المزاد المفتوح» (Open Mazad) 🔨
 
-A new Flutter project.
+منصة مزادات وتجارة إلكترونية فورية تفاعلية مطورة باستخدام **Flutter** وتعمل مباشرة عبر الويب وتطبيقات الأجهزة الذكية، مدعومة بقاعدة بيانات سحابية لحظية عبر **Supabase**.
 
-## Getting Started
+- **رابط المنصة الحي على الويب:** [https://open-mazad.github.io](https://open-mazad.github.io)
+- **ملف التوثيق الشامل وسجل المعرفة:** يرجى الاطلاع على [PROJECT_KNOWLEDGE.md](PROJECT_KNOWLEDGE.md) للحصول على التفاصيل المعمارية، بنية الملفات، ونظام المحادثات والمزامنة.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🌟 المزايا الأساسية
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+* **مزادات حية وتنافس فوري:** مزامنة لحظية لقيم المزايدات والعد التنازلي.
+* **نظام رسائل ومحادثات متطور:** محادثات مباشرة بين البائع والمشتري مع دعم مشاركة الصور، الفيديو، بطاقات الإعلانات، المواقع عبر GPS، وجهات الاتصال، ومكالمات صوتية داخل التطبيق.
+* **معالجة صور ذكية:** دعم الصور عالية الدقة (Base64 و Web Blobs) وتكبير بملء الشاشة.
+* **واجهة هرمية احترافية:** ترتيب بطاقات تفاصيل المزاد بتركيز عالي على السعر، الوقت المتبقي، والتفاعل المباشر.
+* **دعم ثنائي اللغة والتخزين المحلي:** واجهة عربية أصيلة مع دعم الإنجليزية، واستمرارية العمل دون اتصال عبر التخزين المحلي التلقائي.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 🛠️ أوامر التطوير والتشغيل
+
+```bash
+# تشغيل المشروع محلياً
+flutter run -d chrome
+
+# فحص الأخطاء
+flutter analyze
+
+# بناء نسخة الويب للنشر
+flutter build web --release --base-href "/"
+```
