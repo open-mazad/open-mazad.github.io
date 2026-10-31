@@ -13,6 +13,9 @@ class AuctionStore extends ChangeNotifier {
   final Map<String, List<UserReview>> userReviews = {};
   final Map<String, int> userWarnings = {};
   final Set<String> bannedUsers = {};
+  final Set<String> _deletedConversationKeys = {};
+  final Set<String> _deletedMessageIds = {};
+  final Map<String, DateTime> _userLastActiveMap = {};
   /// خريطة باتجاه واحد فقط: UUID -> الاسم الكامل للعرض
   static final Map<String, String> userDisplayNames = {};
   /// خريطة معاكسة مستقلة: الاسم الكامل -> UUID لمنع تداخل الأسماء مع المعرّفات
@@ -49,6 +52,10 @@ class AuctionStore extends ChangeNotifier {
   }
 
   AuctionStore() {
+    _deletedConversationKeys.addAll(LocalStorageHelper.getDeletedConversationKeys());
+    _deletedMessageIds.addAll(LocalStorageHelper.getDeletedMessageIds());
+    bannedUsers.addAll(LocalStorageHelper.getBlockedUsers());
+
     if (!_loadFromDisk()) {
       _seed();
       _saveToDisk();
@@ -72,6 +79,8 @@ class AuctionStore extends ChangeNotifier {
         MaterialPageRoute(builder: (_) => const SupabaseCloudSetupPage()),
       );
     };
+    settings.getBlockedUsersCount = () => myBlockedUsersList.length;
+    settings.openBlockedUsers = (ctx) => showBlockedUsersSheet(ctx);
     settings.onAuthChanged = () {
       notifyListeners();
       if (settings.isCloudConfigured) {
@@ -611,12 +620,23 @@ class AuctionStore extends ChangeNotifier {
       } else {
         // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً)
         if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
+        recordUserActivity(senderUuid);
         final sender = isUserMe(senderUuid)
             ? me
             : (userDisplayNames[senderUuid] ?? senderUuid);
         final receiver = isUserMe(receiverUuid)
             ? me
             : (userDisplayNames[receiverUuid] ?? receiverUuid);
+
+        if (isConversationOrMessageDeleted(
+          rawItemId: itemId,
+          msgId: msgId,
+          sender: sender,
+          receiver: receiver,
+        )) {
+          continue;
+        }
+
         newDirectChats.putIfAbsent(itemId, () => []).add(
               DirectMessage(
                 sender,
@@ -1910,7 +1930,95 @@ class AuctionStore extends ChangeNotifier {
     return itemId;
   }
 
+  bool isConversationOrMessageDeleted({
+    required String rawItemId,
+    String? msgId,
+    String? sender,
+    String? receiver,
+  }) {
+    if (msgId != null && _deletedMessageIds.contains(msgId)) return true;
+    final itemKey = _normalizeItemKey(rawItemId);
+    final targetUuid = itemToUuid(rawItemId);
+
+    if (_deletedConversationKeys.contains(rawItemId) ||
+        _deletedConversationKeys.contains(itemKey) ||
+        _deletedConversationKeys.contains(targetUuid)) {
+      return true;
+    }
+
+    final other = (sender != null && isUserMe(sender))
+        ? receiver
+        : sender;
+    if (other != null && other.isNotEmpty) {
+      final oUuid = userToUuid(other);
+      final oDisp = displayName(other);
+      final checks = [
+        '$itemKey:$other',
+        '$itemKey:$oUuid',
+        '$itemKey:$oDisp',
+        '$targetUuid:$other',
+        '$targetUuid:$oUuid',
+        '$targetUuid:$oDisp',
+        '$rawItemId:$other',
+        '$rawItemId:$oUuid',
+        '$rawItemId:$oDisp',
+        other,
+        oUuid,
+      ];
+      for (final c in checks) {
+        if (_deletedConversationKeys.contains(c)) return true;
+      }
+    }
+    return false;
+  }
+
+  void recordUserActivity(String? user) {
+    if (user == null || user.isEmpty) return;
+    final now = DateTime.now();
+    _userLastActiveMap[user] = now;
+    final uUuid = userToUuid(user);
+    if (uUuid.isNotEmpty) _userLastActiveMap[uUuid] = now;
+    final dName = displayName(user);
+    if (dName.isNotEmpty) _userLastActiveMap[dName] = now;
+  }
+
+  bool isUserOnline(String? user) {
+    if (user == null || user.isEmpty) return false;
+    if (isUserMe(user)) return true;
+    final checks = [user, userToUuid(user), displayName(user)];
+    for (final c in checks) {
+      final last = _userLastActiveMap[c];
+      if (last != null && DateTime.now().difference(last).inMinutes < 4) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<String> get myBlockedUsersList {
+    final list = <String>{};
+    for (final u in bannedUsers) {
+      final name = displayName(u);
+      if (name.isNotEmpty && !name.contains('-') && name != 'مستخدم') {
+        list.add(name);
+      } else if (u.isNotEmpty && !u.contains('-') && u != 'مستخدم') {
+        list.add(u);
+      }
+    }
+    return list.toList();
+  }
+
   void _mergeIncomingDirectMessage(String rawItemId, DirectMessage msg) {
+    if (isConversationOrMessageDeleted(
+      rawItemId: rawItemId,
+      msgId: msg.id,
+      sender: msg.sender,
+      receiver: msg.receiver,
+    )) {
+      return;
+    }
+    recordUserActivity(msg.sender);
+
     final key = _normalizeItemKey(rawItemId);
     final list = directChats.putIfAbsent(key, () => []);
 
@@ -1975,6 +2083,26 @@ class AuctionStore extends ChangeNotifier {
       orElse: () => itemParam,
     );
     if (isUserBlocked(otherParty)) return;
+
+    // استعادة المحادثة وإلغاء وسم الحذف إذا بادر المستخدم بالإرسال مجدداً
+    final itemKey = _normalizeItemKey(item.id);
+    final targetUuid = itemToUuid(item.id);
+    final otherUuid = userToUuid(otherParty);
+    final otherDisp = displayName(otherParty);
+    _deletedConversationKeys.removeAll([
+      '$itemKey:$otherParty',
+      '$itemKey:$otherUuid',
+      '$itemKey:$otherDisp',
+      '$targetUuid:$otherParty',
+      '$targetUuid:$otherUuid',
+      '$targetUuid:$otherDisp',
+      '${item.id}:$otherParty',
+      '${item.id}:$otherUuid',
+      item.id,
+      itemKey,
+      targetUuid,
+    ]);
+    LocalStorageHelper.saveDeletedConversationKeys(_deletedConversationKeys);
 
     final senderUuid = userToUuid(me);
     final receiverUuid = userToUuid(otherParty);
@@ -2059,6 +2187,15 @@ class AuctionStore extends ChangeNotifier {
       );
 
       for (final msg in entry.value) {
+        if (isConversationOrMessageDeleted(
+          rawItemId: itemId,
+          msgId: msg.id,
+          sender: msg.sender,
+          receiver: msg.receiver,
+        )) {
+          continue;
+        }
+
         if (isUserMe(msg.sender) || isUserMe(msg.receiver)) {
           final rawOtherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
           final cleanOther = displayName(rawOtherParty);
@@ -2136,18 +2273,39 @@ class AuctionStore extends ChangeNotifier {
 
   void deleteConversation(String itemId, String otherParty) {
     final otherUuid = userToUuid(otherParty);
+    final otherDisp = displayName(otherParty);
+    final itemKey = _normalizeItemKey(itemId);
     final targetItemUuid = itemToUuid(itemId);
+
+    // تسجيل مفاتيح الحذف لمنع عودة المحادثة بعد الريفريش أو السحب من السحابة
+    _deletedConversationKeys.addAll([
+      '$itemId:$otherParty',
+      '$itemId:$otherUuid',
+      '$itemId:$otherDisp',
+      '$itemKey:$otherParty',
+      '$itemKey:$otherUuid',
+      '$itemKey:$otherDisp',
+      '$targetItemUuid:$otherParty',
+      '$targetItemUuid:$otherUuid',
+      '$targetItemUuid:$otherDisp',
+    ]);
+    LocalStorageHelper.saveDeletedConversationKeys(_deletedConversationKeys);
 
     final keysToRemove = <String>[];
     for (final entry in directChats.entries) {
-      if (entry.key == itemId || itemToUuid(entry.key) == targetItemUuid) {
+      if (entry.key == itemId || entry.key == itemKey || itemToUuid(entry.key) == targetItemUuid) {
         entry.value.removeWhere((m) {
-          return m.sender == otherParty ||
+          final isTarget = m.sender == otherParty ||
               userToUuid(m.sender) == otherUuid ||
-              displayName(m.sender) == displayName(otherParty) ||
+              displayName(m.sender) == otherDisp ||
               m.receiver == otherParty ||
               userToUuid(m.receiver) == otherUuid ||
-              displayName(m.receiver) == displayName(otherParty);
+              displayName(m.receiver) == otherDisp;
+          if (isTarget) {
+            _deletedMessageIds.add(m.id);
+            return true;
+          }
+          return false;
         });
         if (entry.value.isEmpty) {
           keysToRemove.add(entry.key);
@@ -2157,11 +2315,51 @@ class AuctionStore extends ChangeNotifier {
     for (final k in keysToRemove) {
       directChats.remove(k);
     }
+    LocalStorageHelper.saveDeletedMessageIds(_deletedMessageIds);
     _saveToDisk();
     notifyListeners();
+
+    // حذف الرسائل من السحابة أيضاً
+    if (settings.isCloudConfigured) {
+      try {
+        final myUuid = userToUuid(me);
+        final oUuid = userToUuid(otherParty);
+        final itemUuid = itemToUuid(itemId);
+        supabaseClient
+            ?.from('messages')
+            .delete()
+            .eq('item_id', itemUuid)
+            .or('and(sender_id.eq.$myUuid,receiver_id.eq.$oUuid),and(sender_id.eq.$oUuid,receiver_id.eq.$myUuid)')
+            .ignore();
+      } catch (_) {}
+    }
+  }
+
+  void deleteItemDirectChat(String itemId) {
+    final itemKey = _normalizeItemKey(itemId);
+    final targetItemUuid = itemToUuid(itemId);
+
+    _deletedConversationKeys.addAll([itemId, itemKey, targetItemUuid]);
+    LocalStorageHelper.saveDeletedConversationKeys(_deletedConversationKeys);
+
+    directChats.remove(itemId);
+    directChats.remove(itemKey);
+    directChats.remove(targetItemUuid);
+    _saveToDisk();
+    notifyListeners();
+
+    if (settings.isCloudConfigured) {
+      try {
+        final itemUuid = itemToUuid(itemId);
+        supabaseClient?.from('messages').delete().eq('item_id', itemUuid).ignore();
+      } catch (_) {}
+    }
   }
 
   void deleteSingleMessage(String itemId, DirectMessage msg) {
+    _deletedMessageIds.add(msg.id);
+    LocalStorageHelper.saveDeletedMessageIds(_deletedMessageIds);
+
     for (final entry in directChats.entries) {
       if (entry.key == itemId || itemToUuid(entry.key) == itemToUuid(itemId)) {
         entry.value.removeWhere((m) =>
@@ -2189,6 +2387,7 @@ class AuctionStore extends ChangeNotifier {
     final mapped = userDisplayNames[user];
     if (mapped != null) bannedUsers.add(mapped);
     bannedUsers.add(userToUuid(user));
+    LocalStorageHelper.saveBlockedUsers(bannedUsers);
     _persistAndSync();
   }
 
@@ -2197,6 +2396,7 @@ class AuctionStore extends ChangeNotifier {
     final mapped = userDisplayNames[user];
     if (mapped != null) bannedUsers.remove(mapped);
     bannedUsers.remove(userToUuid(user));
+    LocalStorageHelper.saveBlockedUsers(bannedUsers);
     _persistAndSync();
   }
 

@@ -11,6 +11,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/auction_models.dart';
 import 'services/auction_helpers.dart';
 import 'screens/live/live_camera_widget.dart';
+import 'services/local_storage_helper.dart';
+import 'services/web_geolocation.dart';
+import 'services/web_contacts.dart';
 import 'settings_page.dart';
 
 // تصدير النماذج والمساعدات حتى تتاح في أي شاشة تستورد main.dart

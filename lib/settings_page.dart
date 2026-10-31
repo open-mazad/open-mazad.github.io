@@ -244,10 +244,12 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// خطافات اختيارية لفتح لوحة الإدارة والرادار والربط السحابي من صفحة الإعدادات
+  /// خطافات اختيارية لفتح لوحة الإدارة والرادار والربط السحابي وإدارة الحظر من صفحة الإعدادات
   void Function(BuildContext context)? openAdminDashboard;
   void Function(BuildContext context)? openSavedRadar;
   void Function(BuildContext context)? openCloudSetup;
+  void Function(BuildContext context)? openBlockedUsers;
+  int Function()? getBlockedUsersCount;
 
   SettingsStore() {
     _loadFromDisk();
@@ -1065,6 +1067,32 @@ class SettingsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
               ],
+
+              // إدارة الحظر والأمان
+              Text(tr('الخصوصية والأمان', 'Privacy & Security'),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.block, color: Colors.redAccent),
+                  title: Text(tr('المستخدمون المحظورون', 'Blocked Users')),
+                  subtitle: Text(
+                    (settings.getBlockedUsersCount?.call() ?? 0) == 0
+                        ? tr('لا يوجد مستخدمون محظورون', 'No blocked users')
+                        : tr(
+                            'لديك ${(settings.getBlockedUsersCount?.call() ?? 0)} مستخدم في قائمة الحظر',
+                            '${(settings.getBlockedUsersCount?.call() ?? 0)} users blocked'),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    if (settings.openBlockedUsers != null) {
+                      settings.openBlockedUsers!(context);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // أدوات الإدارة: تظهر فقط للمستخدم الذي يحمل رتبة أدمن مسجل
               if (settings.isLoggedIn && settings.isAdmin) ...[

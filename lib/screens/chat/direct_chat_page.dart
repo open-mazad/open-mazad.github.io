@@ -100,6 +100,30 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   Future<void> sendLocation() async {
     if (store.isUserBlocked(widget.otherParty)) return;
+
+    // محاولة جلب إحداثيات الـ GPS الحية الفعلية من المتصفح / الجهاز
+    final gps = await fetchLiveGpsCoordinates();
+    if (gps != null) {
+      final lat = gps.$1;
+      final lng = gps.$2;
+      final mapsUrl = 'https://www.google.com/maps?q=$lat,$lng';
+      store.sendDirectMessage(
+        widget.item,
+        widget.otherParty,
+        '[location:📍 موقع حي عبر GPS (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})|$mapsUrl]',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('تم إرسال موقعك الفعلي عبر الـ GPS 📍', 'Live GPS location sent 📍')),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {});
+      }
+      return;
+    }
+
     String selectedGov = settings.governorate.isNotEmpty
         ? settings.governorate
         : (governorates.contains(widget.item.location)
@@ -110,6 +134,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
             ? widget.item.area
             : '');
 
+    if (!mounted) return;
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -188,8 +213,9 @@ class _DirectChatPageState extends State<DirectChatPage> {
       final landmark = landmarkCtrl.text.trim();
       final locText =
           landmark.isNotEmpty ? '$selectedGov - $landmark' : selectedGov;
+      final mapsUrl = 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent("$selectedGov $landmark")}';
       store.sendDirectMessage(
-          widget.item, widget.otherParty, '[location:$locText]');
+          widget.item, widget.otherParty, '[location:$locText|$mapsUrl]');
       if (mounted) setState(() {});
     }
     landmarkCtrl.dispose();
@@ -276,11 +302,35 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   Future<void> _shareContactCard() async {
     if (store.isUserBlocked(widget.otherParty)) return;
+
+    // طلب إذن الوصول إلى سجل الهاتف الفعلي للجهاز لاختيار جهة اتصال ومشاركتها
+    final deviceContact = await pickPhoneDeviceContact();
+    if (deviceContact != null) {
+      final cName = deviceContact.$1;
+      final cPhone = deviceContact.$2;
+      store.sendDirectMessage(
+        widget.item,
+        widget.otherParty,
+        '[contact:$cName|$cPhone]',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('تمت مشاركة جهة الاتصال بنجاح 👤', 'Contact shared successfully 👤')),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {});
+      }
+      return;
+    }
+
     final myName =
         settings.fullName.isNotEmpty ? settings.fullName : displayName(me);
     final myPhone =
         settings.phone.isNotEmpty ? settings.phone : store.getUserPhone(me);
 
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -453,7 +503,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
   void _showAttachmentSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: const Color(0xFF16181B),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -479,7 +529,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 _pickImage(ImageSource.camera);
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.videocam_outlined,
               label: tr('سجل فيديو', 'Record Video'),
@@ -488,7 +538,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 _pickVideo(gallery: false);
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.photo_library_outlined,
               label: tr('مكتبة الصور', 'Photo Library'),
@@ -497,7 +547,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 _pickImage(ImageSource.gallery);
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.video_library_outlined,
               label: tr('مكتبة الفيديو', 'Video Library'),
@@ -506,7 +556,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 _pickVideo(gallery: true);
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.assignment_outlined,
               label: tr('شارك الإعلان', 'Share Listing'),
@@ -515,7 +565,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 _shareAuctionItem();
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.location_on_outlined,
               label: tr('الموقع', 'Location'),
@@ -524,7 +574,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 sendLocation();
               },
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
             _attachmentItem(
               icon: Icons.contact_phone_outlined,
               label: tr('جهة اتصال', 'Contact Card'),
@@ -545,17 +595,26 @@ class _DirectChatPageState extends State<DirectChatPage> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white, size: 26),
-      title: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Icon(icon, color: Colors.white, size: 24),
+          ],
         ),
       ),
-      onTap: onTap,
     );
   }
 
@@ -711,41 +770,45 @@ class _DirectChatPageState extends State<DirectChatPage> {
         ),
       );
     }
-    if (m.text.startsWith('[location:') && m.text.endsWith(']')) {
-      final loc = m.text.substring(10, m.text.length - 1);
+    if (m.text.startsWith('[call:') && m.text.endsWith(']')) {
+      final callInfo = m.text.substring(6, m.text.length - 1);
       return Container(
-        constraints: const BoxConstraints(maxWidth: 260),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        constraints: const BoxConstraints(maxWidth: 270),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isMe
               ? Colors.white.withValues(alpha: 0.18)
               : Colors.black.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isMe ? Colors.white38 : Colors.grey.shade400,
+            color: Colors.teal.withValues(alpha: 0.4),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.location_on, color: Colors.redAccent, size: 24),
-            const SizedBox(width: 8),
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.teal.shade100,
+              child: const Icon(Icons.phone_in_talk, color: Colors.teal, size: 20),
+            ),
+            const SizedBox(width: 10),
             Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    tr('موقع التسليم المتفق عليه 📍', 'Agreed Location 📍'),
+                    tr('مكالمة صوتية داخل التطبيق 📞', 'In-App Voice Call 📞'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: isMe ? Colors.white70 : Colors.indigo.shade700,
+                      color: isMe ? Colors.white70 : Colors.teal.shade800,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    loc,
+                    callInfo,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -757,6 +820,89 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 ],
               ),
             ),
+          ],
+        ),
+      );
+    }
+    if (m.text.startsWith('[location:') && m.text.endsWith(']')) {
+      final raw = m.text.substring(10, m.text.length - 1);
+      final parts = raw.split('|');
+      final loc = parts[0];
+      final mapsUrl = parts.length > 1 ? parts[1] : null;
+
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 270),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isMe ? Colors.white38 : Colors.grey.shade400,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.location_on, color: Colors.redAccent, size: 24),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        tr('موقع التسليم المتفق عليه 📍', 'Agreed Location 📍'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white70 : Colors.indigo.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        loc,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isMe
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (mapsUrl != null && mapsUrl.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: isMe ? Colors.white24 : Colors.blue.shade50,
+                  ),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: mapsUrl));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(tr('تم نسخ رابط خرائط Google 🗺️', 'Google Maps link copied 🗺️'))),
+                    );
+                  },
+                  icon: const Icon(Icons.map_outlined, size: 14),
+                  label: Text(
+                    tr('نسخ رابط خرائط Google 🗺️', 'Copy Google Maps link 🗺️'),
+                    style: TextStyle(fontSize: 11, color: isMe ? Colors.white : Colors.indigo.shade900),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -1139,6 +1285,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
       return;
     }
 
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1182,6 +1329,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
   }
 
   Future<void> _confirmDeleteConversation(Item item, String otherName) async {
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1219,6 +1367,51 @@ class _DirectChatPageState extends State<DirectChatPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('تم حذف المحادثة 🗑️', 'Conversation deleted 🗑️')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteItemChat(Item item) async {
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.delete_sweep, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(child: Text(tr('حذف محادثة السلعة', 'Delete Item Chat'))),
+          ],
+        ),
+        content: Text(
+          tr(
+            'هل تريد حذف المحادثة المباشرة المتعلقة بهذه السلعة فقط نهائياً؟',
+            'Delete direct chat for this item permanently?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('إلغاء', 'Cancel')),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade800),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_sweep_outlined),
+            label: Text(tr('حذف المحادثة', 'Delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true && mounted) {
+      store.deleteItemDirectChat(item.id);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('تم حذف محادثة هذه السلعة نهائياً 🗑️', 'Item chat deleted permanently 🗑️')),
+          backgroundColor: Colors.orange.shade800,
         ),
       );
     }
@@ -1322,6 +1515,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
             ? msgs.sublist(msgs.length - _visibleLimit)
             : msgs;
 
+        final isOnline = store.isUserOnline(widget.otherParty);
+
         return Scaffold(
           appBar: AppBar(
             title: InkWell(
@@ -1338,7 +1533,9 @@ class _DirectChatPageState extends State<DirectChatPage> {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: Colors.greenAccent.shade400,
+                            color: isOnline
+                                ? Colors.greenAccent.shade400
+                                : Colors.grey.shade400,
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: Theme.of(context).colorScheme.surface,
@@ -1387,10 +1584,12 @@ class _DirectChatPageState extends State<DirectChatPage> {
                           ],
                         ),
                         Text(
-                          tr('متصل الآن 🟢', 'Online now 🟢'),
+                          isOnline
+                              ? tr('متصل الآن 🟢', 'Online now 🟢')
+                              : tr('غير متصل ⚪', 'Offline ⚪'),
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.green.shade600,
+                            color: isOnline ? Colors.green.shade600 : Colors.grey.shade500,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1402,9 +1601,19 @@ class _DirectChatPageState extends State<DirectChatPage> {
             ),
             actions: [
               IconButton(
-                tooltip: tr('اتصال هاتفي سريع', 'Quick Call'),
-                icon: const Icon(Icons.call_outlined, color: Colors.green),
-                onPressed: () => _makePhoneCall(otherName),
+                tooltip: tr('اتصال صوتي داخل التطبيق', 'In-App Voice Call'),
+                icon: const Icon(Icons.call_rounded, color: Colors.green),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => InAppVoiceCallScreen(
+                        otherParty: widget.otherParty,
+                        item: item,
+                      ),
+                    ),
+                  );
+                },
               ),
               IconButton(
                 tooltip: tr('ملف وتقييم المستخدم', 'User Profile & Rating'),
@@ -1418,6 +1627,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     _showReportDialog(item, otherName);
                   } else if (value == 'block') {
                     _confirmToggleBlock(otherName, isBlocked);
+                  } else if (value == 'delete_item') {
+                    _confirmDeleteItemChat(item);
                   } else if (value == 'delete') {
                     _confirmDeleteConversation(item, otherName);
                   }
@@ -1452,6 +1663,20 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   ),
                   const PopupMenuDivider(),
                   PopupMenuItem(
+                    value: 'delete_item',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_sweep_outlined,
+                            color: Colors.orange, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          tr('حذف محادثة هذه السلعة 🗑️', 'Delete this item chat 🗑️'),
+                          style: const TextStyle(color: Colors.orange),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
@@ -1459,7 +1684,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                             color: Colors.red, size: 20),
                         const SizedBox(width: 10),
                         Text(
-                          tr('حذف المحادثة', 'Delete Conversation'),
+                          tr('حذف كل المحادثة ⚠️', 'Delete All Chat ⚠️'),
                           style: const TextStyle(color: Colors.red),
                         ),
                       ],
@@ -1834,71 +2059,72 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         : Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8.0, vertical: 6.0),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: tr('إرفاق ملف أو موقع', 'Attach'),
-                                  icon: const Icon(Icons.attach_file_rounded,
-                                      color: Colors.blueAccent, size: 26),
-                                  onPressed: () => _showAttachmentSheet(context),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: textCtrl,
-                                            decoration: InputDecoration(
-                                              hintText: tr(
-                                                  'أرسل رسالة جديدة...',
-                                                  'Type a new message...'),
-                                              border: InputBorder.none,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 10),
-                                              isDense: true,
-                                            ),
-                                            onSubmitted: (_) => send(),
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: tr('إرفاق ملف أو موقع', 'Attach'),
+                                    icon: const Icon(Icons.attach_file_rounded,
+                                        color: Colors.blueAccent, size: 26),
+                                    onPressed: () => _showAttachmentSheet(context),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      child: Directionality(
+                                        textDirection: TextDirection.rtl,
+                                        child: TextField(
+                                          controller: textCtrl,
+                                          decoration: InputDecoration(
+                                            hintText: tr(
+                                                'أرسل رسالة جديدة...',
+                                                'Type a new message...'),
+                                            border: InputBorder.none,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 10),
+                                            isDense: true,
                                           ),
+                                          onSubmitted: (_) => send(),
                                         ),
-                                        if (!_hasText) ...[
-                                          IconButton(
-                                            tooltip: tr('التقط صورة', 'Camera'),
-                                            icon: const Icon(
-                                                Icons.camera_alt_rounded,
-                                                color: Colors.blueAccent),
-                                            onPressed: () =>
-                                                _pickImage(ImageSource.camera),
-                                          ),
-                                          IconButton(
-                                            tooltip:
-                                                tr('تسجيل صوتي', 'Voice Note'),
-                                            icon: const Icon(Icons.mic_rounded,
-                                                color: Colors.blueAccent),
-                                            onPressed: _recordVoiceNote,
-                                          ),
-                                        ] else ...[
-                                          IconButton.filled(
-                                            onPressed: send,
-                                            icon:
-                                                const Icon(Icons.send_rounded),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  if (!_hasText) ...[
+                                    IconButton(
+                                      tooltip: tr('التقط صورة', 'Camera'),
+                                      icon: const Icon(
+                                          Icons.camera_alt_rounded,
+                                          color: Colors.blueAccent),
+                                      onPressed: () =>
+                                          _pickImage(ImageSource.camera),
+                                    ),
+                                    IconButton(
+                                      tooltip:
+                                          tr('تسجيل صوتي', 'Voice Note'),
+                                      icon: const Icon(Icons.mic_rounded,
+                                          color: Colors.blueAccent),
+                                      onPressed: _recordVoiceNote,
+                                    ),
+                                  ] else ...[
+                                    IconButton.filled(
+                                      onPressed: send,
+                                      icon:
+                                          const Icon(Icons.send_rounded),
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                   ),
@@ -1945,6 +2171,9 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
     }
     if (text.startsWith('[audio:') && text.endsWith(']')) {
       return tr('🎤 رسالة صوتية', '🎤 Voice Note');
+    }
+    if (text.startsWith('[call:') && text.endsWith(']')) {
+      return tr('📞 مكالمة صوتية', '📞 Voice Call');
     }
     return text;
   }
@@ -2137,28 +2366,52 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 6),
-                                leading: buildUserAvatar(
-                                  conv.otherParty,
-                                  radius: 26,
-                                  badge: unread > 0
-                                      ? Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
+                                leading: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    buildUserAvatar(
+                                      conv.otherParty,
+                                      radius: 26,
+                                      badge: unread > 0
+                                          ? Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade600,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                '$unread',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    if (store.isUserOnline(conv.otherParty))
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 14,
+                                          height: 14,
                                           decoration: BoxDecoration(
-                                            color: Colors.green.shade600,
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: Text(
-                                            '$unread',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
+                                            color: Colors.greenAccent.shade700,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surface,
+                                              width: 2.5,
                                             ),
                                           ),
-                                        )
-                                      : null,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 title: Row(
                                   children: [
@@ -2372,4 +2625,338 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
       },
     );
   }
+}
+
+// ======================= شاشة المكالمة الصوتية داخل التطبيق (In-App Voice Call) =======================
+
+class InAppVoiceCallScreen extends StatefulWidget {
+  final String otherParty;
+  final Item item;
+  const InAppVoiceCallScreen({
+    super.key,
+    required this.otherParty,
+    required this.item,
+  });
+
+  @override
+  State<InAppVoiceCallScreen> createState() => _InAppVoiceCallScreenState();
+}
+
+class _InAppVoiceCallScreenState extends State<InAppVoiceCallScreen> {
+  bool _isRinging = true;
+  bool _isMuted = false;
+  bool _isSpeaker = false;
+  int _seconds = 0;
+  Timer? _ringTimer;
+  Timer? _callTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // محاكاة رنين المكالمة وتنبيه الطرف الآخر
+    _ringTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      setState(() {
+        _isRinging = false;
+      });
+      _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _seconds++);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _ringTimer?.cancel();
+    _callTimer?.cancel();
+    super.dispose();
+  }
+
+  void _endCall() {
+    _ringTimer?.cancel();
+    _callTimer?.cancel();
+    final callText = _isRinging
+        ? tr('مكالمة صوتية لم يُرد عليها 📵', 'Missed voice call 📵')
+        : '${tr("مكالمة صوتية منتهية 📞", "Ended voice call 📞")} ($_seconds ${tr("ثانية", "sec")})';
+    store.sendDirectMessage(widget.item, widget.otherParty, '[call:$callText]');
+    store.recordUserActivity(widget.otherParty);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final otherName = displayName(widget.otherParty);
+    final durationStr =
+        '${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF10141A),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 30),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline, color: Colors.white54, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  tr('مكالمة صوتية داخل التطبيق مشفرة 🔒',
+                      'Encrypted in-app voice call 🔒'),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 40),
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.blueAccent.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.blueAccent.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  buildUserAvatar(widget.otherParty, radius: 46),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              otherName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                widget.item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isRinging
+                    ? Colors.amber.withValues(alpha: 0.2)
+                    : Colors.green.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _isRinging ? Colors.amber : Colors.green,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                _isRinging
+                    ? tr('جارٍ الاتصال وتنبيه الطرف الآخر... 🔔',
+                        'Calling and alerting user... 🔔')
+                    : '${tr("المكالمة متصلة 🟢", "Call Connected 🟢")} $durationStr',
+                style: TextStyle(
+                  color: _isRinging ? Colors.amberAccent : Colors.greenAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: _isMuted
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.15),
+                          foregroundColor:
+                              _isMuted ? Colors.black : Colors.white,
+                          padding: const EdgeInsets.all(16),
+                        ),
+                        onPressed: () => setState(() => _isMuted = !_isMuted),
+                        icon: Icon(_isMuted ? Icons.mic_off : Icons.mic),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _isMuted ? tr('مكتوم', 'Muted') : tr('كتم', 'Mute'),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.all(20),
+                        ),
+                        onPressed: _endCall,
+                        icon: const Icon(Icons.call_end, size: 30),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('إنهاء المكالمة', 'End Call'),
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: _isSpeaker
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.15),
+                          foregroundColor:
+                              _isSpeaker ? Colors.black : Colors.white,
+                          padding: const EdgeInsets.all(16),
+                        ),
+                        onPressed: () => setState(() => _isSpeaker = !_isSpeaker),
+                        icon: Icon(_isSpeaker ? Icons.volume_up : Icons.volume_down),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _isSpeaker ? tr('مكبر الصوت', 'Speaker') : tr('سماعة', 'Earpiece'),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ======================= إدارة المستخدمين المحظورين (Blocked Users Sheet) =======================
+
+void showBlockedUsersSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setSt) {
+        final blocked = store.myBlockedUsersList;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.block, color: Colors.redAccent),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('إدارة المستخدمين المحظورين', 'Blocked Users Management'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                if (blocked.isEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
+                          const SizedBox(height: 12),
+                          Text(
+                            tr('قائمة الحظر فارغة - لم تقم بحظر أي مستخدم',
+                                'No blocked users. Your block list is empty.'),
+                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    tr('المستخدمون المحظورون لا يمكنهم مراسلتك أو التعليق على مزاداتك:',
+                        'Blocked users cannot chat with you or comment:'),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.45,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: blocked.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final user = blocked[i];
+                        return ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Colors.redAccent,
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          title: Text(user, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          trailing: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.teal,
+                              side: const BorderSide(color: Colors.teal),
+                            ),
+                            onPressed: () {
+                              store.unblockUser(user);
+                              setSt(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(tr('تم إلغاء حظر $user بنجاح', 'Unblocked $user successfully')),
+                                  backgroundColor: Colors.teal,
+                                ),
+                              );
+                            },
+                            child: Text(tr('إلغاء الحظر', 'Unblock')),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }

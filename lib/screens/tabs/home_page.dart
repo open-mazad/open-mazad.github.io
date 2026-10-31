@@ -13,7 +13,7 @@ class _HomePageState extends State<HomePage> {
   int tab = 0;
   String query = '';
   String category = 'الكل';
-  String governorateFilter = 'كل المحافظات';
+  String governorateFilter = 'الكل';
   String statusFilter = 'الكل'; // 'الكل', 'جارية 🔴', 'قريباً ⏳', 'بث مباشر 🎥', 'خاصة 🔒'
   String sortBy = 'الأقرب انتهاءً';
 
@@ -41,24 +41,26 @@ class _HomePageState extends State<HomePage> {
 
   List<String> get titles => [
         tr('المزاد المفتوح', 'Open Mazad'),
+        tr('الرسائل', 'Messages'),
         tr('مزايداتي', 'My Bids'),
         tr('سلعي', 'My Listings'),
-        tr('الرسائل', 'Messages'),
         tr('الإعدادات', 'Settings'),
       ];
 
   List<Item> visibleItems() {
     Iterable<Item> list = store.items;
 
-    if (tab == 1) {
+    if (tab == 2) {
       list = list.where((i) => i.bids.any((b) => b.bidder == me));
-    } else if (tab == 2) {
+    } else if (tab == 3) {
       list = list.where((i) => i.seller == me || store.isItemSeller(i));
     } else {
       list = list.where((i) {
         final matchCat = category == 'الكل' || i.category == category;
         final matchGov =
-            governorateFilter == 'كل المحافظات' || i.location == governorateFilter;
+            governorateFilter == 'الكل' ||
+            governorateFilter == 'كل المحافظات' ||
+            i.location == governorateFilter;
         final q = query.trim();
         final matchQ = q.isEmpty ||
             i.title.contains(q) ||
@@ -116,7 +118,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   int _countForGov(String g) {
-    if (g == 'كل المحافظات') return store.items.length;
+    if (g == 'الكل' || g == 'كل المحافظات') return store.items.length;
     return store.items.where((i) => i.location == g).length;
   }
 
@@ -167,15 +169,15 @@ class _HomePageState extends State<HomePage> {
             selectedItemBuilder: (context) {
               return items.map((item) {
                 final count = countOf(item);
-                final display =
-                    item == 'الكل' ? '$label: ${tr("الكل", "All")}' : item;
+                final isFirst = item == items.first;
+                final display = isFirst ? label : '$item ($count)';
                 return Row(
                   children: [
-                    Icon(icon, size: 14, color: scheme.primary),
+                    Icon(icon, size: 14, color: isFirst ? scheme.onSurfaceVariant : scheme.primary),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        '$display ($count)',
+                        display,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -192,8 +194,8 @@ class _HomePageState extends State<HomePage> {
             },
             items: items.map((item) {
               final count = countOf(item);
-              final display =
-                  item == 'الكل' ? '$label: ${tr("الكل", "All")}' : item;
+              final isFirst = item == items.first;
+              final display = isFirst ? tr('الكل', 'All') : item;
               return DropdownMenuItem<String>(
                 value: item,
                 child: Row(
@@ -255,7 +257,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget searchArea() {
     final hasActiveFilters = statusFilter != 'الكل' ||
-        governorateFilter != 'كل المحافظات' ||
+        (governorateFilter != 'الكل' && governorateFilter != 'كل المحافظات') ||
         category != 'الكل';
 
     return Padding(
@@ -331,7 +333,7 @@ class _HomePageState extends State<HomePage> {
                 label: tr('المحافظة', 'Gov'),
                 icon: Icons.location_on_outlined,
                 value: governorateFilter,
-                items: const ['كل المحافظات', ...governorates],
+                items: const ['الكل', ...governorates],
                 countOf: _countForGov,
                 onChanged: (val) => setState(() => governorateFilter = val),
               ),
@@ -351,7 +353,7 @@ class _HomePageState extends State<HomePage> {
                   visualDensity: VisualDensity.compact,
                   onPressed: () => setState(() {
                     statusFilter = 'الكل';
-                    governorateFilter = 'كل المحافظات';
+                    governorateFilter = 'الكل';
                     category = 'الكل';
                   }),
                   icon: const Icon(Icons.filter_alt_off_outlined,
@@ -424,7 +426,7 @@ class _HomePageState extends State<HomePage> {
         ),
         body: tab == 4
             ? const SettingsPage()
-            : tab == 3
+            : tab == 1
                 ? MessagesInboxView(
                     onGoToSettings: () => setState(() => tab = 4),
                   )
@@ -441,7 +443,7 @@ class _HomePageState extends State<HomePage> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      tab == 1
+                                      tab == 2
                                           ? Icons.gavel_outlined
                                           : Icons.inventory_2_outlined,
                                       size: 64,
@@ -449,12 +451,12 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      tab == 1
+                                      tab == 2
                                           ? tr(
                                               'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
                                               'No bids yet. Browse items and place bids to see them here.',
                                             )
-                                          : tab == 2
+                                          : tab == 3
                                               ? tr(
                                                   'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
                                                   'You have not listed any items yet.',
@@ -479,7 +481,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-        floatingActionButton: (tab == 3 || tab == 4)
+        floatingActionButton: (tab == 1 || tab == 4)
             ? null
             : FloatingActionButton.extended(
                 onPressed: () {
@@ -511,16 +513,6 @@ class _HomePageState extends State<HomePage> {
               label: tr('المزادات', 'Auctions'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.gavel_outlined),
-              selectedIcon: const Icon(Icons.gavel),
-              label: tr('مزايداتي', 'My Bids'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.inventory_2_outlined),
-              selectedIcon: const Icon(Icons.inventory_2),
-              label: tr('سلعي', 'My Listings'),
-            ),
-            NavigationDestination(
               icon: Badge(
                 isLabelVisible: store.unreadDirectMessagesCount > 0,
                 label: Text('${store.unreadDirectMessagesCount}'),
@@ -532,6 +524,16 @@ class _HomePageState extends State<HomePage> {
                 child: const Icon(Icons.chat_bubble),
               ),
               label: tr('الرسائل', 'Messages'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.gavel_outlined),
+              selectedIcon: const Icon(Icons.gavel),
+              label: tr('مزايداتي', 'My Bids'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.inventory_2_outlined),
+              selectedIcon: const Icon(Icons.inventory_2),
+              label: tr('سلعي', 'My Listings'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.settings_outlined),
