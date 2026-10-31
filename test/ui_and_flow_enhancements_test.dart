@@ -328,7 +328,10 @@ void main() {
       store.items.removeWhere((i) => i.id == 'seller_test_item');
     });
 
-    test('buyNow completes instant purchase and closes auction', () {
+    test('buyNow requires authentication and completes instant purchase for logged-in user', () {
+      final prevUserId = settings.userId;
+      settings.userId = null;
+
       final item = Item(
         id: 'buy_now_item',
         title: 'آيفون 15',
@@ -342,16 +345,24 @@ void main() {
       );
       store.items.insert(0, item);
 
-      final err = store.buyNow(item);
-      expect(err, isNull);
+      // Unauthenticated buyNow fails
+      final unauthErr = store.buyNow(item);
+      expect(unauthErr, isNotNull);
+      expect(item.isEndedEarlyBySeller, isFalse);
+
+      // Authenticated buyNow succeeds
+      settings.userId = 'auth_buyer_123';
+      final okErr = store.buyNow(item);
+      expect(okErr, isNull);
       expect(item.currentPrice, equals(80000));
       expect(item.highestBidder, equals(me));
       expect(item.isEndedEarlyBySeller, isTrue);
 
       store.items.removeWhere((i) => i.id == 'buy_now_item');
+      settings.userId = prevUserId;
     });
 
-    testWidgets('ItemCard displays 4-row horizontal RTL layout with title, green price, timer, location and bids summary', (tester) async {
+    testWidgets('ItemCard displays 4 levels on right and 3 levels on left with anonymous bids count', (tester) async {
       final cardItem = Item(
         id: 'duck_card_test',
         title: 'بطة',
@@ -371,20 +382,123 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Row 1: Title and Favorite button
+      // Right Column: Title, Green Price, Location, Anonymous Bids Count
       expect(find.text('بطة'), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-
-      // Row 2: Green Price and Timer
       expect(find.text('25,000 دينار'), findsOneWidget);
+      expect(find.text('البصرة - المدينة'), findsOneWidget);
+      expect(find.text('1 مزايدة'), findsOneWidget);
+      // Ensure bidder identity is NOT shown
+      expect(find.textContaining('حساب تجريبي'), findsNothing);
+
+      // Left Column: Heart, Timer
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
       expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
 
-      // Row 3: Location (البصرة - المدينة)
-      expect(find.text('البصرة - المدينة'), findsOneWidget);
-      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+      // Non-seller, non-participant has no status badge
+      expect(find.text('سلعتك'), findsNothing);
+      expect(find.text('أنت الأعلى'), findsNothing);
+      expect(find.text('تم تجاوزك'), findsNothing);
+    });
 
-      // Row 4: Bids summary
-      expect(find.textContaining('1 مزايدة • حساب تجريبي (أعلى مزايدة)'), findsOneWidget);
+    testWidgets('ItemCard status badge displays correctly for seller, leader, and outbid user', (tester) async {
+      final prevUserId = settings.userId;
+      settings.userId = 'my_test_user';
+
+      // 1. Seller Item -> Blue 'سلعتك'
+      final myItem = Item(
+        id: 'item_mine',
+        title: 'سلعتي الخاصة',
+        description: 'وصف',
+        category: 'إلكترونيات وأجهزة',
+        seller: me,
+        startPrice: 10000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 2)),
+        location: 'بغداد',
+        area: 'الكرخ',
+      );
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: ItemCard(item: myItem))));
+      await tester.pumpAndSettle();
+      expect(find.text('سلعتك'), findsOneWidget);
+
+      // 2. Leader Item -> Green 'أنت الأعلى'
+      final leadItem = Item(
+        id: 'item_leading',
+        title: 'سلعة متصدرها',
+        description: 'وصف',
+        category: 'إلكترونيات وأجهزة',
+        seller: 'بائع_آخر',
+        startPrice: 10000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 2)),
+        location: 'بغداد',
+        area: 'الكرخ',
+      );
+      leadItem.bids.add(Bid(me, 15000, DateTime.now()));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: ItemCard(item: leadItem))));
+      await tester.pumpAndSettle();
+      expect(find.text('أنت الأعلى'), findsOneWidget);
+
+      // 3. Outbid Item -> Red 'تم تجاوزك'
+      final outbidItem = Item(
+        id: 'item_outbid',
+        title: 'سلعة متجاوزة',
+        description: 'وصف',
+        category: 'إلكترونيات وأجهزة',
+        seller: 'بائع_آخر',
+        startPrice: 10000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 2)),
+        location: 'بغداد',
+        area: 'الكرخ',
+      );
+      outbidItem.bids.add(Bid('طرف_آخر', 20000, DateTime.now()));
+      outbidItem.bids.add(Bid(me, 15000, DateTime.now().subtract(const Duration(minutes: 1))));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: ItemCard(item: outbidItem))));
+      await tester.pumpAndSettle();
+      expect(find.text('تم تجاوزك'), findsOneWidget);
+
+      settings.userId = prevUserId;
+    });
+
+    testWidgets('ItemDetailsPage enforces PIN protection guard for non-owners', (tester) async {
+      final pinItem = Item(
+        id: 'pin_protected_item',
+        title: 'مزاد سري مقفل',
+        description: 'تفاصيل سرية للغاية',
+        category: 'نوادر وتحف',
+        seller: 'بائع_خاص',
+        startPrice: 500000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 5)),
+        location: 'بغداد',
+        area: 'المنصور',
+        pinCode: '9876',
+      );
+      store.items.add(pinItem);
+
+      await tester.pumpWidget(MaterialApp(home: ItemDetailsPage(item: pinItem)));
+      await tester.pumpAndSettle();
+
+      // Enforces PIN guard screen
+      expect(find.text('غرفة مزاد خاصة'), findsOneWidget);
+      expect(find.text('فك القفل والدخول'), findsOneWidget);
+      // Details must not be visible yet
+      expect(find.text('تفاصيل سرية للغاية'), findsNothing);
+
+      // Entering incorrect PIN fails
+      await tester.enterText(find.byType(TextField), '1111');
+      await tester.tap(find.text('فك القفل والدخول'));
+      await tester.pumpAndSettle();
+      expect(find.text('تفاصيل سرية للغاية'), findsNothing);
+
+      // Entering correct PIN unlocks item details
+      await tester.enterText(find.byType(TextField), '9876');
+      await tester.tap(find.text('فك القفل والدخول'));
+      await tester.pumpAndSettle();
+      expect(find.text('تفاصيل سرية للغاية'), findsOneWidget);
+
+      store.items.removeWhere((i) => i.id == 'pin_protected_item');
     });
   });
 }

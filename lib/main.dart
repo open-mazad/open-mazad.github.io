@@ -14,6 +14,7 @@ import 'services/auction_helpers.dart';
 import 'services/local_storage_helper.dart';
 import 'services/web_geolocation.dart';
 import 'services/web_share.dart';
+import 'services/system_notification.dart';
 import 'settings_page.dart';
 
 // تصدير النماذج والمساعدات حتى تتاح في أي شاشة تستورد main.dart
@@ -48,6 +49,7 @@ void main() async {
   }
   await settings.initAuth();
   store.initRealtime();
+  unawaited(requestNotificationPermission());
   runApp(const AuctionApp());
 }
 

@@ -178,6 +178,14 @@ class AuctionStore extends ChangeNotifier {
                 if (!isUserMe(msg.receiver) && userToUuid(msg.receiver) != myUuid) return;
                 _mergeIncomingDirectMessage(rawItemId, msg);
                 recordUserActivity(msg.sender, activityTime: msg.time);
+                _pushNotification(
+                  title: tr('رسالة جديدة من ${displayName(msg.sender)}',
+                      'New message from ${displayName(msg.sender)}'),
+                  body: msg.text,
+                  icon: Icons.chat_bubble_outline,
+                  color: Colors.blue,
+                  itemId: rawItemId,
+                );
                 notifyListeners();
               }
             } catch (e) {
@@ -697,6 +705,10 @@ class AuctionStore extends ChangeNotifier {
 
     for (final item in items) {
       if (bidsByItem.containsKey(item.id)) {
+        final prevCount = item.bids.length;
+        final prevLeader = item.highestBidder;
+        final hadMyBid = item.bids.any((b) => isUserMe(b.bidder));
+
         item.bids.clear();
         final list = bidsByItem[item.id]!;
         list.sort((a, b) {
@@ -705,6 +717,51 @@ class AuctionStore extends ChangeNotifier {
           return b.time.compareTo(a.time);
         });
         item.bids.addAll(list);
+
+        if (item.bids.isNotEmpty && item.bids.length > prevCount && prevCount > 0) {
+          final top = item.bids.first;
+          final isTopMe = isUserMe(top.bidder);
+
+          // 1. تجاوز المزايدة (Outbid Alert)
+          if (hadMyBid && !isTopMe && prevLeader != null && isUserMe(prevLeader)) {
+            _pushNotification(
+              title: tr('⚠️ تم تجاوز مزايدتك!', '⚠️ You have been outbid!'),
+              body: tr(
+                'قام طرف آخر بتجاوز عرضك على "${item.title}". السعر الحالي: ${formatPrice(item.currentPrice)}',
+                'Someone outbid you on "${item.title}". Current price: ${formatPrice(item.currentPrice)}',
+              ),
+              icon: Icons.trending_up,
+              color: Colors.redAccent,
+              itemId: item.id,
+            );
+          }
+          // 2. تنبيه صاحب السلعة بمزايدة جديدة
+          else if (item.seller == me && !isTopMe) {
+            _pushNotification(
+              title: tr('🎉 مزايدة جديدة على سلعتك!', '🎉 New bid on your item!'),
+              body: tr(
+                'مزايدة جديدة على "${item.title}" بقيمة ${formatPrice(top.amount)}',
+                'New bid on "${item.title}" for ${formatPrice(top.amount)}',
+              ),
+              icon: Icons.gavel,
+              color: Colors.green,
+              itemId: item.id,
+            );
+          }
+          // 3. تنبيه قائمة المفضلة
+          else if (isFavorite(item.id) && !isTopMe && item.seller != me) {
+            _pushNotification(
+              title: tr('⭐ نشاط جديد في مفضلتك', '⭐ New activity in favorites'),
+              body: tr(
+                'مزايدة جديدة على "${item.title}" بقيمة ${formatPrice(top.amount)}',
+                'New bid on "${item.title}" for ${formatPrice(top.amount)}',
+              ),
+              icon: Icons.favorite,
+              color: Colors.amber,
+              itemId: item.id,
+            );
+          }
+        }
       }
     }
     notifyListeners();
@@ -726,9 +783,27 @@ class AuctionStore extends ChangeNotifier {
         final sender = isUserMe(senderUuid)
             ? me
             : (userDisplayNames[senderUuid] ?? 'مستخدم');
+        final comment = AuctionComment(sender, text, time);
         commentsByItem
             .putIfAbsent(itemId, () => [])
-            .add(AuctionComment(sender, text, time));
+            .add(comment);
+
+        final targetItem = items.cast<Item?>().firstWhere(
+              (it) => it?.id == itemId || (it != null && itemToUuid(it.id) == itemToUuid(itemId)),
+              orElse: () => null,
+            );
+        if (targetItem != null && targetItem.seller == me && !isUserMe(senderUuid)) {
+          final isAlreadyLogged = targetItem.comments.any((c) => c.author == sender && c.text == text);
+          if (!isAlreadyLogged) {
+            _pushNotification(
+              title: tr('💬 استفسار جديد على سلعتك', '💬 New inquiry on your item'),
+              body: '${displayName(sender)}: $text',
+              icon: Icons.comment,
+              color: Colors.indigo,
+              itemId: itemId,
+            );
+          }
+        }
       } else {
         // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً)
         if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
@@ -1452,6 +1527,7 @@ class AuctionStore extends ChangeNotifier {
         itemId: itemId,
       ),
     );
+    triggerSystemNotification(title: title, body: body, tag: itemId);
   }
 
   int get unreadNotificationsCount =>
@@ -1508,12 +1584,15 @@ class AuctionStore extends ChangeNotifier {
   bool isPrivateUnlocked(Item item) =>
       !item.isPrivate ||
       item.seller == me ||
-      unlockedPrivateItems.contains(item.id);
+      unlockedPrivateItems.contains(item.id) ||
+      unlockedPrivateItems.contains(itemToUuid(item.id));
 
   bool unlockPrivateItem(Item item, String enteredPin) {
-    if (item.pinCode?.trim() == enteredPin.trim()) {
+    if (item.pinCode != null && item.pinCode!.trim() == enteredPin.trim()) {
       unlockedPrivateItems.add(item.id);
+      unlockedPrivateItems.add(itemToUuid(item.id));
       _persistAndSync();
+      notifyListeners();
       return true;
     }
     return false;
@@ -1801,6 +1880,9 @@ class AuctionStore extends ChangeNotifier {
 
   /// الشراء الفوري وحسم الصفقة بالسعر النهائي المحدد من البائع
   String? buyNow(Item item) {
+    if (!settings.isLoggedIn) {
+      return tr('سجّل الدخول أولاً لإتمام الشراء الفوري', 'Please sign in first');
+    }
     if (item.seller == me) {
       return tr('لا يمكنك شراء سلعتك الخاصة', 'Cannot buy your own item');
     }
@@ -1916,7 +1998,7 @@ class AuctionStore extends ChangeNotifier {
         imagePaths: imagePaths ?? item.imagePaths,
         videoPath: item.videoPath,
         attributes: attributes ?? item.attributes,
-        pinCode: pinCode ?? item.pinCode,
+        pinCode: pinCode,
         buyNowPrice: buyNowPrice ?? item.buyNowPrice,
         isEndedEarlyBySeller: item.isEndedEarlyBySeller,
         isCancelled: item.isCancelled,
@@ -1958,8 +2040,9 @@ class AuctionStore extends ChangeNotifier {
             'location': location.isNotEmpty ? location : item.location,
             'condition': condition.isNotEmpty ? condition : item.condition,
             'delivery_method': (deliveryMethod != null && deliveryMethod.isNotEmpty) ? deliveryMethod : item.deliveryMethod,
-            'attributes': jsonEncode(attrsWithMeta),
-            'image_urls': imagePaths ?? item.imagePaths,
+            'attributes': attrsWithMeta,
+            'images': imagePaths ?? item.imagePaths,
+            'pin_code': pinCode,
             if (startTime != null) 'start_time': toIsoUtc(startTime),
             if (endTime != null) 'end_time': toIsoUtc(endTime),
           }).eq('id', itemUuid);

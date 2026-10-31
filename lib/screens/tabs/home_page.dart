@@ -871,77 +871,94 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: tab,
-          onDestinationSelected: (i) {
-            if (i == 2) {
-              if (!settings.isLoggedIn) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(tr('سجّل الدخول أولاً من الإعدادات',
-                        'Sign in from Settings first'))));
-                setState(() => tab = 4);
+        bottomNavigationBar: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            height: 56,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return TextStyle(
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              );
+            }),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              return const IconThemeData(size: 21);
+            }),
+          ),
+          child: NavigationBar(
+            height: 56,
+            selectedIndex: tab,
+            onDestinationSelected: (i) {
+              if (i == 2) {
+                if (!settings.isLoggedIn) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(tr('سجّل الدخول أولاً من الإعدادات',
+                          'Sign in from Settings first'))));
+                  setState(() => tab = 4);
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddItemPage()),
+                );
                 return;
               }
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AddItemPage()),
-              );
-              return;
-            }
-            setState(() {
-              tab = i;
-              query = '';
-            });
-          },
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home),
-              label: tr('الرئيسية', 'Home'),
-            ),
-            NavigationDestination(
-              icon: Badge(
-                isLabelVisible: store.unreadDirectMessagesCount > 0,
-                label: Text('${store.unreadDirectMessagesCount}'),
-                child: const Icon(Icons.chat_bubble_outline),
+              setState(() {
+                tab = i;
+                query = '';
+              });
+            },
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home),
+                label: tr('الرئيسية', 'Home'),
               ),
-              selectedIcon: Badge(
-                isLabelVisible: store.unreadDirectMessagesCount > 0,
-                label: Text('${store.unreadDirectMessagesCount}'),
-                child: const Icon(Icons.chat_bubble),
-              ),
-              label: tr('الرسائل', 'Messages'),
-            ),
-            NavigationDestination(
-              icon: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: store.unreadDirectMessagesCount > 0,
+                  label: Text('${store.unreadDirectMessagesCount}'),
+                  child: const Icon(Icons.chat_bubble_outline),
                 ),
-                child: const Icon(Icons.add, color: Colors.redAccent, size: 24),
-              ),
-              selectedIcon: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
+                selectedIcon: Badge(
+                  isLabelVisible: store.unreadDirectMessagesCount > 0,
+                  label: Text('${store.unreadDirectMessagesCount}'),
+                  child: const Icon(Icons.chat_bubble),
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 24),
+                label: tr('الرسائل', 'Messages'),
               ),
-              label: tr('أضف مزاداً', 'Add Auction'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.gavel_outlined),
-              selectedIcon: const Icon(Icons.gavel),
-              label: tr('المزايدات', 'Bids & Auctions'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: const Icon(Icons.settings),
-              label: tr('الإعدادات', 'Settings'),
-            ),
-          ],
+              NavigationDestination(
+                icon: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add, color: Colors.redAccent, size: 22),
+                ),
+                selectedIcon: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 22),
+                ),
+                label: tr('أضف مزاداً', 'Add Auction'),
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.gavel_outlined),
+                selectedIcon: const Icon(Icons.gavel),
+                label: tr('المزايدات', 'Bids & Auctions'),
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings),
+                label: tr('الإعدادات', 'Settings'),
+              ),
+            ],
+          ),
         ),
       ),
     );

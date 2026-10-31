@@ -252,6 +252,45 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Future<void> confirmBuyNow(Item item) async {
     if (item.buyNowPrice == null || item.buyNowPrice! <= 0) return;
+
+    // تقييد عملية الشراء الفوري (Auth Guard)
+    if (!settings.isLoggedIn) {
+      final goToLogin = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.lock_outline, color: Colors.orange),
+              const SizedBox(width: 8),
+              Expanded(child: Text(tr('تسجيل الدخول مطلوب', 'Sign In Required'))),
+            ],
+          ),
+          content: Text(tr(
+            'يجب تسجيل الدخول بحسابك أولاً لتتمكن من استخدام خاصية الشراء الفوري وحسم الصفقة.',
+            'You must sign in first to use Buy Now and complete the purchase.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('إلغاء', 'Cancel')),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.login),
+              label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
+            ),
+          ],
+        ),
+      );
+      if (goToLogin == true && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SettingsPage()),
+        );
+      }
+      return;
+    }
+
     final priceStr = formatPrice(item.buyNowPrice!);
     final ok = await showDialog<bool>(
       context: context,
@@ -876,6 +915,90 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         );
         final isFav = store.isFavorite(item.id);
         final sellerRating = store.getUserRating(item.seller);
+
+        // التحقق الصارم من رمز PIN (PIN Validation Guard)
+        if (item.isPrivate && !store.isPrivateUnlocked(item)) {
+          final pinInputCtrl = TextEditingController();
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(tr('غرفة مزاد خاصة', 'Private Auction')),
+            ),
+            body: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.lock, size: 56, color: Colors.amber),
+                          const SizedBox(height: 16),
+                          Text(
+                            item.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            tr(
+                              'هذا المزاد مقفل برمز PIN سري. يرجى إدخال الرمز المصرح به من البائع لعرض التفاصيل والمزايدة:',
+                              'This auction is PIN-protected. Enter the PIN code provided by seller to view details and bid:',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: pinInputCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: tr('رمز PIN السري', 'PIN Code'),
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.key),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                if (store.unlockPrivateItem(item, pinInputCtrl.text)) {
+                                  setState(() {});
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(tr('رمز PIN غير صحيح ❌', 'Invalid PIN code ❌')),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.lock_open),
+                              label: Text(tr('فك القفل والدخول', 'Unlock Auction')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
