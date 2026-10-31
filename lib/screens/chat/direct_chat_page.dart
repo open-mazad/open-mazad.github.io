@@ -892,29 +892,11 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 6),
-                                leading: Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 26,
-                                      backgroundColor: unread > 0
-                                          ? Colors.indigo.shade100
-                                          : scheme.primaryContainer,
-                                      foregroundColor:
-                                          scheme.onPrimaryContainer,
-                                      child: Text(
-                                        otherName.characters.isNotEmpty
-                                            ? otherName.characters.first
-                                            : '؟',
-                                        style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    if (unread > 0)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
+                                leading: buildUserAvatar(
+                                  conv.otherParty,
+                                  radius: 26,
+                                  badge: unread > 0
+                                      ? Container(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
@@ -930,9 +912,8 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                  ],
+                                        )
+                                      : null,
                                 ),
                                 title: Row(
                                   children: [

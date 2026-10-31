@@ -488,7 +488,7 @@ class SettingsStore extends ChangeNotifier {
             isAdm == 1 ||
             phone == '07700000000' ||
             phone == '+9647700000000';
-        needsProfileOnboarding = secondName.isEmpty || secondName == '-';
+        needsProfileOnboarding = false;
       } else {
         // حساب جديد لأول مرة: طلب إكمال المعلومات في صفحة الإعدادات
         final defaultGov = 'بغداد';
@@ -520,7 +520,7 @@ class SettingsStore extends ChangeNotifier {
       secondName = sName;
       thirdName = tName;
       if (avatarUrl.isNotEmpty) photoPath = avatarUrl;
-      needsProfileOnboarding = true;
+      needsProfileOnboarding = false;
     }
 
     _saveToDisk();

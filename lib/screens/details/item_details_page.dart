@@ -1148,9 +1148,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                   onTap: () => showUserProfileSheet(context, item.seller),
-                  leading: CircleAvatar(
-                    child: Text(displayName(item.seller).characters.first),
-                  ),
+                  leading: buildUserAvatar(item.seller, radius: 22),
                   title: Row(
                     children: [
                       Flexible(
@@ -1355,26 +1353,30 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         dense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                         onTap: () => showUserProfileSheet(context, b.bidder),
-                        leading: CircleAvatar(
+                        leading: buildUserAvatar(
+                          b.bidder,
                           radius: 18,
-                          backgroundColor: isTopBid
-                              ? Colors.amber.shade200
+                          badge: isTopBid
+                              ? Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.amber,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.emoji_events,
+                                      size: 11, color: Colors.brown),
+                                )
                               : (b.isAuto
-                                  ? Colors.indigo.shade100
-                                  : scheme.primaryContainer),
-                          child: Icon(
-                            isTopBid
-                                ? Icons.emoji_events
-                                : (b.isAuto
-                                    ? Icons.auto_mode
-                                    : Icons.person_outline),
-                            size: 18,
-                            color: isTopBid
-                                ? Colors.brown.shade800
-                                : (b.isAuto
-                                    ? Colors.indigo
-                                    : scheme.onPrimaryContainer),
-                          ),
+                                  ? Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.indigo,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.auto_mode,
+                                          size: 11, color: Colors.white),
+                                    )
+                                  : null),
                         ),
                         title: Row(
                           children: [
@@ -1464,10 +1466,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: ListTile(
                       dense: true,
-                      leading: CircleAvatar(
-                        radius: 16,
-                        child: Text(displayName(c.author).characters.first),
-                      ),
+                      leading: buildUserAvatar(c.author, radius: 16),
                       title: Row(
                         children: [
                           Text(displayName(c.author),

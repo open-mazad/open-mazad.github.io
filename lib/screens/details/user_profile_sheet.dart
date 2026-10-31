@@ -64,12 +64,7 @@ class _UserProfileSheetState extends State<UserProfileSheet> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 28,
-                      child: Text(displayName(u).characters.first,
-                          style: const TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.bold)),
-                    ),
+                    buildUserAvatar(u, radius: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

@@ -18,6 +18,8 @@ class AuctionStore extends ChangeNotifier {
   /// خريطة معاكسة مستقلة: الاسم الكامل -> UUID لمنع تداخل الأسماء مع المعرّفات
   static final Map<String, String> nameToUuidMap = {};
   static final Map<String, String> userPhones = {};
+  /// خريطة صور المستخدمين الشخصية (سحابية / Base64)
+  static final Map<String, String> userPhotos = {};
 
   Timer? _timer;
   Timer? _pollingSafetyTimer;
@@ -444,6 +446,13 @@ class AuctionStore extends ChangeNotifier {
       if (ph.isNotEmpty) {
         userPhones[id] = ph;
         userPhones[name] = ph;
+      }
+      final rawPhoto = '${row['photo_url'] ?? ''}'.trim();
+      final (cleanPhoto, _) = SettingsStore.unpackCloudPhotoUrl(rawPhoto);
+      if (cleanPhoto != null && cleanPhoto.isNotEmpty) {
+        userPhotos[id] = cleanPhoto;
+        userPhotos[name] = cleanPhoto;
+        if (full.isNotEmpty) userPhotos[full] = cleanPhoto;
       }
       if (row['is_banned'] == true) {
         bannedUsers.add(name);
@@ -1043,6 +1052,13 @@ class AuctionStore extends ChangeNotifier {
           if (ph.isNotEmpty) {
             userPhones[id] = ph;
             userPhones[name] = ph;
+          }
+          final rawPhoto = '${row['photo_url'] ?? ''}'.trim();
+          final (cleanPhoto, _) = SettingsStore.unpackCloudPhotoUrl(rawPhoto);
+          if (cleanPhoto != null && cleanPhoto.isNotEmpty) {
+            userPhotos[id] = cleanPhoto;
+            userPhotos[name] = cleanPhoto;
+            if (full.isNotEmpty) userPhotos[full] = cleanPhoto;
           }
           if (row['is_banned'] == true) {
             bannedUsers.add(name);
@@ -2429,6 +2445,20 @@ class AuctionStore extends ChangeNotifier {
     final uUuid = userToUuid(user).replaceAll('-', '');
     final short = uUuid.length >= 8 ? uUuid.substring(0, 8) : uUuid;
     return '+96477$short';
+  }
+
+  String? getUserPhoto(String user) {
+    if (isUserMe(user)) {
+      final p = settings.photoPath;
+      if (p != null && p.isNotEmpty) return p;
+    }
+    final direct = userPhotos[user];
+    if (direct != null && direct.isNotEmpty) return direct;
+    final byUuid = userPhotos[userToUuid(user)];
+    if (byUuid != null && byUuid.isNotEmpty) return byUuid;
+    final byName = userPhotos[displayName(user)];
+    if (byName != null && byName.isNotEmpty) return byName;
+    return null;
   }
 
   List<UserReview> getUserReviews(String user) =>

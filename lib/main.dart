@@ -77,6 +77,47 @@ String displayName(String who) {
   return who;
 }
 
+/// ودجت لعرض صورة المستخدم الشخصية (سحابية / Base64 / رابط) مع بديل الحرف الأول إذا لم يمتلك صورة
+Widget buildUserAvatar(
+  String who, {
+  double radius = 18,
+  Widget? badge,
+}) {
+  final photo = store.getUserPhoto(who);
+  final name = displayName(who);
+  final initial = name.characters.isNotEmpty ? name.characters.first : '؟';
+  final imgProvider = resolveSmartImageProvider(photo);
+
+  Widget avatar = CircleAvatar(
+    radius: radius,
+    backgroundImage: imgProvider,
+    child: imgProvider == null
+        ? Text(
+            initial,
+            style: TextStyle(
+              fontSize: radius * 0.9,
+              fontWeight: FontWeight.bold,
+            ),
+          )
+        : null,
+  );
+
+  if (badge != null) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: badge,
+        ),
+      ],
+    );
+  }
+  return avatar;
+}
+
 // ======================= التطبيق =======================
 
 class AuctionApp extends StatelessWidget {
