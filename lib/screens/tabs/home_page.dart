@@ -130,121 +130,121 @@ class _HomePageState extends State<HomePage> {
     required List<String> items,
     required int Function(String item) countOf,
     required ValueChanged<String> onChanged,
+    int? maxVisibleItems,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final isDefault = value == items.first;
+    final totalCount = countOf(value);
+    final displayLabel = isDefault ? label : '$value ($totalCount)';
+
     return Expanded(
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: isDefault
-              ? scheme.surfaceContainerLow
-              : scheme.primaryContainer.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isDefault ? scheme.outlineVariant : scheme.primary,
-          ),
+      child: PopupMenuButton<String>(
+        position: PopupMenuPosition.under,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: scheme.outlineVariant),
         ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: value,
-            isExpanded: true,
-            isDense: true,
-            borderRadius: BorderRadius.circular(12),
-            icon: Icon(
-              Icons.keyboard_arrow_down,
-              size: 18,
-              color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+        constraints: BoxConstraints(
+          maxHeight: maxVisibleItems != null ? (maxVisibleItems * 44.0) : double.infinity,
+          maxWidth: 240,
+        ),
+        onSelected: (val) => onChanged(val),
+        itemBuilder: (context) {
+          return items.map((item) {
+            final count = countOf(item);
+            final isFirst = item == items.first;
+            final isSelected = item == value;
+            final display = isFirst ? tr('الكل', 'All') : item;
+
+            return PopupMenuItem<String>(
+              value: item,
+              height: 42,
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isSelected
+                        ? scheme.primary
+                        : (count > 0 ? scheme.primary : scheme.outline),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      display,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : (count > 0 ? FontWeight.w500 : FontWeight.normal),
+                        color: isSelected ? scheme.primary : (count > 0 ? scheme.onSurface : scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? scheme.primaryContainer
+                          : (count > 0 ? scheme.surfaceContainerHighest : scheme.surfaceContainerLow),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? scheme.onPrimaryContainer
+                            : (count > 0 ? scheme.onSurfaceVariant : scheme.outline),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList();
+        },
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isDefault
+                ? scheme.surfaceContainerLow
+                : scheme.primaryContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDefault ? scheme.outlineVariant : scheme.primary,
             ),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isDefault ? FontWeight.normal : FontWeight.bold,
-              color: scheme.onSurface,
-            ),
-            selectedItemBuilder: (context) {
-              return items.map((item) {
-                final count = countOf(item);
-                final isFirst = item == items.first;
-                final display = isFirst ? label : '$item ($count)';
-                return Row(
-                  children: [
-                    Icon(icon, size: 14, color: isFirst ? scheme.onSurfaceVariant : scheme.primary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        display,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight:
-                              isDefault ? FontWeight.w500 : FontWeight.bold,
-                          color: scheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList();
-            },
-            items: items.map((item) {
-              final count = countOf(item);
-              final isFirst = item == items.first;
-              final display = isFirst ? tr('الكل', 'All') : item;
-              return DropdownMenuItem<String>(
-                value: item,
-                child: Row(
-                  children: [
-                    Icon(
-                      icon,
-                      size: 14,
-                      color: count > 0 ? scheme.primary : scheme.outline,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        display,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: count > 0
-                              ? scheme.onSurface
-                              : scheme.onSurfaceVariant,
-                          fontWeight:
-                              count > 0 ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: count > 0
-                            ? scheme.primaryContainer
-                            : scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: count > 0
-                              ? scheme.onPrimaryContainer
-                              : scheme.outline,
-                        ),
-                      ),
-                    ),
-                  ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isDefault ? FontWeight.w500 : FontWeight.bold,
+                    color: scheme.onSurface,
+                  ),
                 ),
-              );
-            }).toList(),
-            onChanged: (v) {
-              if (v != null) onChanged(v);
-            },
+              ),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 18,
+                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+            ],
           ),
         ),
       ),
@@ -278,31 +278,83 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.sort),
-                tooltip: tr('ترتيب حسب', 'Sort by'),
-                onSelected: (val) => setState(() => sortBy = val),
-                itemBuilder: (context) => [
-                  'الأقرب انتهاءً',
-                  'الأقل سعراً',
-                  'الأعلى سعراً',
-                  'الأكثر مزايدات',
-                ].map((s) {
-                  return PopupMenuItem(
-                    value: s,
-                    child: Row(
-                      children: [
-                        if (sortBy == s) ...[
-                          const Icon(Icons.check,
-                              size: 18, color: Colors.indigo),
-                          const SizedBox(width: 6),
+              const SizedBox(width: 8),
+              // زر وقائمة الفرز: أسود في الوضع الفاتح وأبيض في الوضع الداكن، وينسدل تحته مباشرة
+              Builder(
+                builder: (context) {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final btnBg = isDark ? Colors.white : Colors.black;
+                  final btnFg = isDark ? Colors.black : Colors.white;
+
+                  return PopupMenuButton<String>(
+                    position: PopupMenuPosition.under,
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    tooltip: tr('ترتيب حسب', 'Sort by'),
+                    onSelected: (val) => setState(() => sortBy = val),
+                    itemBuilder: (context) => [
+                      'الأقرب انتهاءً',
+                      'الأقل سعراً',
+                      'الأعلى سعراً',
+                      'الأكثر مزايدات',
+                    ].map((s) {
+                      final isSelected = sortBy == s;
+                      return PopupMenuItem(
+                        value: s,
+                        height: 40,
+                        child: Row(
+                          children: [
+                            if (isSelected) ...[
+                              Icon(Icons.check, size: 16, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              s,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    child: Container(
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: btnBg,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
                         ],
-                        Text(s),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sort, size: 18, color: btnFg),
+                          const SizedBox(width: 4),
+                          Text(
+                            sortBy,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: btnFg,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(Icons.keyboard_arrow_down, size: 16, color: btnFg),
+                        ],
+                      ),
                     ),
                   );
-                }).toList(),
+                },
               ),
             ],
           ),
@@ -322,6 +374,7 @@ class _HomePageState extends State<HomePage> {
                 ],
                 countOf: _countForStatus,
                 onChanged: (val) => setState(() => statusFilter = val),
+                maxVisibleItems: null, // يتناسب تلقائياً مع خياراته الأربعة دون فرض 8 حقول
               ),
               const SizedBox(width: 6),
               _buildFilterDropdown(
@@ -331,6 +384,7 @@ class _HomePageState extends State<HomePage> {
                 items: const ['الكل', ...governorates],
                 countOf: _countForGov,
                 onChanged: (val) => setState(() => governorateFilter = val),
+                maxVisibleItems: 8, // حد أقصى 8 حقول مع تفعيل التمرير
               ),
               const SizedBox(width: 6),
               _buildFilterDropdown(
@@ -340,6 +394,7 @@ class _HomePageState extends State<HomePage> {
                 items: const ['الكل', ...categories],
                 countOf: _countForCategory,
                 onChanged: (val) => setState(() => category = val),
+                maxVisibleItems: 8, // حد أقصى 8 حقول مع تفعيل التمرير
               ),
               if (hasActiveFilters) ...[
                 const SizedBox(width: 4),

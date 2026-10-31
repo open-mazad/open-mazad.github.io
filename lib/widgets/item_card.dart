@@ -79,18 +79,6 @@ class ItemCard extends StatelessWidget {
                 'هذا المزاد مغلق للمدعوين فقط. أدخل الرمز السري (PIN) للدخول والمزايدة:',
                 'This auction is private. Enter the PIN code to enter:',
               )),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '💡 وضع التجربة: الرمز السري لهذا المزاد هو ${item.pinCode}',
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
-                ),
-              ),
               const SizedBox(height: 12),
               TextField(
                 controller: ctrl,

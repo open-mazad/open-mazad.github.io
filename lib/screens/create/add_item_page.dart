@@ -23,7 +23,7 @@ class _AddItemPageState extends State<AddItemPage> {
   /// متحكمات الحقول الذكية المخصصة حسب الفئة
   final Map<String, TextEditingController> attrCtrls = {};
 
-  String category = categories.first;
+  String category = '';
   String condition = conditions.first;
   String location = governorates.first;
   String district = 'المركز';
@@ -38,6 +38,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
   bool _autoValidate = false;
   bool _hasImageError = false;
+  bool _hasCategoryError = false;
 
   bool get isEditing => widget.itemToEdit != null;
   /// إذا كان المزاد قد انطلق بالفعل ولم يعد مجدولاً، يقيد التعديل ويسمح فقط بإضافة ملحق معلومات
@@ -230,6 +231,7 @@ class _AddItemPageState extends State<AddItemPage> {
                     onTap: () {
                       setState(() {
                         category = cat;
+                        _hasCategoryError = false;
                         _syncAttrControllers();
                       });
                       Navigator.pop(ctx);
@@ -322,14 +324,18 @@ class _AddItemPageState extends State<AddItemPage> {
     }
 
     // التحقق من الحقول الإلزامية وعرض التنبيهات الحمراء أسفل كل حقل
-    setState(() => _autoValidate = true);
-
     final totalImages = pickedImages.length + existingImages.length;
     final hasImg = totalImages > 0;
-    setState(() => _hasImageError = !hasImg);
+    final hasCategory = category.trim().isNotEmpty;
+
+    setState(() {
+      _autoValidate = true;
+      _hasImageError = !hasImg;
+      _hasCategoryError = !hasCategory;
+    });
 
     final isValid = formKey.currentState?.validate() ?? false;
-    if (!isValid || !hasImg) {
+    if (!isValid || !hasImg || !hasCategory) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(tr(
             'يرجى استيفاء كافة الحقول المطلوبة المحددة باللون الأحمر ⚠️',
@@ -687,7 +693,11 @@ class _AddItemPageState extends State<AddItemPage> {
                 // 2. اختيار الفئة عبر نافذة منبثقة (Popup / Modal)
                 Text(
                   tr('تصنيف الفئة *', 'Category *'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: _hasCategoryError ? Colors.red.shade700 : null,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 InkWell(
@@ -696,10 +706,15 @@ class _AddItemPageState extends State<AddItemPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                      color: _hasCategoryError
+                          ? Colors.red.withValues(alpha: 0.05)
+                          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: Colors.indigo.withValues(alpha: 0.3),
+                        color: _hasCategoryError
+                            ? Colors.red.shade600
+                            : (category.isEmpty ? Colors.grey.shade400 : Colors.indigo.withValues(alpha: 0.3)),
+                        width: _hasCategoryError ? 1.5 : 1,
                       ),
                     ),
                     child: Row(
@@ -707,10 +722,16 @@ class _AddItemPageState extends State<AddItemPage> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.indigo.withValues(alpha: 0.1),
+                            color: _hasCategoryError
+                                ? Colors.red.withValues(alpha: 0.1)
+                                : (category.isEmpty ? Colors.grey.withValues(alpha: 0.1) : Colors.indigo.withValues(alpha: 0.1)),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(categoryIcon(category), color: Colors.indigo, size: 22),
+                          child: Icon(
+                            category.isEmpty ? Icons.category_outlined : categoryIcon(category),
+                            color: _hasCategoryError ? Colors.red.shade700 : (category.isEmpty ? Colors.grey.shade700 : Colors.indigo),
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -718,7 +739,9 @@ class _AddItemPageState extends State<AddItemPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                tr('الفئة المحددة', 'Selected Category'),
+                                category.isEmpty
+                                    ? tr('تصنيف السلعة', 'Item Category')
+                                    : tr('الفئة المحددة', 'Selected Category'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -726,11 +749,13 @@ class _AddItemPageState extends State<AddItemPage> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                category,
-                                style: const TextStyle(
+                                category.isEmpty ? tr('اختر التصنيف', 'Select Category') : category,
+                                style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.indigo,
+                                  fontWeight: category.isEmpty ? FontWeight.normal : FontWeight.bold,
+                                  color: category.isEmpty
+                                      ? (_hasCategoryError ? Colors.red.shade700 : Colors.grey.shade600)
+                                      : Colors.indigo,
                                 ),
                               ),
                             ],
@@ -740,22 +765,32 @@ class _AddItemPageState extends State<AddItemPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.indigo.shade50,
+                              color: _hasCategoryError
+                                  ? Colors.red.shade50
+                                  : (category.isEmpty ? Colors.grey.withValues(alpha: 0.15) : Colors.indigo.shade50),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  tr('تغيير التصنيف', 'Change'),
-                                  style: const TextStyle(
-                                    color: Colors.indigo,
+                                  category.isEmpty ? tr('اختر', 'Choose') : tr('تغيير التصنيف', 'Change'),
+                                  style: TextStyle(
+                                    color: _hasCategoryError
+                                        ? Colors.red.shade800
+                                        : (category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo),
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.indigo),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 18,
+                                  color: _hasCategoryError
+                                      ? Colors.red.shade800
+                                      : (category.isEmpty ? Theme.of(context).colorScheme.onSurface : Colors.indigo),
+                                ),
                               ],
                             ),
                           ),
@@ -764,6 +799,14 @@ class _AddItemPageState extends State<AddItemPage> {
                     ),
                   ),
                 ),
+                if (_hasCategoryError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 8, left: 8),
+                    child: Text(
+                      tr('يرجى اختيار تصنيف السلعة قبل النشر *', 'Please select a category before publishing *'),
+                      style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // 3. كتلة عنوان الإعلان

@@ -118,4 +118,34 @@ void main() {
       store.stopTimers();
     });
   });
+
+  group('5. Expanded Categories, Dynamic Fields & PIN Hint Removal', () {
+    test('Categories list is expanded with comprehensive categories and matching fields', () {
+      expect(categories.length, greaterThanOrEqualTo(15));
+      expect(categories.contains('عقارات وأراضي'), isTrue);
+      expect(categories.contains('ذهب ومجوهرات'), isTrue);
+      expect(categories.contains('ألعاب فيديو وترفيه'), isTrue);
+      expect(categories.contains('مواشي وأغنام'), isTrue);
+
+      for (final cat in categories) {
+        final icon = categoryIcon(cat);
+        expect(icon, isNotNull);
+        final fields = dynamicFieldsForCategory(cat);
+        expect(fields, isNotEmpty);
+      }
+    });
+
+    testWidgets('Create Auction page has empty category by default and displays guidance text', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: AddItemPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('اختر التصنيف'), findsOneWidget);
+      expect(find.text('عقارات وأراضي'), findsNothing);
+      store.stopTimers();
+    });
+  });
 }
