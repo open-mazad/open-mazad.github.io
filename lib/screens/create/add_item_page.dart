@@ -27,7 +27,6 @@ class _AddItemPageState extends State<AddItemPage> {
   int durationIndex = 3;
   int scheduleDelayIndex = 0; // 0: يبدأ فوراً, 1: بعد دقيقتين, 2: بعد ساعة, 3: غداً
   bool isPrivateAuction = false;
-  bool enableLiveStream = false;
 
   final List<XFile> pickedImages = [];
   final picker = ImagePicker();
@@ -233,7 +232,6 @@ class _AddItemPageState extends State<AddItemPage> {
       imagePaths: portableImages,
       attributes: attrs,
       pinCode: isPrivateAuction ? pinCtrl.text.trim() : null,
-      isLiveStreaming: enableLiveStream,
     );
 
     if (!mounted) return;
@@ -592,16 +590,6 @@ class _AddItemPageState extends State<AddItemPage> {
                           ),
                         ),
                       ),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.videocam, color: Colors.red),
-                      title: Text(tr('تفعيل غرفة البث المباشر للمزاد 🔴',
-                          'Enable Live Stream Broadcast 🔴')),
-                      subtitle: Text(tr(
-                          'يتيح لك فتح الكاميرا وعرض السلعة مباشرة مع المزايدات الحية',
-                          'Broadcast live video with real-time bidding overlay')),
-                      value: enableLiveStream,
-                      onChanged: (v) => setState(() => enableLiveStream = v),
-                    ),
                   ],
                 ),
               ),

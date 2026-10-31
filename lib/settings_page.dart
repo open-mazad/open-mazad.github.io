@@ -66,8 +66,9 @@ File? resolveLocalStoreFile(String fileName) {
 Future<String> xFileToPortableImage(XFile picked) async {
   try {
     final bytes = await picked.readAsBytes();
-    if (bytes.isNotEmpty && bytes.length <= 2 * 1024 * 1024) {
-      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    if (bytes.isNotEmpty) {
+      final mime = picked.mimeType ?? 'image/jpeg';
+      return 'data:$mime;base64,${base64Encode(bytes)}';
     }
   } catch (_) {}
   return picked.path;
@@ -80,14 +81,17 @@ ImageProvider? resolveSmartImageProvider(String? source) {
   if (source == null || source.trim().isEmpty) return null;
   final s = source.split('#pw:').first.trim();
   if (s.isEmpty) return null;
-  if (s.startsWith('data:image/')) {
+
+  // 1. صيغة Data URI (Base64)
+  if (s.startsWith('data:')) {
     final cached = _base64ImageCache[s];
     if (cached != null) return cached;
     final comma = s.indexOf(',');
     if (comma != -1) {
       try {
-        final img = MemoryImage(base64Decode(s.substring(comma + 1)));
-        if (_base64ImageCache.length > 50) {
+        final clean = s.substring(comma + 1).replaceAll(RegExp(r'\s+'), '');
+        final img = MemoryImage(base64Decode(clean));
+        if (_base64ImageCache.length > 60) {
           _base64ImageCache.remove(_base64ImageCache.keys.first);
         }
         _base64ImageCache[s] = img;
@@ -97,9 +101,32 @@ ImageProvider? resolveSmartImageProvider(String? source) {
       }
     }
   }
-  if (s.startsWith('http://') || s.startsWith('https://')) {
+
+  // 1b. كود Base64 خام بدون بادئة data:
+  if (s.length > 80 &&
+      (s.startsWith('/9j/') ||
+          s.startsWith('iVBORw0KGgo') ||
+          s.startsWith('R0lGOD') ||
+          s.startsWith('UklGR'))) {
+    try {
+      final clean = s.replaceAll(RegExp(r'\s+'), '');
+      return MemoryImage(base64Decode(clean));
+    } catch (_) {}
+  }
+
+  // 2. روابط الإنترنت والـ Blob في الويب
+  if (s.startsWith('http://') ||
+      s.startsWith('https://') ||
+      s.startsWith('blob:')) {
     return NetworkImage(s);
   }
+
+  // 3. صور الأصول الداخلية (Assets)
+  if (s.startsWith('assets/')) {
+    return AssetImage(s);
+  }
+
+  // 4. ملف محلي (على أجهزة أندرويد / iOS / ويندوز)
   if (!kIsWeb) {
     try {
       final f = File(s);

@@ -447,14 +447,14 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Widget _buildMediaGallery(Item item, ColorScheme scheme) {
     final validImages = item.imagePaths
-        .where((p) => resolveSmartImageProvider(p) != null)
+        .where((p) => p.trim().isNotEmpty)
         .toList();
 
     if (validImages.isEmpty) {
       return Stack(
         children: [
           Container(
-            height: 170,
+            height: 200,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: scheme.primaryContainer,
@@ -511,7 +511,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     }
 
     return SizedBox(
-      height: 230,
+      height: 280,
       child: Stack(
         children: [
           PageView.builder(
@@ -1092,243 +1092,229 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 children: [
+                  // 1. معرض صور السلعة الرئيسي
                   _buildMediaGallery(item, scheme),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  // شريط البث المباشر وعداد المشاهدين (يظهر فقط إذا كان البائع يبث أو للمعلن لبدء البث)
-                  if (!item.isEnded && (item.seller == me || store.isItemSeller(item) || item.isLiveStreaming)) ...[
-                    Row(
-                      children: [
-                        if (item.liveViewers > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: scheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(20),
+                  // 2. بطاقة السعر الحالي والوقت المتبقي في الصدارة
+                  Card(
+                    color: scheme.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          statBox(tr('السعر الحالي', 'Current Bid'),
+                              formatPrice(item.currentPrice)),
+                          statBox(
+                            item.isScheduled
+                                ? tr('يبدأ خلال', 'Starts In')
+                                : tr('الوقت المتبقي', 'Time Left'),
+                            item.isCancelled
+                                ? tr('ملغي', 'Cancelled')
+                                : (item.isEndedEarlyBySeller
+                                    ? tr('تم الإرساء', 'Settled')
+                                    : (item.isScheduled
+                                        ? formatDuration(item.timeUntilStart)
+                                        : formatDuration(item.timeLeft))),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3. عنوان السلعة وتصنيفاتها
+                  Text(
+                    item.title,
+                    style:
+                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Chip(
+                        avatar: Icon(categoryIcon(item.category), size: 16),
+                        label: Text(item.category),
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.verified_outlined, size: 16),
+                        label: Text(item.condition),
+                      ),
+                      if (item.isPrivate)
+                        Chip(
+                          avatar: const Icon(Icons.lock, size: 16),
+                          label: Text(tr('غرفة خاصة برمز PIN', 'Private PIN Room')),
+                        ),
+                      if (item.extensionsCount > 0)
+                        Chip(
+                          avatar: const Icon(Icons.more_time, size: 16),
+                          label: Text(tr(
+                              'تمديد تلقائي (${item.extensionsCount})',
+                              'Auto-extended (${item.extensionsCount})')),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 4. صندوق تقديم المزايدات والشراء الفوري
+                  actionSection(item),
+                  const SizedBox(height: 16),
+
+                  // 5. بطاقة البائع والتواصل المباشر
+                  Card(
+                    elevation: 0,
+                    color: scheme.surfaceContainerLow,
+                    child: ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      onTap: () => showUserProfileSheet(context, item.seller),
+                      leading: buildUserAvatar(item.seller, radius: 22),
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${tr("البائع:", "Seller:")} ${displayName(item.seller)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.star, color: Colors.amber, size: 15),
+                          Text(
+                            sellerRating.toStringAsFixed(1),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '📍 ${item.location} - ${item.area} • 🚚 ${item.deliveryMethod}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5),
+                      ),
+                      trailing: item.seller != me
+                          ? FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DirectChatPage(
+                                    item: item,
+                                    otherParty: item.seller,
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                              label: Text(tr('مراسلة', 'Chat'),
+                                  style: const TextStyle(fontSize: 12)),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 6. المواصفات الخاصة بالفئة (إن وجدت)
+                  if (item.attributes.isNotEmpty) ...[
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: scheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                const Icon(Icons.visibility, size: 16),
-                                const SizedBox(width: 4),
+                                Icon(categoryIcon(item.category),
+                                    size: 18, color: scheme.primary),
+                                const SizedBox(width: 6),
                                 Text(
-                                  '👁️ ${item.liveViewers} ${tr("يشاهد الآن", "watching now")}',
-                                  style: const TextStyle(
-                                      fontSize: 12, fontWeight: FontWeight.w600),
+                                  '${tr("المواصفات الخاصة بفئة", "Category Specs:")} (${item.category})',
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
-                          ),
-                        const Spacer(),
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.red.shade700,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => LiveStreamPage(item: item)),
-                          ),
-                          icon: const Icon(Icons.videocam, size: 18),
-                          label: Text((item.seller == me || store.isItemSeller(item))
-                              ? (item.isLiveStreaming
-                                  ? tr('استئناف البث المباشر 🔴', 'Resume Live 🔴')
-                                  : tr('افتح البث المباشر 🔴', 'Go Live 🔴'))
-                              : tr('دخول البث المباشر 🔴', 'Watch Live 🔴')),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-              Text(
-                item.title,
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-
-              // بطاقة معلومات البائع والتقييم والمحادثة بتصميم متجاوب
-              Card(
-                elevation: 0,
-                color: scheme.surfaceContainerLow,
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                  onTap: () => showUserProfileSheet(context, item.seller),
-                  leading: buildUserAvatar(item.seller, radius: 22),
-                  title: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '${tr("البائع:", "Seller:")} ${displayName(item.seller)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.star, color: Colors.amber, size: 15),
-                      Text(
-                        sellerRating.toStringAsFixed(1),
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  subtitle: Text(
-                    '📍 ${item.location} - ${item.area} • 🚚 ${item.deliveryMethod}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11.5),
-                  ),
-                  trailing: item.seller != me
-                      ? FilledButton.tonalIcon(
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DirectChatPage(
-                                item: item,
-                                otherParty: item.seller,
-                              ),
-                            ),
-                          ),
-                          icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                          label: Text(tr('مراسلة', 'Chat'),
-                              style: const TextStyle(fontSize: 12)),
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  Chip(
-                    avatar: Icon(categoryIcon(item.category), size: 16),
-                    label: Text(item.category),
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.verified_outlined, size: 16),
-                    label: Text(item.condition),
-                  ),
-                  if (item.isPrivate)
-                    Chip(
-                      avatar: const Icon(Icons.lock, size: 16),
-                      label: Text(tr('غرفة خاصة برمز PIN', 'Private PIN Room')),
-                    ),
-                  if (item.extensionsCount > 0)
-                    Chip(
-                      avatar: const Icon(Icons.more_time, size: 16),
-                      label: Text(tr(
-                          'تمديد تلقائي (${item.extensionsCount})',
-                          'Auto-extended (${item.extensionsCount})')),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                item.description,
-                style: const TextStyle(fontSize: 14, height: 1.4),
-              ),
-
-              // الحقول المخصصة الذكية حسب الفئة
-              if (item.attributes.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: scheme.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(categoryIcon(item.category),
-                                size: 18, color: scheme.primary),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${tr("المواصفات الخاصة بفئة", "Category Specs:")} (${item.category})',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                            const Divider(height: 16),
+                            for (final entry in item.attributes.entries)
+                              if (entry.value.trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(entry.key,
+                                          style: TextStyle(
+                                              color: scheme.onSurfaceVariant,
+                                              fontSize: 13)),
+                                      Flexible(
+                                        child: Text(
+                                          entry.value,
+                                          textAlign: TextAlign.end,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                           ],
                         ),
-                        const Divider(height: 16),
-                        for (final entry in item.attributes.entries)
-                          if (entry.value.trim().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(entry.key,
-                                      style: TextStyle(
-                                          color: scheme.onSurfaceVariant,
-                                          fontSize: 13)),
-                                  Flexible(
-                                    child: Text(
-                                      entry.value,
-                                      textAlign: TextAlign.end,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13),
-                                    ),
-                                  ),
-                                ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 7. تفاصيل ووصف السلعة
+                  Card(
+                    elevation: 0,
+                    color: scheme.surfaceContainerLowest,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.description_outlined, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                tr('تفاصيل وإعلان السلعة', 'Item Description'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
-                            ),
-                      ],
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Text(
+                            item.description,
+                            style: const TextStyle(fontSize: 14, height: 1.5),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
 
-              const SizedBox(height: 16),
-              Card(
-                color: scheme.secondaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      statBox(tr('السعر الحالي', 'Current Bid'),
-                          formatPrice(item.currentPrice)),
-                      statBox(
-                        item.isScheduled
-                            ? tr('يبدأ خلال', 'Starts In')
-                            : tr('الوقت المتبقي', 'Time Left'),
-                        item.isCancelled
-                            ? tr('ملغي', 'Cancelled')
-                            : (item.isEndedEarlyBySeller
-                                ? tr('تم الإرساء', 'Settled')
-                                : (item.isScheduled
-                                    ? formatDuration(item.timeUntilStart)
-                                    : formatDuration(item.timeLeft))),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              actionSection(item),
-              const SizedBox(height: 24),
-
-              // سجل المزايدات
+                  // 8. سجل المزايدات العلنية
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

@@ -195,25 +195,6 @@ class ItemCard extends StatelessWidget {
                               size: 15, color: Colors.amber),
                           const SizedBox(width: 4),
                         ],
-                        if (item.isLiveStreaming && !item.isEnded) ...[
-                          Container(
-                            margin: const EdgeInsetsDirectional.only(end: 6),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade700,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              '🔴 LIVE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
                         Expanded(
                           child: Text(
                             item.title,
@@ -245,27 +226,19 @@ class ItemCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(Icons.visibility_outlined,
-                            size: 13, color: scheme.outline),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${item.liveViewers} ${tr("يشاهدون الآن", "watching")}',
-                          style:
-                              TextStyle(fontSize: 11, color: scheme.outline),
-                        ),
-                        if (item.videoPath != null) ...[
-                          const SizedBox(width: 8),
+                    if (item.videoPath != null) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
                           const Icon(Icons.videocam_outlined,
                               size: 14, color: Colors.indigo),
-                          const SizedBox(width: 2),
-                          Text(tr('فيديو', 'Video'),
+                          const SizedBox(width: 4),
+                          Text(tr('فيديو مرفق', 'Attached Video'),
                               style: const TextStyle(
                                   fontSize: 10, color: Colors.indigo)),
                         ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
               ),

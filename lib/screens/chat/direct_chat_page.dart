@@ -1477,10 +1477,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   AuctionStore.itemToUuid(widget.item.id),
           orElse: () => widget.item,
         );
-        final isDealClosed = item.isEnded &&
-            item.highestBidder != null &&
-            (store.isUserMe(item.seller) ||
-                store.isUserMe(item.highestBidder!));
 
         final allMsgs = store.getDirectMessages(item.id);
         final otherUuid = AuctionStore.userToUuid(widget.otherParty);
@@ -1602,7 +1598,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
             actions: [
               IconButton(
                 tooltip: tr('اتصال صوتي داخل التطبيق', 'In-App Voice Call'),
-                icon: const Icon(Icons.call_rounded, color: Colors.green),
+                icon: const Icon(Icons.call, color: Colors.white70),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -1615,15 +1611,13 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   );
                 },
               ),
-              IconButton(
-                tooltip: tr('ملف وتقييم المستخدم', 'User Profile & Rating'),
-                icon: const Icon(Icons.star_rate_rounded, color: Colors.amber),
-                onPressed: () => showUserProfileSheet(context, widget.otherParty),
-              ),
               PopupMenuButton<String>(
                 tooltip: tr('خيارات المحادثة', 'Chat Options'),
+                icon: const Icon(Icons.more_vert, color: Colors.white70),
                 onSelected: (value) {
-                  if (value == 'report') {
+                  if (value == 'profile') {
+                    showUserProfileSheet(context, widget.otherParty);
+                  } else if (value == 'report') {
                     _showReportDialog(item, otherName);
                   } else if (value == 'block') {
                     _confirmToggleBlock(otherName, isBlocked);
@@ -1634,6 +1628,17 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   }
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline,
+                            color: Colors.blueAccent, size: 20),
+                        const SizedBox(width: 10),
+                        Text(tr('الملف الشخصي والتقييم', 'Profile & Rating')),
+                      ],
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'report',
                     child: Row(
@@ -1699,16 +1704,15 @@ class _DirectChatPageState extends State<DirectChatPage> {
               constraints: const BoxConstraints(maxWidth: 680),
               child: Column(
                 children: [
-                  // 1. شريط السلعة المثبت بالأعلى (Pinned Auction Bar)
+                  // 1. شريط السلعة المثبت بالأعلى (Pinned Auction Bar كما في الصورة)
                   Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
+                          color: Colors.grey.withValues(alpha: 0.15),
                         ),
                       ),
                     ),
@@ -1723,33 +1727,24 @@ class _DirectChatPageState extends State<DirectChatPage> {
                       },
                       child: Row(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: item.imagePaths.isNotEmpty
-                                  ? buildSmartImage(item.imagePaths.first,
-                                      fit: BoxFit.cover)
-                                  : const Icon(Icons.image, size: 28),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   item.title,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.3,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${tr("السعر الحالي:", "Price:")} ${formatPrice(item.currentPrice)}',
+                                  formatPrice(item.currentPrice),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.green,
@@ -1759,27 +1754,19 @@ class _DirectChatPageState extends State<DirectChatPage> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.indigo.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  tr('معاينة', 'View'),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.indigo.shade800,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(Icons.arrow_forward_ios,
-                                    size: 11, color: Colors.indigo.shade800),
-                              ],
+                          const SizedBox(width: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 50,
+                              height: 50,
+                              child: item.imagePaths.isNotEmpty
+                                  ? buildSmartImage(item.imagePaths.first,
+                                      fit: BoxFit.cover)
+                                  : Container(
+                                      color: Colors.grey.shade800,
+                                      child: const Icon(Icons.image, size: 26, color: Colors.white70),
+                                    ),
                             ),
                           ),
                         ],
@@ -1787,75 +1774,70 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     ),
                   ),
 
-                  // 2. صندوق نصائح الأمان وسرعة الرد (Safety Tips & Response Speed)
+                  // 2. صندوق نصائح الأمان المخطط بالأحمر (Red Dashed Safety Box كما في الصورة 2)
                   if (_showSafetyTips)
                     Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.red.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.25),
+                          color: Colors.red.shade900.withValues(alpha: 0.6),
+                          width: 1.4,
                         ),
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(Icons.info_outline,
-                                  color: Colors.redAccent, size: 18),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  tr('نصائح عامة للمعاينة والأمان 🛡️',
-                                      'General Safety Tips 🛡️'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: Colors.redAccent,
-                                  ),
-                                ),
-                              ),
                               InkWell(
-                                onTap: () =>
-                                    setState(() => _showSafetyTips = false),
-                                child: const Icon(Icons.close,
-                                    size: 16, color: Colors.grey),
+                                onTap: () => setState(() => _showSafetyTips = false),
+                                child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    tr('نصائح عامة', 'General Tips'),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.red.shade400,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade900,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.info_rounded,
+                                        color: Colors.white, size: 14),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '• ${tr("قم بتفقد السلعة جيداً قبل الشراء والاستلام", "Inspect item well before buying")}\n'
-                            '• ${tr("لا تقم بإرسال الأموال مسبقاً خارج المعاينة", "Do not send money in advance")}\n'
-                            '• ${tr("اجتمع في الأماكن العامة فقط للتسليم", "Meet in public places only")}',
-                            style: const TextStyle(fontSize: 11, height: 1.4),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Icon(Icons.bolt,
-                                    size: 14, color: Colors.teal),
-                                const SizedBox(width: 4),
                                 Text(
-                                  tr('تجاوب سريع ⚡ - عادة ما يتم الرد خلال دقائق',
-                                      'Fast Response ⚡ - usually replies in minutes'),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.teal.shade800,
-                                  ),
+                                  '• ${tr("قم بتفقّد المنتج جيداً قبل شرائه", "Inspect the product well before purchasing")}',
+                                  style: TextStyle(fontSize: 12, height: 1.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                ),
+                                Text(
+                                  '• ${tr("لا تقم بإرسال المال مسبقاً", "Do not send money in advance")}',
+                                  style: TextStyle(fontSize: 12, height: 1.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                ),
+                                Text(
+                                  '• ${tr("اجتمع في الأماكن العامة فقط", "Meet in public places only")}',
+                                  style: TextStyle(fontSize: 12, height: 1.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                                 ),
                               ],
                             ),
@@ -1863,50 +1845,93 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         ],
                       ),
                     ),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    color: isDealClosed
-                        ? Colors.green.shade50
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: Row(
+
+                  // 3. مؤشر سرعة الرد ومعدل التجاوب (Response Speed كما في الصورة 2)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
                       children: [
-                        Icon(
-                          isDealClosed
-                              ? Icons.verified
-                              : Icons.chat_bubble_outline,
-                          color: isDealClosed
-                              ? Colors.green.shade700
-                              : Colors.indigo,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF00B0FF),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.bolt, size: 13, color: Colors.black),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              tr('تجاوب عادي', 'Normal Response'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isDealClosed
-                                    ? tr('محادثة إتمام الصفقة والتسليم بين الطرفين',
-                                        'Deal Completion & Direct Chat')
-                                    : tr('محادثة مباشرة بخصوص السلعة',
-                                        'Direct inquiry about this item'),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                              Text(
-                                isDealClosed
-                                    ? tr('يمكنكم التنسيق واستلام السلعة عبر هذه المحادثة الفورية بكل أمان',
-                                        'Coordinate delivery directly via this chat safely')
-                                    : tr('اضغط مطولاً على أي رسالة للنسخ أو الحذف، أو استخدم القائمة العلوية للحظر والإبلاغ',
-                                        'Long press any message to copy or delete'),
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                            ],
+                        const SizedBox(height: 2),
+                        Text(
+                          tr('عادة ما يتم الرد خلال 19 ساعة', 'Usually replies within 19 hours'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  // 4. زر التنبيه عند تخفيض سعر الإعلان (Price Alert Prompt كما في الصورة 2)
+                  Center(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        final alertText = tr(
+                          'أريد أن اتلقى تنبيها اذا تم تخفيض سعر هذا الإعلان',
+                          'I would like an alert if this item price is lowered',
+                        );
+                        store.sendDirectMessage(item, widget.otherParty, alertText);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(tr('تم تفعيل التنبيه وإرسال الرسالة للبائع 🏷️', 'Alert request sent to seller 🏷️')),
+                            backgroundColor: Colors.teal.shade800,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF1E2124)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_offer, size: 15, color: Colors.lightGreen),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                tr('أريد أن اتلقى تنبيها اذا تم تخفيض سعر هذا الإعلان', 'Alert me if this price drops'),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Expanded(
                     child: visibleMsgs.isEmpty
                         ? Center(
@@ -2058,11 +2083,12 @@ class _DirectChatPageState extends State<DirectChatPage> {
                           )
                         : Padding(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8.0, vertical: 6.0),
+                                horizontal: 10.0, vertical: 6.0),
                             child: Directionality(
                               textDirection: TextDirection.ltr,
                               child: Row(
                                 children: [
+                                  // زر مشبك المرفقات في أقصى اليسار باللون الأزرق (كما في الصورة 3)
                                   IconButton(
                                     tooltip: tr('إرفاق ملف أو موقع', 'Attach'),
                                     icon: const Icon(Icons.attach_file_rounded,
@@ -2070,59 +2096,82 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                     onPressed: () => _showAttachmentSheet(context),
                                   ),
                                   const SizedBox(width: 4),
+                                  // كبسولة إدخال الرسالة مع أيقونات الكاميرا والصوت في اليمين بالداخل (كما في الصورة 3)
                                   Expanded(
                                     child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(24),
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? const Color(0xFF232528)
+                                            : Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(26),
                                       ),
-                                      child: Directionality(
-                                        textDirection: TextDirection.rtl,
-                                        child: TextField(
-                                          controller: textCtrl,
-                                          decoration: InputDecoration(
-                                            hintText: tr(
-                                                'أرسل رسالة جديدة...',
-                                                'Type a new message...'),
-                                            border: InputBorder.none,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 10),
-                                            isDense: true,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Directionality(
+                                              textDirection: TextDirection.rtl,
+                                              child: TextField(
+                                                controller: textCtrl,
+                                                style: TextStyle(
+                                                  color: Theme.of(context).colorScheme.onSurface,
+                                                  fontSize: 14,
+                                                ),
+                                                decoration: InputDecoration(
+                                                  hintText: tr(
+                                                      'أرسل رسالة جديدة',
+                                                      'Type a new message'),
+                                                  hintStyle: TextStyle(
+                                                    color: Colors.grey.shade400,
+                                                    fontSize: 14,
+                                                  ),
+                                                  border: InputBorder.none,
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 10),
+                                                  isDense: true,
+                                                ),
+                                                onSubmitted: (_) => send(),
+                                              ),
+                                            ),
                                           ),
-                                          onSubmitted: (_) => send(),
-                                        ),
+                                          if (!_hasText) ...[
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                                              tooltip: tr('التقط صورة', 'Camera'),
+                                              icon: const Icon(
+                                                  Icons.camera_alt_rounded,
+                                                  color: Colors.blueAccent,
+                                                  size: 22),
+                                              onPressed: () =>
+                                                  _pickImage(ImageSource.camera),
+                                            ),
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                                              tooltip:
+                                                  tr('تسجيل صوتي', 'Voice Note'),
+                                              icon: const Icon(Icons.mic_rounded,
+                                                  color: Colors.blueAccent,
+                                                  size: 22),
+                                              onPressed: _recordVoiceNote,
+                                            ),
+                                          ] else ...[
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                                              onPressed: send,
+                                              icon: const Icon(Icons.send_rounded,
+                                                  color: Colors.blueAccent,
+                                                  size: 22),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  if (!_hasText) ...[
-                                    IconButton(
-                                      tooltip: tr('التقط صورة', 'Camera'),
-                                      icon: const Icon(
-                                          Icons.camera_alt_rounded,
-                                          color: Colors.blueAccent),
-                                      onPressed: () =>
-                                          _pickImage(ImageSource.camera),
-                                    ),
-                                    IconButton(
-                                      tooltip:
-                                          tr('تسجيل صوتي', 'Voice Note'),
-                                      icon: const Icon(Icons.mic_rounded,
-                                          color: Colors.blueAccent),
-                                      onPressed: _recordVoiceNote,
-                                    ),
-                                  ] else ...[
-                                    IconButton.filled(
-                                      onPressed: send,
-                                      icon:
-                                          const Icon(Icons.send_rounded),
-                                    ),
-                                    const SizedBox(width: 4),
-                                  ],
                                 ],
                               ),
                             ),

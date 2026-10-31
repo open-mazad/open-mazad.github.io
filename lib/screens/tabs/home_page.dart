@@ -72,8 +72,6 @@ class _HomePageState extends State<HomePage> {
           matchStatus = !i.isEnded && !i.isScheduled;
         } else if (statusFilter == 'قريباً ⏳') {
           matchStatus = i.isScheduled;
-        } else if (statusFilter == 'بث مباشر 🎥') {
-          matchStatus = i.isLiveStreaming && !i.isEnded;
         } else if (statusFilter == 'خاصة 🔒') {
           matchStatus = i.isPrivate;
         }
@@ -107,8 +105,6 @@ class _HomePageState extends State<HomePage> {
         return store.items.where((i) => !i.isEnded && !i.isScheduled).length;
       case 'قريباً ⏳':
         return store.items.where((i) => i.isScheduled).length;
-      case 'بث مباشر 🎥':
-        return store.items.where((i) => i.isLiveStreaming && !i.isEnded).length;
       case 'خاصة 🔒':
         return store.items.where((i) => i.isPrivate).length;
       case 'الكل':
@@ -322,7 +318,6 @@ class _HomePageState extends State<HomePage> {
                   'الكل',
                   'جارية 🔴',
                   'قريباً ⏳',
-                  'بث مباشر 🎥',
                   'خاصة 🔒',
                 ],
                 countOf: _countForStatus,

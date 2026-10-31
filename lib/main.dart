@@ -10,7 +10,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/auction_models.dart';
 import 'services/auction_helpers.dart';
-import 'screens/live/live_camera_widget.dart';
 import 'services/local_storage_helper.dart';
 import 'services/web_geolocation.dart';
 import 'services/web_contacts.dart';
@@ -28,7 +27,6 @@ part 'screens/tabs/home_page.dart';
 part 'screens/details/item_details_page.dart';
 part 'screens/details/user_profile_sheet.dart';
 part 'screens/create/add_item_page.dart';
-part 'screens/live/live_stream_page.dart';
 part 'screens/chat/direct_chat_page.dart';
 part 'screens/radar/radar_and_notifications_page.dart';
 part 'screens/admin/admin_dashboard_page.dart';
