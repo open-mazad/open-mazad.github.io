@@ -181,7 +181,11 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
     try {
-      final imgs = await picker.pickMultiImage(imageQuality: 85);
+      final imgs = await picker.pickMultiImage(
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 75,
+      );
       if (imgs.isNotEmpty) {
         final remainingSlots = 12 - currentCount;
         final toAdd = imgs.take(remainingSlots).toList();
@@ -213,7 +217,12 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
     try {
-      final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      final img = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 75,
+      );
       if (img != null) {
         setState(() {
           pickedImages.add(img);

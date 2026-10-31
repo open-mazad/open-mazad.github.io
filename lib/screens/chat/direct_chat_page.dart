@@ -23,6 +23,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   bool _showSafetyTips = true;
   bool _hasText = false;
   int _lastMsgCount = 0;
+  DateTime? _lastTypingSent;
   Timer? _onlineStatusTimer;
   Timer? _chatPollTimer;
 
@@ -106,6 +107,13 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
       setState(() => _hasText = has);
     }
     _scrollToBottom(animate: true);
+    if (has) {
+      final now = DateTime.now();
+      if (_lastTypingSent == null || now.difference(_lastTypingSent!).inMilliseconds > 2000) {
+        _lastTypingSent = now;
+        store.sendTypingIndicator(widget.item.id, widget.otherParty);
+      }
+    }
   }
 
   @override
@@ -1539,15 +1547,24 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                             ],
                           ],
                         ),
-                        Text(
-                          isOnline
-                              ? tr('متصل الآن 🟢', 'Online now 🟢')
-                              : tr('غير متصل ⚪', 'Offline ⚪'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isOnline ? Colors.green.shade600 : Colors.grey.shade500,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        Builder(
+                          builder: (_) {
+                            final isTyping = store.isUserTyping(item.id, widget.otherParty);
+                            return Text(
+                              isTyping
+                                  ? tr('يكتب الآن... ✍️', 'Typing... ✍️')
+                                  : (isOnline
+                                      ? tr('متصل الآن 🟢', 'Online now 🟢')
+                                      : tr('غير متصل ⚪', 'Offline ⚪')),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isTyping
+                                    ? Colors.blueAccent
+                                    : (isOnline ? Colors.green.shade600 : Colors.grey.shade500),
+                                fontWeight: isTyping ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -1909,6 +1926,35 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                               );
                             },
                           ),
+                  ),
+                  Builder(
+                    builder: (_) {
+                      final isTyping = store.isUserTyping(item.id, widget.otherParty);
+                      if (!isTyping) return const SizedBox.shrink();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.blueAccent),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('$otherName يكتب الآن...', '$otherName is typing...'),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.blueAccent,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   SafeArea(
                     child: isBlocked

@@ -10,35 +10,50 @@ class ItemCard extends StatelessWidget {
     const double size = 90;
     if (item.imagePaths.isNotEmpty &&
         resolveSmartImageProvider(item.imagePaths.first) != null) {
-      return Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: buildSmartImage(
-              item.imagePaths.first,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-            ),
-          ),
-          if (item.imagePaths.length > 1)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '+${item.imagePaths.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
+      return Builder(
+        builder: (context) => GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FullscreenImageViewer(
+                  images: item.imagePaths,
+                  initialIndex: 0,
                 ),
               ),
-            ),
-        ],
+            );
+          },
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: buildSmartImage(
+                  item.imagePaths.first,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              if (item.imagePaths.length > 1)
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '+${item.imagePaths.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       );
     }
     return _fallbackAvatar(scheme);

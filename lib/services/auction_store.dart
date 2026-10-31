@@ -32,6 +32,9 @@ class AuctionStore extends ChangeNotifier {
   StreamSubscription? _profilesSub;
   StreamSubscription? _reportsSub;
   RealtimeChannel? _chatBroadcastChannel;
+  static final ValueNotifier<AppNotification?> outbidAlertNotifier =
+      ValueNotifier<AppNotification?>(null);
+  final Map<String, DateTime> _typingState = {};
   bool _hasInitialSynced = false;
   final Set<String> adminUserNames = {};
 
@@ -165,34 +168,50 @@ class AuctionStore extends ChangeNotifier {
       // 5. قناة البث المباشر الفوري عبر WebSockets للمراسلة اللحظية
       try {
         _chatBroadcastChannel?.unsubscribe();
-        _chatBroadcastChannel = client.channel('open_mazad_chat').onBroadcast(
-          event: 'dm',
-          callback: (payload) {
-            try {
-              final raw = payload['msg'];
-              if (raw is Map) {
-                final msg = DirectMessage.fromJson(Map<String, dynamic>.from(raw));
-                final rawItemId = '${payload['itemId']}';
-                if (isUserMe(msg.sender)) return;
-                final myUuid = userToUuid(me);
-                if (!isUserMe(msg.receiver) && userToUuid(msg.receiver) != myUuid) return;
-                _mergeIncomingDirectMessage(rawItemId, msg);
-                recordUserActivity(msg.sender, activityTime: msg.time);
-                _pushNotification(
-                  title: tr('رسالة جديدة من ${displayName(msg.sender)}',
-                      'New message from ${displayName(msg.sender)}'),
-                  body: msg.text,
-                  icon: Icons.chat_bubble_outline,
-                  color: Colors.blue,
-                  itemId: rawItemId,
-                );
-                notifyListeners();
+        _chatBroadcastChannel = client.channel('open_mazad_chat')
+          .onBroadcast(
+            event: 'dm',
+            callback: (payload) {
+              try {
+                final raw = payload['msg'];
+                if (raw is Map) {
+                  final msg = DirectMessage.fromJson(Map<String, dynamic>.from(raw));
+                  final rawItemId = '${payload['itemId']}';
+                  if (isUserMe(msg.sender)) return;
+                  final myUuid = userToUuid(me);
+                  if (!isUserMe(msg.receiver) && userToUuid(msg.receiver) != myUuid) return;
+                  _mergeIncomingDirectMessage(rawItemId, msg);
+                  recordUserActivity(msg.sender, activityTime: msg.time);
+                  _pushNotification(
+                    title: tr('رسالة جديدة من ${displayName(msg.sender)}',
+                        'New message from ${displayName(msg.sender)}'),
+                    body: msg.text,
+                    icon: Icons.chat_bubble_outline,
+                    color: Colors.blue,
+                    itemId: rawItemId,
+                  );
+                  notifyListeners();
+                }
+              } catch (e) {
+                debugPrint('Realtime broadcast parse error: $e');
               }
-            } catch (e) {
-              debugPrint('Realtime broadcast parse error: $e');
-            }
-          },
-        )..subscribe();
+            },
+          )
+          .onBroadcast(
+            event: 'typing',
+            callback: (payload) {
+              try {
+                final sender = '${payload['sender'] ?? ''}';
+                final rawItemId = '${payload['itemId'] ?? ''}';
+                final receiver = '${payload['receiver'] ?? ''}';
+                if (sender.isEmpty || isUserMe(sender)) return;
+                final myUuid = userToUuid(me);
+                if (receiver.isNotEmpty && !isUserMe(receiver) && receiver != myUuid) return;
+                _recordUserTyping(rawItemId, sender);
+              } catch (_) {}
+            },
+          );
+        _chatBroadcastChannel?.subscribe();
       } catch (e) {
         debugPrint('Broadcast channel setup error: $e');
       }
@@ -1514,6 +1533,37 @@ class AuctionStore extends ChangeNotifier {
     }
   }
 
+  void _recordUserTyping(String itemId, String sender) {
+    final canonSender = userToUuid(sender);
+    _typingState['${itemId}_$canonSender'] = DateTime.now();
+    _typingState['${itemId}_$sender'] = DateTime.now();
+    notifyListeners();
+  }
+
+  void sendTypingIndicator(String itemId, String otherParty) {
+    if (_chatBroadcastChannel == null) return;
+    try {
+      _chatBroadcastChannel?.sendBroadcastMessage(
+        event: 'typing',
+        payload: {
+          'itemId': itemId,
+          'sender': settings.userId ?? userToUuid(me),
+          'receiver': userToUuid(otherParty),
+        },
+      );
+    } catch (_) {}
+  }
+
+  bool isUserTyping(String itemId, String otherParty) {
+    final key1 = '${itemId}_${userToUuid(otherParty)}';
+    final key2 = '${itemId}_$otherParty';
+    final t1 = _typingState[key1];
+    final t2 = _typingState[key2];
+    final t = (t1 != null && t2 != null) ? (t1.isAfter(t2) ? t1 : t2) : (t1 ?? t2);
+    if (t == null) return false;
+    return DateTime.now().difference(t).inSeconds < 4;
+  }
+
   void _pushNotification({
     required String title,
     required String body,
@@ -1521,19 +1571,31 @@ class AuctionStore extends ChangeNotifier {
     Color color = Colors.indigo,
     String? itemId,
   }) {
-    notifications.insert(
-      0,
-      AppNotification(
-        id: '${DateTime.now().microsecondsSinceEpoch}',
-        title: title,
-        body: body,
-        time: DateTime.now(),
-        icon: icon,
-        color: color,
-        itemId: itemId,
-      ),
+    final notif = AppNotification(
+      id: '${DateTime.now().microsecondsSinceEpoch}',
+      title: title,
+      body: body,
+      time: DateTime.now(),
+      icon: icon,
+      color: color,
+      itemId: itemId,
     );
+    notifications.insert(0, notif);
     triggerSystemNotification(title: title, body: body, tag: itemId);
+
+    // إذا كان الإشعار خاصاً بتجاوز السومة، تفعيل الصوت والاهتزاز وبانر التنبيه العلوي فوراً
+    if (title.contains('تجاوز') || title.contains('outbid') || title.contains('تخطي')) {
+      try {
+        SystemSound.play(SystemSoundType.alert);
+        HapticFeedback.heavyImpact();
+      } catch (_) {}
+      outbidAlertNotifier.value = notif;
+      Future.delayed(const Duration(seconds: 7), () {
+        if (outbidAlertNotifier.value?.id == notif.id) {
+          outbidAlertNotifier.value = null;
+        }
+      });
+    }
   }
 
   int get unreadNotificationsCount =>

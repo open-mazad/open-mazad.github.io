@@ -124,6 +124,8 @@ Widget buildUserAvatar(
 
 // ======================= التطبيق =======================
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 class AuctionApp extends StatelessWidget {
   const AuctionApp({super.key});
 
@@ -132,6 +134,7 @@ class AuctionApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => MaterialApp(
+        navigatorKey: rootNavigatorKey,
         title: 'المزاد المفتوح',
         debugShowCheckedModeBanner: false,
         locale: const Locale('ar'),
@@ -213,7 +216,102 @@ class AuctionApp extends StatelessWidget {
               textDirection: TextDirection.rtl,
               child: IconTheme(
                 data: IconThemeData(size: iconSize),
-                child: child!,
+                child: Stack(
+                  children: [
+                    child!,
+                    // بانر تنبيهي عائم بأعلى الشاشة عند تجاوز السومة
+                    Positioned(
+                      top: mq.padding.top + 8,
+                      left: 16,
+                      right: 16,
+                      child: ValueListenableBuilder<AppNotification?>(
+                        valueListenable: AuctionStore.outbidAlertNotifier,
+                        builder: (ctx, alert, _) {
+                          if (alert == null) return const SizedBox.shrink();
+                          return Material(
+                            elevation: 10,
+                            borderRadius: BorderRadius.circular(16),
+                            color: const Color(0xFFB71C1C),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                final itId = alert.itemId;
+                                AuctionStore.outbidAlertNotifier.value = null;
+                                if (itId != null) {
+                                  final target = store.items
+                                      .where((it) => it.id == itId)
+                                      .firstOrNull;
+                                  if (target != null) {
+                                    rootNavigatorKey.currentState?.push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ItemDetailsPage(item: target),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.amber,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.trending_up,
+                                          color: Colors.black, size: 20),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            alert.title,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Text(
+                                            alert.body,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                          minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.close,
+                                          color: Colors.white70, size: 18),
+                                      onPressed: () =>
+                                          AuctionStore.outbidAlertNotifier
+                                              .value = null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
