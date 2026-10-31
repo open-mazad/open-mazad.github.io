@@ -148,4 +148,58 @@ void main() {
       store.stopTimers();
     });
   });
+
+  group('6. Sorting Component & Default State', () {
+    testWidgets('Home page displays sort icon without text label initially', (tester) async {
+      await tester.pumpWidget(const AuctionApp());
+      await tester.pumpAndSettle();
+
+      // Sort button initially shows sort icon without any label text
+      final sortIconFinder = find.byIcon(Icons.sort);
+      expect(sortIconFinder, findsOneWidget);
+      expect(find.text('الأحدث'), findsNothing);
+      store.stopTimers();
+    });
+  });
+
+  group('7. Anti-Spam Bidding & Leader Validation', () {
+    test('Current highest bidder cannot place consecutive bids', () {
+      final testItem = Item(
+        id: 'anti_spam_test_1',
+        title: 'سلعة تجربة المزايدة',
+        description: 'وصف',
+        category: 'إلكترونيات وأجهزة',
+        seller: 'بائع_آخر',
+        startPrice: 100000,
+        endTime: DateTime.now().add(const Duration(hours: 2)),
+      );
+      store.items.removeWhere((i) => i.id == testItem.id);
+      store.items.add(testItem);
+
+      // First bid by current user (me)
+      final bid1Error = store.placeBid(testItem, 110000);
+      expect(bid1Error, isNull);
+      expect(testItem.highestBidder, me);
+
+      // Immediate consecutive bid by the same user should be blocked
+      final bid2Error = store.placeBid(testItem, 120000);
+      expect(bid2Error, isNotNull);
+      expect(bid2Error, contains('أعلى مزايدة'));
+    });
+  });
+
+  group('8. Profile Access Control & Web Persistence', () {
+    test('Unauthorized user cannot edit another users profile', () async {
+      settings.userId = 'user_owner_123';
+      settings.isAdmin = false;
+
+      final result = await settings.updateProfile(
+        const ProfileData('علي', 'حسين', 'كاظم', 'بغداد', null),
+        targetUserId: 'different_user_999',
+      );
+
+      expect(result, isNotNull);
+      expect(result, contains('غير مصرح'));
+    });
+  });
 }

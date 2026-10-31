@@ -15,7 +15,8 @@ class _HomePageState extends State<HomePage> {
   String category = 'الكل';
   String governorateFilter = 'الكل';
   String statusFilter = 'الكل'; // 'الكل', 'جارية 🔴', 'قريباً ⏳', 'بث مباشر 🎥', 'خاصة 🔒'
-  String sortBy = 'الأقرب انتهاءً';
+  String sortBy = 'الأحدث';
+  bool _hasSelectedSort = false;
 
   @override
   void initState() {
@@ -84,12 +85,21 @@ class _HomePageState extends State<HomePage> {
     result.sort((a, b) {
       if (a.isEnded != b.isEnded) return a.isEnded ? 1 : -1;
       switch (sortBy) {
+        case 'الأحدث':
+          return b.startTime.compareTo(a.startTime);
+        case 'الأقدم':
+          return a.startTime.compareTo(b.startTime);
         case 'الأقل سعراً':
           return a.currentPrice.compareTo(b.currentPrice);
         case 'الأعلى سعراً':
           return b.currentPrice.compareTo(a.currentPrice);
+        case 'الأكثر مزايدة':
         case 'الأكثر مزايدات':
           return b.bids.length.compareTo(a.bids.length);
+        case 'الأقل مزايدة':
+          return a.bids.length.compareTo(b.bids.length);
+        case 'الأبعد انتهاءً':
+          return b.endTime.compareTo(a.endTime);
         case 'الأقرب انتهاءً':
         default:
           return a.endTime.compareTo(b.endTime);
@@ -279,78 +289,103 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              // زر وقائمة الفرز: أسود في الوضع الفاتح وأبيض في الوضع الداكن، وينسدل تحته مباشرة
+              // زر وقائمة الفرز: خلفية سوداء ثابتة، بدون إطار ونص افتراضياً، وبإطار أبيض ونص بعد الاختيار
               Builder(
                 builder: (context) {
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
-                  final btnBg = isDark ? Colors.white : Colors.black;
-                  final btnFg = isDark ? Colors.black : Colors.white;
+                  const sortOptions = [
+                    'الأحدث',
+                    'الأقدم',
+                    'الأقل سعراً',
+                    'الأعلى سعراً',
+                    'الأكثر مزايدة',
+                    'الأقل مزايدة',
+                    'الأقرب انتهاءً',
+                    'الأبعد انتهاءً',
+                  ];
 
-                  return PopupMenuButton<String>(
-                    position: PopupMenuPosition.under,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      cardColor: Colors.black,
+                      popupMenuTheme: const PopupMenuThemeData(
+                        color: Colors.black,
+                        surfaceTintColor: Colors.transparent,
+                      ),
                     ),
-                    tooltip: tr('ترتيب حسب', 'Sort by'),
-                    onSelected: (val) => setState(() => sortBy = val),
-                    itemBuilder: (context) => [
-                      'الأقرب انتهاءً',
-                      'الأقل سعراً',
-                      'الأعلى سعراً',
-                      'الأكثر مزايدات',
-                    ].map((s) {
-                      final isSelected = sortBy == s;
-                      return PopupMenuItem(
-                        value: s,
-                        height: 40,
-                        child: Row(
-                          children: [
-                            if (isSelected) ...[
-                              Icon(Icons.check, size: 16, color: Theme.of(context).colorScheme.primary),
-                              const SizedBox(width: 6),
-                            ],
-                            Text(
-                              s,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    child: PopupMenuButton<String>(
+                      position: PopupMenuPosition.under,
+                      elevation: 6,
+                      color: Colors.black,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.white24, width: 1),
+                      ),
+                      tooltip: tr('ترتيب حسب', 'Sort by'),
+                      onSelected: (val) => setState(() {
+                        sortBy = val;
+                        _hasSelectedSort = true;
+                      }),
+                      itemBuilder: (context) => sortOptions.map((s) {
+                        final isSelected = sortBy == s;
+                        return PopupMenuItem(
+                          value: s,
+                          height: 40,
+                          child: Row(
+                            children: [
+                              if (isSelected) ...[
+                                const Icon(Icons.check, size: 16, color: Colors.white),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: Colors.white,
+                                ),
                               ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      child: Container(
+                        height: 40,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: _hasSelectedSort ? 10 : 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(12),
+                          border: _hasSelectedSort
+                              ? Border.all(color: Colors.white, width: 1)
+                              : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
                           ],
                         ),
-                      );
-                    }).toList(),
-                    child: Container(
-                      height: 40,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: btnBg,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.sort, size: 18, color: btnFg),
-                          const SizedBox(width: 4),
-                          Text(
-                            sortBy,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: btnFg,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Icon(Icons.keyboard_arrow_down, size: 16, color: btnFg),
-                        ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.sort, size: 18, color: Colors.white),
+                            if (_hasSelectedSort) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                sortBy,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   );

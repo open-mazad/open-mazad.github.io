@@ -61,8 +61,23 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   Future<void> submitManualBid() async {
     if (settings.needsProfileOnboarding) {
       await showCompleteProfileDialog(context);
-      if (settings.needsProfileOnboarding) return;
+      if (!mounted || settings.needsProfileOnboarding) return;
     }
+    // منع المزايدة المتتالية (Spam Prevention): التحقق من آخر مزايد
+    final lastBidder = liveItem.highestBidder ??
+        (liveItem.bids.isNotEmpty ? liveItem.bids.first.bidder : null);
+    if (lastBidder != null && store.isUserMe(lastBidder)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'أنت صاحب أعلى مزايدة حالياً 🥇، لا يمكنك المزايدة مجدداً حتى يتجاوز مزايدتك طرف آخر',
+          'You are currently the highest bidder 🥇, you cannot bid again until outbid',
+        )),
+        backgroundColor: Colors.orange.shade800,
+      ));
+      return;
+    }
+
     final amount =
         int.tryParse(toLatinDigits(amountCtrl.text.trim()).replaceAll(',', ''));
     final error = amount == null
@@ -650,10 +665,43 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
     // 4. المشتري: تقديم مزايدة تصاعدية
     final current = item.currentPrice;
+    final lastBidder = item.highestBidder ??
+        (item.bids.isNotEmpty ? item.bids.first.bidder : null);
+    final isMeHighestBidder = lastBidder != null && store.isUserMe(lastBidder);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (isMeHighestBidder) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade400),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.workspace_premium, color: Colors.amber.shade900, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr(
+                      'أنت صاحب أعلى مزايدة حالياً 🥇. لا يمكنك المزايدة مجدداً إلا بعد قيام طرف آخر برفع السعر وتجاوز مزايدتك لمنع التكرار.',
+                      'You are currently the highest bidder 🥇. You cannot bid again until another bidder outbids you.',
+                    ),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         Text(
           item.bids.isEmpty
               ? '${tr("سعر بداية المزاد:", "Starting Price:")} ${formatPrice(item.startPrice)}'
@@ -663,6 +711,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         const SizedBox(height: 8),
         TextField(
           controller: amountCtrl,
+          enabled: !isMeHighestBidder,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
@@ -678,19 +727,19 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
           children: [
             ActionChip(
               label: Text('+1,000 (${formatPrice(current + 1000)})'),
-              onPressed: () => amountCtrl.text = '${current + 1000}',
+              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 1000}',
             ),
             ActionChip(
               label: Text('+5,000 (${formatPrice(current + 5000)})'),
-              onPressed: () => amountCtrl.text = '${current + 5000}',
+              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 5000}',
             ),
             ActionChip(
               label: Text('+10,000 (${formatPrice(current + 10000)})'),
-              onPressed: () => amountCtrl.text = '${current + 10000}',
+              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 10000}',
             ),
             ActionChip(
               label: Text('+50,000 (${formatPrice(current + 50000)})'),
-              onPressed: () => amountCtrl.text = '${current + 50000}',
+              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 50000}',
             ),
           ],
         ),
@@ -698,9 +747,13 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: submitManualBid,
-            icon: const Icon(Icons.gavel),
-            label: Text(tr('زايد الآن', 'Place Bid Now')),
+            onPressed: isMeHighestBidder ? null : submitManualBid,
+            icon: Icon(isMeHighestBidder ? Icons.lock : Icons.gavel),
+            label: Text(
+              isMeHighestBidder
+                  ? tr('أنت صاحب أعلى مزايدة حالياً 🥇', 'You are highest bidder 🥇')
+                  : tr('زايد الآن', 'Place Bid Now'),
+            ),
           ),
         ),
       ],

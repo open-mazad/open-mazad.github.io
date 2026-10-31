@@ -1282,8 +1282,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
         ),
         content: Text(
           tr(
-            'هل تريد حذف هذه المحادثة مع "$otherName" بالكامل؟',
-            'Delete this entire conversation with "$otherName"?',
+            'هل تريد حذف المحادثة مع "$otherName"؟\n(ستختفي المحادثة من قائمتك دون حذفها لدى الطرف الآخر)',
+            'Delete conversation with "$otherName"?\n(It will be removed from your list without deleting for the other user)',
           ),
         ),
         actions: [
@@ -1312,50 +1312,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
     }
   }
 
-  Future<void> _confirmDeleteItemChat(Item item) async {
-    if (!mounted) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_sweep, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(child: Text(tr('حذف محادثة السلعة', 'Delete Item Chat'))),
-          ],
-        ),
-        content: Text(
-          tr(
-            'هل تريد حذف المحادثة المباشرة المتعلقة بهذه السلعة فقط نهائياً؟',
-            'Delete direct chat for this item permanently?',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('إلغاء', 'Cancel')),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade800),
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.delete_sweep_outlined),
-            label: Text(tr('حذف المحادثة', 'Delete')),
-          ),
-        ],
-      ),
-    );
-
-    if (ok == true && mounted) {
-      store.deleteItemDirectChat(item.id);
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('تم حذف محادثة هذه السلعة نهائياً 🗑️', 'Item chat deleted permanently 🗑️')),
-          backgroundColor: Colors.orange.shade800,
-        ),
-      );
-    }
-  }
 
   void _showMessageActions(Item item, DirectMessage m, bool isMe) {
     showModalBottomSheet(
@@ -1559,12 +1515,10 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     showUserProfileSheet(context, widget.otherParty);
                   } else if (value == 'report') {
                     _showReportDialog(item, otherName);
-                  } else if (value == 'block') {
-                    _confirmToggleBlock(otherName, isBlocked);
-                  } else if (value == 'delete_item') {
-                    _confirmDeleteItemChat(item);
                   } else if (value == 'delete') {
                     _confirmDeleteConversation(item, otherName);
+                  } else if (value == 'block') {
+                    _confirmToggleBlock(otherName, isBlocked);
                   }
                 },
                 itemBuilder: (context) => [
@@ -1591,6 +1545,20 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     ),
                   ),
                   PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_outline,
+                            color: Colors.red, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          tr('حذف المحادثة', 'Delete Conversation'),
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
                     value: 'block',
                     child: Row(
                       children: [
@@ -1603,35 +1571,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         Text(isBlocked
                             ? tr('إلغاء حظر المستخدم', 'Unblock User')
                             : tr('حظر المستخدم', 'Block User')),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'delete_item',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.delete_sweep_outlined,
-                            color: Colors.orange, size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          tr('حذف محادثة هذه السلعة 🗑️', 'Delete this item chat 🗑️'),
-                          style: const TextStyle(color: Colors.orange),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.delete_outline,
-                            color: Colors.red, size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          tr('حذف كل المحادثة ⚠️', 'Delete All Chat ⚠️'),
-                          style: const TextStyle(color: Colors.red),
-                        ),
                       ],
                     ),
                   ),
@@ -2458,6 +2397,22 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                                         ),
                                       ),
                                     PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.delete_outline,
+                                              size: 18, color: Colors.red),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            tr('حذف المحادثة',
+                                                'Delete Conversation'),
+                                            style: const TextStyle(
+                                                color: Colors.red),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
                                       value: 'block',
                                       child: Row(
                                         children: [
@@ -2475,22 +2430,6 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                                               ? tr('إلغاء الحظر', 'Unblock')
                                               : tr('حظر المستخدم',
                                                   'Block User')),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.delete_outline,
-                                              size: 18, color: Colors.red),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            tr('حذف المحادثة',
-                                                'Delete Conversation'),
-                                            style: const TextStyle(
-                                                color: Colors.red),
-                                          ),
                                         ],
                                       ),
                                     ),

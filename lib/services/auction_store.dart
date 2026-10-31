@@ -82,6 +82,17 @@ class AuctionStore extends ChangeNotifier {
     };
     settings.getBlockedUsersCount = () => myBlockedUsersList.length;
     settings.openBlockedUsers = (ctx) => showBlockedUsersSheet(ctx);
+    settings.onProfileUpdated = (id, name, photo) {
+      userDisplayNames[id] = name;
+      userDisplayNames[settings.phone] = name;
+      nameToUuidMap[name] = id;
+      if (photo != null && photo.isNotEmpty) {
+        userPhotos[id] = photo;
+        userPhotos[settings.phone] = photo;
+        userPhotos[name] = photo;
+      }
+      notifyListeners();
+    };
     settings.onAuthChanged = () {
       notifyListeners();
       if (settings.isCloudConfigured) {
@@ -1459,9 +1470,14 @@ class AuctionStore extends ChangeNotifier {
       return tr('هذا المزاد خاص، أدخل رمز PIN أولاً',
           'Private auction: enter PIN code first');
     }
-    if (isUserMe(item.highestBidder ?? '')) {
-      return tr('أنت صاحب أعلى مزايدة بالفعل',
-          'You are already the highest bidder');
+    // التحقق من آخر مزايد ومنع المزايدة المتتالية (Spam Prevention)
+    final lastBidder = item.highestBidder ??
+        (item.bids.isNotEmpty ? item.bids.first.bidder : null);
+    if (lastBidder != null && isUserMe(lastBidder)) {
+      return tr(
+        'أنت صاحب أعلى مزايدة حالياً 🥇، لا يمكنك المزايدة مجدداً حتى يتجاوزك مزايد آخر',
+        'You are already the highest bidder 🥇, you cannot bid again until outbid',
+      );
     }
     // خطوة الزيادة مفتوحة: أي رقم أعلى من السعر الحالي (أو >= سعر البداية لأول مزايد)
     if (item.bids.isEmpty && amount < item.startPrice) {
@@ -2508,20 +2524,9 @@ class AuctionStore extends ChangeNotifier {
     _saveToDisk();
     notifyListeners();
 
-    // حذف الرسائل من السحابة أيضاً
-    if (settings.isCloudConfigured) {
-      try {
-        final myUuid = userToUuid(me);
-        final oUuid = userToUuid(otherParty);
-        final itemUuid = itemToUuid(itemId);
-        supabaseClient
-            ?.from('messages')
-            .delete()
-            .eq('item_id', itemUuid)
-            .or('and(sender_id.eq.$myUuid,receiver_id.eq.$oUuid),and(sender_id.eq.$oUuid,receiver_id.eq.$myUuid)')
-            .ignore();
-      } catch (_) {}
-    }
+    // حذف أحادي الطرف (Soft Delete per user):
+    // لا نحذف السجلات من جدول messages في السحابة حتى تظل المحادثة محفوظة وظاهرة لدى الطرف الآخر.
+    // يتم إخفاؤها فقط لدى المستخدم الحالي عبر تسجيلها في مفاتيح الحذف المحلية المسجلة.
   }
 
   void deleteItemDirectChat(String itemId) {

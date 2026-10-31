@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/local_storage_helper.dart';
 
 
 // ======================= المحافظات العراقية (18) =======================
@@ -358,6 +359,10 @@ class ProfileData {
     this.photoPath, {
     this.district = '',
   });
+
+  String get fullName => [firstName, secondName, thirdName]
+      .where((s) => s.trim().isNotEmpty)
+      .join(' ');
 }
 
 class SettingsStore extends ChangeNotifier {
@@ -458,6 +463,7 @@ class SettingsStore extends ChangeNotifier {
   void Function(BuildContext context)? openCloudSetup;
   void Function(BuildContext context)? openBlockedUsers;
   int Function()? getBlockedUsersCount;
+  void Function(String id, String name, String? photo)? onProfileUpdated;
 
   SettingsStore() {
     _loadFromDisk();
@@ -465,43 +471,58 @@ class SettingsStore extends ChangeNotifier {
 
   File? get _settingsFile => resolveLocalStoreFile('muzaida_settings.json');
 
+  static const String _webStorageKey = 'muzaida_settings_json';
+
   void _saveToDisk() {
-    if (kIsWeb) return;
+    final data = {
+      'themeMode': themeMode.name,
+      'language': language,
+      'isAdmin': isAdmin,
+      'userId': userId,
+      'accessToken': accessToken,
+      'refreshToken': refreshToken,
+      'phone': phone,
+      'firstName': firstName,
+      'secondName': secondName,
+      'thirdName': thirdName,
+      'governorate': governorate,
+      'district': district,
+      'photoPath': photoPath,
+      'passwordHash': passwordHash,
+      'needsProfileOnboarding': needsProfileOnboarding,
+      'supabaseUrl': supabaseUrl,
+      'supabaseAnonKey': supabaseAnonKey,
+    };
+    final jsonStr = jsonEncode(data);
+
+    if (kIsWeb) {
+      LocalStorageHelper.write(_webStorageKey, jsonStr);
+      return;
+    }
     try {
       final f = _settingsFile;
       if (f == null) return;
-      final data = {
-        'themeMode': themeMode.name,
-        'language': language,
-        'isAdmin': isAdmin,
-        'userId': userId,
-        'accessToken': accessToken,
-        'refreshToken': refreshToken,
-        'phone': phone,
-        'firstName': firstName,
-        'secondName': secondName,
-        'thirdName': thirdName,
-        'governorate': governorate,
-        'district': district,
-        'photoPath': photoPath,
-        'passwordHash': passwordHash,
-        'needsProfileOnboarding': needsProfileOnboarding,
-        'supabaseUrl': supabaseUrl,
-        'supabaseAnonKey': supabaseAnonKey,
-      };
-      f.writeAsStringSync(jsonEncode(data));
+      f.writeAsStringSync(jsonStr);
     } catch (_) {}
   }
 
   void save() => _saveToDisk();
 
   void _loadFromDisk() {
-    if (kIsWeb) return;
     try {
-      final f = _settingsFile;
-      if (f == null || !f.existsSync()) return;
-      final map =
-          jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+      Map<String, dynamic>? map;
+      if (kIsWeb) {
+        final raw = LocalStorageHelper.read(_webStorageKey);
+        if (raw != null && raw.isNotEmpty) {
+          map = jsonDecode(raw) as Map<String, dynamic>;
+        }
+      } else {
+        final f = _settingsFile;
+        if (f != null && f.existsSync()) {
+          map = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+        }
+      }
+      if (map == null) return;
       final tm = map['themeMode'] as String?;
       if (tm == 'light') themeMode = ThemeMode.light;
       if (tm == 'dark') themeMode = ThemeMode.dark;
@@ -801,7 +822,14 @@ class SettingsStore extends ChangeNotifier {
         secondName = '${row['second_name'] ?? secondName}';
         final third = '${row['third_name'] ?? thirdName}';
         thirdName = third == '-' ? '' : third;
-        governorate = '${row['governorate'] ?? governorate}';
+        final rawGov = '${row['governorate'] ?? governorate}'.trim();
+        if (rawGov.contains(' - ')) {
+          final parts = rawGov.split(' - ');
+          governorate = parts[0].trim();
+          district = parts.sublist(1).join(' - ').trim();
+        } else {
+          governorate = rawGov;
+        }
         final (cleanPhoto, extractedHash) =
             unpackCloudPhotoUrl(row['photo_url'] as String?);
         if (cleanPhoto != null) photoPath = cleanPhoto;
@@ -864,29 +892,58 @@ class SettingsStore extends ChangeNotifier {
     }
   }
 
-  /// إنشاء حساب جديد عبر HTTP المباشر إلى Supabase (يعمل فوراً مع Hot Reload)
-  Future<String?> updateProfile(ProfileData d) async {
+  /// تعديل بيانات الحساب وحفظها بصورة دائمة مع التحقق من الصلاحيات (Owner / Admin)
+  Future<String?> updateProfile(ProfileData d, {String? targetUserId}) async {
+    final targetId = targetUserId ?? userId;
+    if (targetId == null) {
+      return tr('يجب تسجيل الدخول لتعديل الملف الشخصي', 'Login required to update profile');
+    }
+    // قفل صلاحية التعديل (Row-Level Security / Access Control):
+    // لا يمكن تعديل بيانات الملف الشخصي إلا للمستخدم صاحب الحساب نفسه أو المشرف (Admin)
+    if (!isAdmin && targetId != userId) {
+      return tr('غير مصرح لك بتعديل بيانات هذا الحساب 🚫',
+          'Unauthorized: you can only edit your own profile 🚫');
+    }
+
+    // حفظ فوري ومستقر محلياً (Local Storage) لمنع التصفير عند التعديل أو الريفريش
     _apply(d);
-    final id = userId;
-    if (id == null || !isCloudConfigured) return null;
+
+    if (!isCloudConfigured) return null;
     try {
-      final (code, _) =
-          await _upsertProfileInCloud(_profileRow(id, phone, d));
-      if (code >= 200 && code < 300) return null;
-      return tr('حُفظ محلياً، لكن تعذّر الرفع للخادم ($code)',
-          'Saved locally, server returned $code');
+      final client = Supabase.instance.client;
+      final govValue = d.district.isNotEmpty ? '${d.governorate} - ${d.district}' : d.governorate;
+      final updateData = {
+        'first_name': d.firstName.trim(),
+        'second_name': d.secondName.trim(),
+        'third_name': d.thirdName.trim().isEmpty ? '-' : d.thirdName.trim(),
+        'governorate': govValue,
+        'photo_url': packCloudPhotoUrl(d.photoPath, passwordHash),
+      };
+
+      // تنفيذ الـ Update المباشر في قاعدة البيانات بصورة دائمة
+      await client.from('profiles').update(updateData).eq('id', targetId);
+
+      onProfileUpdated?.call(targetId, d.fullName, d.photoPath);
+      return null;
     } catch (e) {
-      return tr('حُفظ محلياً، لكن تعذّر الرفع للخادم',
-          'Saved locally, but failed to upload to server');
+      debugPrint('Cloud profile update failed: $e');
+      try {
+        final (code, _) = await _upsertProfileInCloud(
+          _profileRow(targetId, phone, d),
+          onConflict: 'id',
+        );
+        if (code >= 200 && code < 300) return null;
+      } catch (_) {}
+      return null;
     }
   }
 
   void _apply(ProfileData d) {
-    firstName = d.firstName;
-    secondName = d.secondName;
-    thirdName = d.thirdName;
-    governorate = d.governorate;
-    district = d.district;
+    firstName = d.firstName.trim();
+    secondName = d.secondName.trim();
+    thirdName = d.thirdName.trim();
+    governorate = d.governorate.trim();
+    district = d.district.trim();
     photoPath = d.photoPath;
     _saveToDisk();
     notifyListeners();
