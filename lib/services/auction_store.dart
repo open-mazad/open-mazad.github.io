@@ -1296,8 +1296,7 @@ class AuctionStore extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
+  void stopTimers() {
     _timer?.cancel();
     _pollingSafetyTimer?.cancel();
     _itemsSub?.cancel();
@@ -1305,6 +1304,11 @@ class AuctionStore extends ChangeNotifier {
     _messagesSub?.cancel();
     _profilesSub?.cancel();
     _chatBroadcastChannel?.unsubscribe();
+  }
+
+  @override
+  void dispose() {
+    stopTimers();
     super.dispose();
   }
 
@@ -1750,6 +1754,7 @@ class AuctionStore extends ChangeNotifier {
     List<String>? imagePaths,
     Map<String, String>? attributes,
     String? pinCode,
+    int? buyNowPrice,
     DateTime? startTime,
     DateTime? endTime,
   }) async {
@@ -1772,6 +1777,7 @@ class AuctionStore extends ChangeNotifier {
         videoPath: item.videoPath,
         attributes: attributes ?? item.attributes,
         pinCode: pinCode ?? item.pinCode,
+        buyNowPrice: buyNowPrice ?? item.buyNowPrice,
         isEndedEarlyBySeller: item.isEndedEarlyBySeller,
         isCancelled: item.isCancelled,
         isLiveStreaming: item.isLiveStreaming,
@@ -1977,6 +1983,7 @@ class AuctionStore extends ChangeNotifier {
     String? videoPath,
     Map<String, String> attributes = const {},
     String? pinCode,
+    int? buyNowPrice,
     bool isLiveStreaming = false,
   }) {
     final now = DateTime.now();
@@ -2003,6 +2010,7 @@ class AuctionStore extends ChangeNotifier {
       videoPath: videoPath,
       attributes: attributes,
       pinCode: pinCode,
+      buyNowPrice: buyNowPrice,
       isLiveStreaming: isLiveStreaming,
     );
     items.insert(0, newItem);

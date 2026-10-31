@@ -232,6 +232,9 @@ class Item {
   /// رمز PIN للمزادات الخاصة المغلقة
   final String? pinCode;
 
+  /// السعر النهائي / سعر الشراء الفوري (اختياري)
+  final int? buyNowPrice;
+
   bool isEndedEarlyBySeller;
   bool isCancelled;
   bool isLiveStreaming;
@@ -268,6 +271,7 @@ class Item {
     this.videoPath,
     this.attributes = const {},
     this.pinCode,
+    this.buyNowPrice,
     this.isEndedEarlyBySeller = false,
     this.isCancelled = false,
     this.isLiveStreaming = false,
@@ -293,6 +297,7 @@ class Item {
         'videoPath': videoPath,
         'attributes': attributes,
         'pinCode': pinCode,
+        'buyNowPrice': buyNowPrice,
         'isEndedEarlyBySeller': isEndedEarlyBySeller,
         'isCancelled': isCancelled,
         'isLiveStreaming': isLiveStreaming,
@@ -325,6 +330,7 @@ class Item {
       videoPath: j['videoPath'] as String?,
       attributes: (j['attributes'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {},
       pinCode: j['pinCode'] as String?,
+      buyNowPrice: (j['buyNowPrice'] as num?)?.toInt(),
       isEndedEarlyBySeller: j['isEndedEarlyBySeller'] as bool? ?? false,
       isCancelled: j['isCancelled'] as bool? ?? false,
       isLiveStreaming: j['isLiveStreaming'] as bool? ?? false,

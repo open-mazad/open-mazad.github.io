@@ -370,44 +370,6 @@ class _HomePageState extends State<HomePage> {
         appBar: AppBar(
           title: Text(titles[tab]),
           actions: [
-            IconButton(
-              tooltip: tr('المفضلة', 'Watchlist'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FavoritesPage()),
-              ),
-              icon: Badge(
-                isLabelVisible: store.favorites.isNotEmpty,
-                label: Text('${store.favorites.length}'),
-                child: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
-              ),
-            ),
-            IconButton(
-              tooltip: tr('رادار البحث الذكي', 'Smart Search Radar'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const RadarAndNotificationsPage(initialTab: 1),
-                ),
-              ),
-              icon: const Icon(Icons.radar),
-            ),
-            IconButton(
-              tooltip: tr('مركز الإشعارات', 'Notifications Center'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const RadarAndNotificationsPage(initialTab: 0),
-                ),
-              ),
-              icon: Badge(
-                isLabelVisible: store.unreadNotificationsCount > 0,
-                label: Text('${store.unreadNotificationsCount}'),
-                child: const Icon(Icons.notifications_outlined),
-              ),
-            ),
             if (settings.isLoggedIn && settings.isAdmin)
               IconButton(
                 tooltip: tr('لوحة تحكم الإدارة', 'Admin Dashboard'),
@@ -417,6 +379,50 @@ class _HomePageState extends State<HomePage> {
                 ),
                 icon: const Icon(Icons.admin_panel_settings_outlined),
               ),
+            // 1. اليمين: رادار البحث الذكي
+            IconButton(
+              tooltip: tr('رادار البحث الذكي', 'Smart Search Radar'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const RadarAndNotificationsPage(initialTab: 0),
+                ),
+              ),
+              icon: const Icon(Icons.radar),
+            ),
+            // 2. المنتصف: الإشعارات
+            IconButton(
+              tooltip: tr('مركز الإشعارات', 'Notifications Center'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const RadarAndNotificationsPage(initialTab: 1),
+                ),
+              ),
+              icon: Badge(
+                isLabelVisible: store.unreadNotificationsCount > 0,
+                label: Text('${store.unreadNotificationsCount}'),
+                child: const Icon(Icons.notifications_outlined),
+              ),
+            ),
+            // 3. اليسار: المفضلة (أيقونة القلب)
+            IconButton(
+              tooltip: tr('المفضلة', 'Watchlist'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const RadarAndNotificationsPage(initialTab: 2),
+                ),
+              ),
+              icon: Badge(
+                isLabelVisible: store.favorites.isNotEmpty,
+                label: Text('${store.favorites.length}'),
+                child: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
+              ),
+            ),
           ],
         ),
         body: tab == 4
@@ -549,97 +555,7 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) {
-        final favItems =
-            store.items.where((i) => store.isFavorite(i.id)).toList();
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              favItems.isNotEmpty
-                  ? '${tr('المفضلة', 'Watchlist')} (${favItems.length})'
-                  : tr('المفضلة', 'Watchlist'),
-            ),
-            actions: [
-              if (favItems.isNotEmpty)
-                IconButton(
-                  tooltip: tr('مسح الكل', 'Clear All'),
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  onPressed: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: Text(tr('مسح المفضلة', 'Clear Watchlist')),
-                        content: Text(tr(
-                            'هل تريد إزالة جميع السلع من قائمة المفضلة؟',
-                            'Remove all items from watchlist?')),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: Text(tr('إلغاء', 'Cancel')),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: Text(tr('مسح', 'Clear')),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (ok == true) {
-                      store.clearFavorites();
-                    }
-                  },
-                ),
-            ],
-          ),
-          body: favItems.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.favorite_border,
-                        size: 72,
-                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        tr('قائمة المفضلة فارغة', 'Watchlist is empty'),
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          tr('اضغط على أيقونة القلب على أي سلعة لحفظها والوصول إليها بسرعة هنا.',
-                              'Tap the heart icon on any item to save it here for quick access.'),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: scheme.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
-                      itemCount: favItems.length,
-                      itemBuilder: (context, i) =>
-                          ItemCard(item: favItems[i]),
-                    ),
-                  ),
-                ),
-        );
-      },
-    );
+    return const RadarAndNotificationsPage(initialTab: 2);
   }
 }
 

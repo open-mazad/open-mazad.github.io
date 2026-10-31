@@ -13,6 +13,7 @@ import 'models/auction_models.dart';
 import 'services/auction_helpers.dart';
 import 'services/local_storage_helper.dart';
 import 'services/web_geolocation.dart';
+import 'services/web_share.dart';
 import 'settings_page.dart';
 
 // تصدير النماذج والمساعدات حتى تتاح في أي شاشة تستورد main.dart

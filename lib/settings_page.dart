@@ -29,6 +29,179 @@ const governorates = [
   'واسط',
 ];
 
+/// خريطة الأقضية والمناطق التابعة لكل محافظة عراقية
+const Map<String, List<String>> governorateDistricts = {
+  'بغداد': [
+    'الرصافة',
+    'الكرخ',
+    'المنصور',
+    'الكرادة',
+    'الأعظمية',
+    'الكاظمية',
+    'مدينة الصدر',
+    'الدورة',
+    'المحمودية',
+    'أبو غريب',
+    'التاجي',
+    'الطارمية',
+    'المدائن',
+    'حي الجامعة',
+    'السيدية',
+    'الزعفرانية',
+  ],
+  'البصرة': [
+    'البصرة (المركز)',
+    'الزبير',
+    'القرنة',
+    'شط العرب',
+    'أبو الخصيب',
+    'الفاو',
+    'المدينة',
+    'الهارثة',
+    'الدير',
+  ],
+  'نينوى': [
+    'الموصل',
+    'تلعفر',
+    'الحمدانية',
+    'تلكيف',
+    'سنجار',
+    'الشيخان',
+    'الحضر',
+    'البعاج',
+    'مخمور',
+  ],
+  'أربيل': [
+    'أربيل (المركز)',
+    'شقلاوة',
+    'سوران',
+    'كوي سنجق',
+    'ميركسور',
+    'خبات',
+    'دشتي هولير',
+    'رواندوز',
+  ],
+  'السليمانية': [
+    'السليمانية (المركز)',
+    'رانية',
+    'دوكان',
+    'حلبجة',
+    'بنجوين',
+    'كلار',
+    'دربندخان',
+    'جمجمال',
+  ],
+  'دهوك': [
+    'دهوك (المركز)',
+    'زاخو',
+    'سميل',
+    'العمادية',
+    'عقرة',
+    'بردرش',
+  ],
+  'كركوك': [
+    'كركوك (المركز)',
+    'الحويجة',
+    'داقوق',
+    'الدبس',
+  ],
+  'الأنبار': [
+    'الرمادي',
+    'الفلوجة',
+    'هيت',
+    'حديثة',
+    'القائم',
+    'عنه',
+    'راوة',
+    'الرطبة',
+    'العامرية',
+    'الكرمة',
+  ],
+  'بابل': [
+    'الحلة',
+    'المحاويل',
+    'المسيب',
+    'الهاشمية',
+    'الإسكندرية',
+    'الكفل',
+    'القاسم',
+  ],
+  'كربلاء': [
+    'كربلاء (المركز)',
+    'الهندية (طويريج)',
+    'عين التمر',
+  ],
+  'النجف': [
+    'النجف (المركز)',
+    'الكوفة',
+    'المناذرة',
+    'المشخاب',
+  ],
+  'ذي قار': [
+    'الناصرية',
+    'الشطرة',
+    'الرفاعي',
+    'سوق الشيوخ',
+    'الجبايش',
+    'قلعة سكر',
+    'الفهود',
+    'الغراف',
+  ],
+  'ديالى': [
+    'بعقوبة',
+    'المقدادية',
+    'الخالص',
+    'خانقين',
+    'بلدروز',
+    'كفري',
+  ],
+  'صلاح الدين': [
+    'تكريت',
+    'سامراء',
+    'بلد',
+    'الدجيل',
+    'طوزخورماتو',
+    'بيجي',
+    'الشرقاط',
+    'الدور',
+  ],
+  'القادسية': [
+    'الديوانية',
+    'الشامية',
+    'عفك',
+    'الحمزة',
+  ],
+  'المثنى': [
+    'السماوة',
+    'الرميثة',
+    'الخضر',
+    'السلمان',
+  ],
+  'ميسان': [
+    'العمارة',
+    'علي الغربي',
+    'الميمونة',
+    'المجر الكبير',
+    'قلعة صالح',
+    'الكحلاء',
+  ],
+  'واسط': [
+    'الكوت',
+    'الحي',
+    'الصويرة',
+    'العزيزية',
+    'النعمانية',
+    'بدرة',
+  ],
+};
+
+List<String> districtsForGovernorate(String? gov) {
+  if (gov == null || gov.isEmpty) return const ['المركز'];
+  final list = governorateDistricts[gov];
+  if (list != null && list.isNotEmpty) return list;
+  return const ['المركز'];
+}
+
 /// يحوّل الأرقام العربية (٠١٢...) إلى أرقام إنجليزية (012...)
 String toLatinDigits(String s) {
   final buf = StringBuffer();
@@ -175,9 +348,16 @@ class ProfileData {
   final String secondName;
   final String thirdName;
   final String governorate;
+  final String district;
   final String? photoPath;
-  const ProfileData(this.firstName, this.secondName, this.thirdName,
-      this.governorate, this.photoPath);
+  const ProfileData(
+    this.firstName,
+    this.secondName,
+    this.thirdName,
+    this.governorate,
+    this.photoPath, {
+    this.district = '',
+  });
 }
 
 class SettingsStore extends ChangeNotifier {
@@ -214,6 +394,7 @@ class SettingsStore extends ChangeNotifier {
   String secondName = '';
   String thirdName = '';
   String governorate = '';
+  String district = '';
   String? photoPath;
   String passwordHash = '';
   bool needsProfileOnboarding = false;
@@ -301,6 +482,7 @@ class SettingsStore extends ChangeNotifier {
         'secondName': secondName,
         'thirdName': thirdName,
         'governorate': governorate,
+        'district': district,
         'photoPath': photoPath,
         'passwordHash': passwordHash,
         'needsProfileOnboarding': needsProfileOnboarding,
@@ -336,6 +518,7 @@ class SettingsStore extends ChangeNotifier {
       secondName = (map['secondName'] as String?) ?? '';
       thirdName = (map['thirdName'] as String?) ?? '';
       governorate = (map['governorate'] as String?) ?? '';
+      district = (map['district'] as String?) ?? '';
       final (cleanPhoto, extractedHash) =
           unpackCloudPhotoUrl(map['photoPath'] as String?);
       photoPath = cleanPhoto;
@@ -358,7 +541,7 @@ class SettingsStore extends ChangeNotifier {
       .join(' ');
 
   ProfileData get profileData =>
-      ProfileData(firstName, secondName, thirdName, governorate, photoPath);
+      ProfileData(firstName, secondName, thirdName, governorate, photoPath, district: district);
 
   void setTheme(ThemeMode mode) {
     themeMode = mode;
@@ -649,7 +832,7 @@ class SettingsStore extends ChangeNotifier {
         'first_name': d.firstName,
         'second_name': d.secondName,
         'third_name': d.thirdName.isEmpty ? '-' : d.thirdName,
-        'governorate': d.governorate,
+        'governorate': d.district.isNotEmpty ? '${d.governorate} - ${d.district}' : d.governorate,
         'photo_url': packCloudPhotoUrl(d.photoPath, pwHash ?? passwordHash),
       };
 
@@ -703,6 +886,7 @@ class SettingsStore extends ChangeNotifier {
     secondName = d.secondName;
     thirdName = d.thirdName;
     governorate = d.governorate;
+    district = d.district;
     photoPath = d.photoPath;
     _saveToDisk();
     notifyListeners();
@@ -717,6 +901,7 @@ class SettingsStore extends ChangeNotifier {
     secondName = '';
     thirdName = '';
     governorate = '';
+    district = '';
     photoPath = null;
     passwordHash = '';
     isAdmin = false;
@@ -923,12 +1108,7 @@ class SettingsPage extends StatelessWidget {
             ],
             const SizedBox(height: 4),
             Text(phoneDisplay, textDirection: TextDirection.ltr),
-            const SizedBox(height: 8),
-            Chip(
-              avatar: const Icon(Icons.location_on_outlined, size: 18),
-              label: Text(settings.governorate),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => Navigator.push(
                 context,
@@ -1211,8 +1391,10 @@ class _ProfileEditorState extends State<ProfileEditor> {
   late final TextEditingController second;
   late final TextEditingController third;
   String governorate = '';
+  String district = '';
   String? photoPath;
   bool govError = false;
+  bool districtError = false;
 
   @override
   void initState() {
@@ -1222,6 +1404,13 @@ class _ProfileEditorState extends State<ProfileEditor> {
     second = TextEditingController(text: i?.secondName ?? '');
     third = TextEditingController(text: i?.thirdName ?? '');
     governorate = i?.governorate ?? '';
+    district = i?.district ?? '';
+    if (governorate.isNotEmpty) {
+      final available = districtsForGovernorate(governorate);
+      if (!available.contains(district)) {
+        district = available.isNotEmpty ? available.first : '';
+      }
+    }
     photoPath = i?.photoPath;
   }
 
@@ -1273,20 +1462,56 @@ class _ProfileEditorState extends State<ProfileEditor> {
       setState(() {
         governorate = chosen;
         govError = false;
+        final available = districtsForGovernorate(governorate);
+        if (!available.contains(district)) {
+          district = available.isNotEmpty ? available.first : '';
+        }
+        districtError = false;
+      });
+    }
+  }
+
+  Future<void> chooseDistrict() async {
+    if (governorate.isEmpty) return;
+    final available = districtsForGovernorate(governorate);
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final d in available)
+              ListTile(
+                title: Text(d),
+                trailing: d == district ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(ctx, d),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null) {
+      setState(() {
+        district = chosen;
+        districtError = false;
       });
     }
   }
 
   void submit() {
     final ok = formKey.currentState!.validate();
-    setState(() => govError = governorate.isEmpty);
-    if (!ok || governorate.isEmpty) return;
+    setState(() {
+      govError = governorate.isEmpty;
+      districtError = district.isEmpty;
+    });
+    if (!ok || governorate.isEmpty || district.isEmpty) return;
     widget.onSubmit(ProfileData(
       first.text.trim(),
       second.text.trim(),
       third.text.trim(),
       governorate,
       photoPath,
+      district: district,
     ));
   }
 
@@ -1362,6 +1587,22 @@ class _ProfileEditorState extends State<ProfileEditor> {
                 suffixIcon: const Icon(Icons.arrow_drop_down),
               ),
               child: Text(governorate.isEmpty ? 'اختر المحافظة' : governorate),
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: governorate.isEmpty ? null : chooseDistrict,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'القضاء',
+                border: const OutlineInputBorder(),
+                errorText: districtError ? 'اختر القضاء التابع للمحافظة' : null,
+                suffixIcon: const Icon(Icons.arrow_drop_down),
+                helperText: governorate.isEmpty ? 'يرجى اختيار المحافظة أولاً لعرض الأقضية' : null,
+              ),
+              child: Text(district.isEmpty
+                  ? (governorate.isEmpty ? 'اختر المحافظة أولاً' : 'اختر القضاء')
+                  : district),
             ),
           ),
           const SizedBox(height: 24),

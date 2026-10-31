@@ -15,6 +15,7 @@ class _AddItemPageState extends State<AddItemPage> {
   final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final priceCtrl = TextEditingController();
+  final buyNowPriceCtrl = TextEditingController();
   final areaCtrl = TextEditingController(text: 'المركز');
   final pinCtrl = TextEditingController();
   final additionalInfoCtrl = TextEditingController();
@@ -25,6 +26,7 @@ class _AddItemPageState extends State<AddItemPage> {
   String category = categories.first;
   String condition = conditions.first;
   String location = governorates.first;
+  String district = 'المركز';
   String deliveryMethod = deliveryMethods.first;
   int durationIndex = 3;
   int scheduleDelayIndex = 0; // 0: يبدأ فوراً, 1: بعد دقيقتين, 2: بعد ساعة, 3: غداً
@@ -79,10 +81,18 @@ class _AddItemPageState extends State<AddItemPage> {
       titleCtrl.text = item.title;
       descCtrl.text = item.description;
       priceCtrl.text = '${item.startPrice}';
+      if (item.buyNowPrice != null && item.buyNowPrice! > 0) {
+        buyNowPriceCtrl.text = '${item.buyNowPrice}';
+      }
       category = categories.contains(item.category) ? item.category : categories.first;
       condition = conditions.contains(item.condition) ? item.condition : conditions.first;
       location = governorates.contains(item.location) ? item.location : governorates.first;
-      areaCtrl.text = item.area;
+      final currentDistricts = districtsForGovernorate(location);
+      district = item.area.isNotEmpty ? item.area : currentDistricts.first;
+      if (!currentDistricts.contains(district)) {
+        district = currentDistricts.first;
+      }
+      areaCtrl.text = district;
       deliveryMethod = deliveryMethods.contains(item.deliveryMethod)
           ? item.deliveryMethod
           : deliveryMethods.first;
@@ -97,6 +107,13 @@ class _AddItemPageState extends State<AddItemPage> {
       if (settings.governorate.isNotEmpty) {
         location = settings.governorate;
       }
+      final currentDistricts = districtsForGovernorate(location);
+      if (settings.district.isNotEmpty && currentDistricts.contains(settings.district)) {
+        district = settings.district;
+      } else {
+        district = currentDistricts.first;
+      }
+      areaCtrl.text = district;
     }
     _syncAttrControllers();
   }
@@ -112,6 +129,7 @@ class _AddItemPageState extends State<AddItemPage> {
     titleCtrl.dispose();
     descCtrl.dispose();
     priceCtrl.dispose();
+    buyNowPriceCtrl.dispose();
     areaCtrl.dispose();
     pinCtrl.dispose();
     additionalInfoCtrl.dispose();
@@ -325,6 +343,9 @@ class _AddItemPageState extends State<AddItemPage> {
     final priceStr = toLatinDigits(priceCtrl.text.trim()).replaceAll(',', '');
     final startPrice = int.tryParse(priceStr) ?? 0;
 
+    final buyNowStr = toLatinDigits(buyNowPriceCtrl.text.trim()).replaceAll(',', '');
+    final buyNowPrice = buyNowStr.isNotEmpty ? int.tryParse(buyNowStr) : null;
+
     final attrs = <String, String>{};
     for (final label in dynamicFieldsForCategory(category)) {
       final val = attrCtrls[label]?.text.trim() ?? '';
@@ -349,11 +370,12 @@ class _AddItemPageState extends State<AddItemPage> {
         location: location,
         condition: condition,
         category: category,
-        area: areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim(),
+        area: district.isNotEmpty ? district : (areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim()),
         deliveryMethod: deliveryMethod,
         imagePaths: portableImages,
         attributes: attrs,
         pinCode: isPrivateAuction ? pinCtrl.text.trim() : null,
+        buyNowPrice: buyNowPrice,
       );
 
       if (!mounted) return;
@@ -376,11 +398,12 @@ class _AddItemPageState extends State<AddItemPage> {
         startDelay: scheduleValues[scheduleDelayIndex],
         condition: condition,
         location: location,
-        area: areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim(),
+        area: district.isNotEmpty ? district : (areaCtrl.text.trim().isEmpty ? 'المركز' : areaCtrl.text.trim()),
         deliveryMethod: deliveryMethod,
         imagePaths: portableImages,
         attributes: attrs,
         pinCode: isPrivateAuction ? pinCtrl.text.trim() : null,
+        buyNowPrice: buyNowPrice,
       );
 
       if (!mounted) return;
@@ -882,10 +905,10 @@ class _AddItemPageState extends State<AddItemPage> {
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           decoration: InputDecoration(
-                            labelText: tr('السعر الافتتاحي للمزاد', 'Starting Price'),
+                            labelText: tr('السعر الافتتاحي للمزاد *', 'Starting Price *'),
                             helperText: tr(
-                              'الزيادة مفتوحة للمزايدين بأي مبلغ أعلى من السعر الافتتاحي',
-                              'Open bidding increments above starting price',
+                              'حقل إلزامي: الزيادة مفتوحة للمزايدين بأي مبلغ أعلى من هذا السعر',
+                              'Mandatory: Bidders can increase above this starting price',
                             ),
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.payments_outlined),
@@ -898,6 +921,42 @@ class _AddItemPageState extends State<AddItemPage> {
                             final n = int.tryParse(clean);
                             if (n == null || n <= 0) {
                               return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Please enter a valid price > 0');
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          tr('السعر النهائي / سعر الشراء الفوري (اختياري)', 'Final Price / Buy Now Price (Optional)'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: buyNowPriceCtrl,
+                          enabled: !isPublished,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: tr('سعر الشراء الفوري (اختياري)', 'Buy Now Price (Optional)'),
+                            helperText: tr(
+                              'اختياري: يتيح للمشتري حسم الصفقة فوراً والشراء بهذا السعر دون انتظار نهاية المزاد',
+                              'Optional: lets a buyer win immediately at this price',
+                            ),
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.flash_on_outlined, color: Colors.amber),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return null;
+                            final clean = toLatinDigits(v).replaceAll(',', '').trim();
+                            final n = int.tryParse(clean);
+                            if (n == null || n <= 0) {
+                              return tr('يرجى كتابة سعر صحيح أكبر من صفر', 'Enter valid number > 0');
+                            }
+                            final startClean = toLatinDigits(priceCtrl.text).replaceAll(',', '').trim();
+                            final start = int.tryParse(startClean) ?? 0;
+                            if (start > 0 && n <= start) {
+                              return tr('يجب أن يكون سعر الشراء الفوري أعلى من سعر بداية المزاد',
+                                  'Buy now price must be higher than start price');
                             }
                             return null;
                           },
@@ -929,9 +988,9 @@ class _AddItemPageState extends State<AddItemPage> {
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                initialValue: location,
+                                initialValue: governorates.contains(location) ? location : governorates.first,
                                 decoration: InputDecoration(
-                                  labelText: tr('المحافظة', 'Governorate'),
+                                  labelText: tr('المحافظة *', 'Governorate *'),
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: governorates
@@ -940,21 +999,48 @@ class _AddItemPageState extends State<AddItemPage> {
                                 onChanged: isPublished
                                     ? null
                                     : (v) {
-                                        if (v != null) setState(() => location = v);
+                                        if (v != null) {
+                                          setState(() {
+                                            location = v;
+                                            final available = districtsForGovernorate(location);
+                                            if (!available.contains(district)) {
+                                              district = available.first;
+                                            }
+                                            areaCtrl.text = district;
+                                          });
+                                        }
                                       },
+                                validator: (v) => (v == null || v.trim().isEmpty)
+                                    ? tr('يرجى اختيار المحافظة', 'Select governorate')
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: TextFormField(
-                                controller: areaCtrl,
-                                enabled: !isPublished,
+                              child: DropdownButtonFormField<String>(
+                                key: ValueKey('district_$location'),
+                                initialValue: districtsForGovernorate(location).contains(district)
+                                    ? district
+                                    : districtsForGovernorate(location).first,
                                 decoration: InputDecoration(
-                                  labelText: tr('المنطقة / القضاء *', 'Area / District *'),
+                                  labelText: tr('القضاء *', 'District *'),
                                   border: const OutlineInputBorder(),
                                 ),
+                                items: districtsForGovernorate(location)
+                                    .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                    .toList(),
+                                onChanged: isPublished
+                                    ? null
+                                    : (v) {
+                                        if (v != null) {
+                                          setState(() {
+                                            district = v;
+                                            areaCtrl.text = v;
+                                          });
+                                        }
+                                      },
                                 validator: (v) => (v == null || v.trim().isEmpty)
-                                    ? tr('يرجى كتابة المنطقة', 'Enter area')
+                                    ? tr('يرجى اختيار القضاء', 'Select district')
                                     : null,
                               ),
                             ),

@@ -12,9 +12,7 @@ class ItemDetailsPage extends StatefulWidget {
 
 class _ItemDetailsPageState extends State<ItemDetailsPage> {
   final amountCtrl = TextEditingController();
-  final autoLimitCtrl = TextEditingController();
   final commentCtrl = TextEditingController();
-  int bidMode = 0; // 0: مزايدة مفتوحة عادية, 1: مزايدة تلقائية
   int currentImageIndex = 0;
   late final PageController _imagePageCtrl;
   Timer? _imageAutoSlideTimer;
@@ -56,7 +54,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     _imageAutoSlideTimer?.cancel();
     _imagePageCtrl.dispose();
     amountCtrl.dispose();
-    autoLimitCtrl.dispose();
     commentCtrl.dispose();
     super.dispose();
   }
@@ -78,26 +75,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       backgroundColor: error == null ? Colors.green : Colors.red,
     ));
     if (error == null) amountCtrl.clear();
-  }
-
-  Future<void> submitAutoBid() async {
-    if (settings.needsProfileOnboarding) {
-      await showCompleteProfileDialog(context);
-      if (settings.needsProfileOnboarding) return;
-    }
-    final maxLimit = int.tryParse(
-        toLatinDigits(autoLimitCtrl.text.trim()).replaceAll(',', ''));
-    final error = maxLimit == null
-        ? tr('اكتب سقف المزايدة التلقائية بالأرقام', 'Enter valid max limit')
-        : store.setAutoBid(liveItem, maxLimit);
-    if (!mounted) return;
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(error ??
-          '${tr("تم تفعيل المزايدة التلقائية حتى", "Auto-bid set up to")} ${formatPrice(maxLimit!)} ⚡'),
-      backgroundColor: error == null ? Colors.teal : Colors.red,
-    ));
-    if (error == null) autoLimitCtrl.clear();
   }
 
   void submitComment() {
@@ -671,163 +648,61 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       return const SizedBox.shrink();
     }
 
-    // 4. المشتري: المزايدة المفتوحة التصاعدية أو المزايدة التلقائية Auto-Bid
+    // 4. المشتري: تقديم مزايدة تصاعدية
     final current = item.currentPrice;
-    final myAutoLimit = item.autoBids[me];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SegmentedButton<int>(
-          segments: [
-            ButtonSegment(
-              value: 0,
-              icon: const Icon(Icons.gavel),
-              label: Text(tr('مزايدة مفتوحة', 'Open Bid')),
-            ),
-            ButtonSegment(
-              value: 1,
-              icon: const Icon(Icons.auto_mode),
-              label: Text(tr('مزايدة تلقائية ⚡', 'Auto-Bid ⚡')),
-            ),
-          ],
-          selected: {bidMode},
-          onSelectionChanged: (set) => setState(() => bidMode = set.first),
+        Text(
+          item.bids.isEmpty
+              ? '${tr("سعر بداية المزاد:", "Starting Price:")} ${formatPrice(item.startPrice)}'
+              : '${tr("أدخل مبلغ مزايدتك (أعلى من", "Enter your bid above")} ${formatPrice(current)}):',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
         ),
-        const SizedBox(height: 14),
-
-        if (bidMode == 0) ...[
-          Text(
-            item.bids.isEmpty
-                ? '${tr("سعر بداية المزاد:", "Starting Price:")} ${formatPrice(item.startPrice)}'
-                : '${tr("خطوة الزيادة مفتوحة: اكتب أي رقم أعلى من", "Open increment: enter any amount above")} ${formatPrice(current)}',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        const SizedBox(height: 8),
+        TextField(
+          controller: amountCtrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: tr('مبلغ مزايدتك (دينار)', 'Your Bid Amount (IQD)'),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.gavel),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: amountCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: tr('مبلغ مزايدتك (دينار)', 'Your Bid Amount (IQD)'),
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.gavel),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ActionChip(
+              label: Text('+1,000 (${formatPrice(current + 1000)})'),
+              onPressed: () => amountCtrl.text = '${current + 1000}',
             ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              ActionChip(
-                label: Text('+1,000 (${formatPrice(current + 1000)})'),
-                onPressed: () => amountCtrl.text = '${current + 1000}',
-              ),
-              ActionChip(
-                label: Text('+5,000 (${formatPrice(current + 5000)})'),
-                onPressed: () => amountCtrl.text = '${current + 5000}',
-              ),
-              ActionChip(
-                label: Text('+10,000 (${formatPrice(current + 10000)})'),
-                onPressed: () => amountCtrl.text = '${current + 10000}',
-              ),
-              ActionChip(
-                label: Text('+50,000 (${formatPrice(current + 50000)})'),
-                onPressed: () => amountCtrl.text = '${current + 50000}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: submitManualBid,
-              icon: const Icon(Icons.gavel),
-              label: Text(tr('زايد الآن', 'Place Bid Now')),
+            ActionChip(
+              label: Text('+5,000 (${formatPrice(current + 5000)})'),
+              onPressed: () => amountCtrl.text = '${current + 5000}',
             ),
-          ),
-        ] else ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.blue.shade200),
+            ActionChip(
+              label: Text('+10,000 (${formatPrice(current + 10000)})'),
+              onPressed: () => amountCtrl.text = '${current + 10000}',
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    tr(
-                      'المزايدة التلقائية (Auto-Bid): حدد أقصى مبلغ مستعد لدفعه، وسيزايد النظام عنك تلقائياً كلما دخل منافس آخر حتى الوصول لسقفك.',
-                      'Auto-Bid: Set your maximum ceiling and the system will automatically outbid competitors up to your limit.',
-                    ),
-                    style:
-                        const TextStyle(fontSize: 12, color: Colors.black87),
-                  ),
-                ),
-              ],
+            ActionChip(
+              label: Text('+50,000 (${formatPrice(current + 50000)})'),
+              onPressed: () => amountCtrl.text = '${current + 50000}',
             ),
-          ),
-          const SizedBox(height: 12),
-          if (myAutoLimit != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                border: Border.all(color: Colors.green.shade400),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${tr("مزايدتك التلقائية مفعلة حتى:", "Active Auto-Bid up to:")} ${formatPrice(myAutoLimit)}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.black87),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => store.cancelAutoBid(item),
-                    child: Text(tr('إلغاء', 'Cancel'),
-                        style: const TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
           ],
-          TextField(
-            controller: autoLimitCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: myAutoLimit != null
-                  ? tr('تحديث سقف المزايدة التلقائية (دينار)',
-                      'Update Auto-Bid Limit (IQD)')
-                  : tr('أقصى سقف للمزايدة التلقائية (دينار)',
-                      'Maximum Auto-Bid Limit (IQD)'),
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.speed),
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: submitManualBid,
+            icon: const Icon(Icons.gavel),
+            label: Text(tr('زايد الآن', 'Place Bid Now')),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: Colors.indigo),
-              onPressed: submitAutoBid,
-              icon: const Icon(Icons.bolt),
-              label: Text(myAutoLimit != null
-                  ? tr('تحديث السقف التلقائي ⚡', 'Update Auto-Bid ⚡')
-                  : tr('تفعيل المزايدة التلقائية ⚡', 'Enable Auto-Bid ⚡')),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
@@ -858,9 +733,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             ),
             actions: [
               IconButton(
-                tooltip: tr('مشاركة المزاد ورمز QR', 'Share Auction & QR'),
+                tooltip: tr('مشاركة المزاد', 'Share Listing'),
                 icon: const Icon(Icons.share),
-                onPressed: () => showShareQrDialog(context, item),
+                onPressed: () => showShareDialog(context, item),
               ),
               IconButton(
                 icon: Icon(
@@ -1023,7 +898,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 3. عنوان السلعة وتصنيفاتها
+                  // 2. عنوان / اسم السلعة
                   Text(
                     item.title,
                     style:
@@ -1031,6 +906,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 8),
 
+                  // 3. الشارات والبيانات التعريفية (حالة السلعة والتصنيف الأساسي)
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
@@ -1059,11 +935,98 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 4. صندوق تقديم المزايدات والشراء الفوري
-                  actionSection(item),
+                  // 4. المواصفات الخاصة بالفئة والحقول الذكية
+                  if (item.attributes.isNotEmpty) ...[
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: scheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(categoryIcon(item.category),
+                                    size: 18, color: scheme.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${tr("المواصفات الخاصة بفئة", "Category Specs:")} (${item.category})',
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 16),
+                            for (final entry in item.attributes.entries)
+                              if (entry.value.trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(entry.key,
+                                          style: TextStyle(
+                                              color: scheme.onSurfaceVariant,
+                                              fontSize: 13)),
+                                      Flexible(
+                                        child: Text(
+                                          entry.value,
+                                          textAlign: TextAlign.end,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 5. تفاصيل ووصف السلعة المكتوب
+                  Card(
+                    elevation: 0,
+                    color: scheme.surfaceContainerLowest,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.description_outlined, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                tr('تفاصيل وإعلان السلعة', 'Item Description'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Text(
+                            item.description,
+                            style: const TextStyle(fontSize: 14, height: 1.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
-                  // 5. بطاقة البائع والتواصل المباشر
+                  // 6. كارت معلومات البائع (الاسم، التقييم، وزر المراسلة)
                   Card(
                     elevation: 0,
                     color: scheme.surfaceContainerLow,
@@ -1122,95 +1085,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 6. المواصفات الخاصة بالفئة (إن وجدت)
-                  if (item.attributes.isNotEmpty) ...[
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: scheme.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(categoryIcon(item.category),
-                                    size: 18, color: scheme.primary),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${tr("المواصفات الخاصة بفئة", "Category Specs:")} (${item.category})',
-                                  style:
-                                      const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 16),
-                            for (final entry in item.attributes.entries)
-                              if (entry.value.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(entry.key,
-                                          style: TextStyle(
-                                              color: scheme.onSurfaceVariant,
-                                              fontSize: 13)),
-                                      Flexible(
-                                        child: Text(
-                                          entry.value,
-                                          textAlign: TextAlign.end,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // 7. تفاصيل ووصف السلعة
-                  Card(
-                    elevation: 0,
-                    color: scheme.surfaceContainerLowest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.description_outlined, size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                tr('تفاصيل وإعلان السلعة', 'Item Description'),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 16),
-                          Text(
-                            item.description,
-                            style: const TextStyle(fontSize: 14, height: 1.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // 7. قسم المزايدة وإدخال مبالغ المزايدة
+                  actionSection(item),
                   const SizedBox(height: 24),
 
                   // 8. سجل المزايدات العلنية
