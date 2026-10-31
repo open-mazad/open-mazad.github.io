@@ -18,17 +18,29 @@ class DirectChatPage extends StatefulWidget {
 class _DirectChatPageState extends State<DirectChatPage> {
   final textCtrl = TextEditingController();
   int _visibleLimit = 30;
+  bool _showSafetyTips = true;
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
+    _hasText = textCtrl.text.trim().isNotEmpty;
+    textCtrl.addListener(_onTextChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       store.markConversationAsRead(widget.item.id, widget.otherParty);
     });
   }
 
+  void _onTextChanged() {
+    final has = textCtrl.text.trim().isNotEmpty;
+    if (has != _hasText) {
+      setState(() => _hasText = has);
+    }
+  }
+
   @override
   void dispose() {
+    textCtrl.removeListener(_onTextChanged);
     textCtrl.dispose();
     super.dispose();
   }
@@ -42,11 +54,11 @@ class _DirectChatPageState extends State<DirectChatPage> {
     setState(() {});
   }
 
-  Future<void> sendImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     if (store.isUserBlocked(widget.otherParty)) return;
     try {
       final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 1024,
         imageQuality: 75,
       );
@@ -60,7 +72,28 @@ class _DirectChatPageState extends State<DirectChatPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(tr('تعذر اختيار الصورة', 'Failed to pick image'))),
+            content: Text(tr('تعذر التقاط/اختيار الصورة', 'Failed to pick image'))),
+      );
+    }
+  }
+
+  Future<void> _pickVideo({bool gallery = false}) async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: gallery ? ImageSource.gallery : ImageSource.camera,
+        maxDuration: const Duration(seconds: 30),
+      );
+      if (picked != null) {
+        store.sendDirectMessage(
+            widget.item, widget.otherParty, '[video:مقطع فيديو لمعاينة السلعة]');
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(tr('تعذر تسجيل/اختيار الفيديو', 'Failed to pick video'))),
       );
     }
   }
@@ -162,6 +195,434 @@ class _DirectChatPageState extends State<DirectChatPage> {
     landmarkCtrl.dispose();
   }
 
+  Future<void> _shareAuctionItem() async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    final availableItems = store.items.where((it) => !it.isEnded).toList();
+    if (availableItems.isEmpty) {
+      availableItems.add(widget.item);
+    }
+
+    final selected = await showModalBottomSheet<Item>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.assignment_outlined,
+                      color: Colors.blueAccent),
+                  const SizedBox(width: 8),
+                  Text(
+                    tr('اختر إعلاناً / مزاداً للمشاركة',
+                        'Select an Auction to Share'),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                itemCount: availableItems.length,
+                itemBuilder: (ctx, idx) {
+                  final it = availableItems[idx];
+                  return ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: it.imagePaths.isNotEmpty
+                            ? buildSmartImage(it.imagePaths.first,
+                                fit: BoxFit.cover)
+                            : const Icon(Icons.image),
+                      ),
+                    ),
+                    title: Text(it.title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(formatPrice(it.currentPrice),
+                        style: const TextStyle(
+                            color: Colors.green, fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.send_rounded,
+                        size: 20, color: Colors.indigo),
+                    onTap: () => Navigator.pop(ctx, it),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      final img =
+          selected.imagePaths.isNotEmpty ? selected.imagePaths.first : '';
+      store.sendDirectMessage(
+          widget.item,
+          widget.otherParty,
+          '[item_card:${selected.id}|${selected.title}|${selected.currentPrice}|$img]');
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _shareContactCard() async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    final myName =
+        settings.fullName.isNotEmpty ? settings.fullName : displayName(me);
+    final myPhone =
+        settings.phone.isNotEmpty ? settings.phone : store.getUserPhone(me);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.contact_phone, color: Colors.indigo),
+            const SizedBox(width: 8),
+            Text(tr('مشاركة جهة الاتصال', 'Share Contact Card')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr(
+                'هل تريد إرسال رقم هاتفك وبياناتك المعتمدة للطرف الآخر للتواصل المباشر؟',
+                'Do you want to share your verified phone number with the other party?')),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.indigo.shade200),
+              ),
+              child: Row(
+                children: [
+                  buildUserAvatar(me, radius: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(myName,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(myPhone,
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('إلغاء', 'Cancel'))),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.send),
+            label: Text(tr('إرسال الآن', 'Send Now')),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      store.sendDirectMessage(
+          widget.item, widget.otherParty, '[contact:$myName|$myPhone]');
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _recordVoiceNote() async {
+    if (store.isUserBlocked(widget.otherParty)) return;
+    int seconds = 0;
+    Timer? timer;
+
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) {
+          timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+            if (ctx.mounted) setSt(() => seconds++);
+          });
+          return SafeArea(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${tr("جاري التسجيل الصوتي...", "Recording Voice Note...")} 0:${seconds.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      14,
+                      (i) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: 4,
+                        height: 10 + ((i * 7 + seconds * 11) % 32).toDouble(),
+                        decoration: BoxDecoration(
+                          color: Colors.indigoAccent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red),
+                        onPressed: () {
+                          timer?.cancel();
+                          Navigator.pop(ctx, false);
+                        },
+                        icon: const Icon(Icons.delete_outline),
+                        label: Text(tr('إلغاء', 'Cancel')),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            backgroundColor: Colors.indigo),
+                        onPressed: () {
+                          timer?.cancel();
+                          Navigator.pop(ctx, true);
+                        },
+                        icon: const Icon(Icons.send_rounded),
+                        label: Text(tr('إرسال التسجيل 🎙️', 'Send Audio 🎙️')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    timer?.cancel();
+    if (sent == true) {
+      final duration = seconds > 0 ? seconds : 5;
+      store.sendDirectMessage(
+          widget.item, widget.otherParty, '[audio:$duration]');
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _showAttachmentSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade700,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _attachmentItem(
+              icon: Icons.camera_alt_outlined,
+              label: tr('التقط صورة', 'Take Photo'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.videocam_outlined,
+              label: tr('سجل فيديو', 'Record Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickVideo(gallery: false);
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.photo_library_outlined,
+              label: tr('مكتبة الصور', 'Photo Library'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.video_library_outlined,
+              label: tr('مكتبة الفيديو', 'Video Library'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickVideo(gallery: true);
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.assignment_outlined,
+              label: tr('شارك الإعلان', 'Share Listing'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _shareAuctionItem();
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.location_on_outlined,
+              label: tr('الموقع', 'Location'),
+              onTap: () {
+                Navigator.pop(ctx);
+                sendLocation();
+              },
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            _attachmentItem(
+              icon: Icons.contact_phone_outlined,
+              label: tr('جهة اتصال', 'Contact Card'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _shareContactCard();
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _attachmentItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white, size: 26),
+      title: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  void _makePhoneCall(String name) {
+    final phone = store.getUserPhone(widget.otherParty);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.phone, color: Colors.green),
+            const SizedBox(width: 8),
+            Text(tr('الاتصال بالطرف الآخر', 'Call Contact')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${tr("المستخدم:", "User:")} $name',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (phone.isNotEmpty) ...[
+              Text('${tr("رقم الهاتف:", "Phone:")} $phone',
+                  style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.indigo,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Text(
+                tr('يمكنك نسخ الرقم أو الاتصال به مباشرة للتنسيق.',
+                    'You can copy the number or call directly.'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ] else ...[
+              Text(
+                tr('لم يقم المستخدم بإرفاق رقم هاتف موثوق بعد. يمكنك طلب رقم هاتفه داخل المحادثة.',
+                    'No verified phone number added yet. You can request it in the chat.'),
+                style:
+                    const TextStyle(fontSize: 13, color: Colors.redAccent),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('إغلاق', 'Close'))),
+          if (phone.isNotEmpty)
+            FilledButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: phone));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(tr('تم نسخ رقم الهاتف 📋',
+                          'Phone number copied 📋'))),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: Text(tr('نسخ الرقم', 'Copy Number')),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageContent(DirectMessage m, bool isMe) {
     if (m.text.startsWith('[image:') && m.text.endsWith(']')) {
       final imgUrl = m.text.substring(7, m.text.length - 1);
@@ -197,6 +658,56 @@ class _DirectChatPageState extends State<DirectChatPage> {
               ],
             ),
           ),
+        ),
+      );
+    }
+    if (m.text.startsWith('[video:') && m.text.endsWith(']')) {
+      final desc = m.text.substring(7, m.text.length - 1);
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 240),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.deepPurple.shade100,
+              child: const Icon(Icons.videocam_rounded,
+                  color: Colors.deepPurple, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('مقطع فيديو 🎥', 'Video Clip 🎥'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isMe ? Colors.white : Colors.deepPurple.shade900,
+                    ),
+                  ),
+                  Text(
+                    desc,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isMe ? Colors.white70 : Colors.grey.shade700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -245,6 +756,265 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (m.text.startsWith('[item_card:') && m.text.endsWith(']')) {
+      final payload = m.text.substring(11, m.text.length - 1);
+      final parts = payload.split('|');
+      final itemId = parts.isNotEmpty ? parts[0] : '';
+      final itemTitle = parts.length > 1 ? parts[1] : '';
+      final itemPrice =
+          parts.length > 2 ? (int.tryParse(parts[2]) ?? 0) : 0;
+      final itemImg = parts.length > 3 ? parts[3] : '';
+
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 270),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: isMe ? Colors.white38 : Colors.grey.shade300),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: itemImg.isNotEmpty
+                        ? buildSmartImage(itemImg, fit: BoxFit.cover)
+                        : const Icon(Icons.gavel, size: 28),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        itemTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatPrice(itemPrice),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor:
+                      isMe ? Colors.white24 : Colors.indigo.shade50,
+                ),
+                onPressed: () {
+                  final target = store.items.firstWhere(
+                    (it) =>
+                        it.id == itemId ||
+                        AuctionStore.itemToUuid(it.id) ==
+                            AuctionStore.itemToUuid(itemId),
+                    orElse: () => widget.item,
+                  );
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => ItemDetailsPage(item: target)));
+                },
+                child: Text(
+                  tr('معاينة المزاد 🔨', 'View Auction 🔨'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isMe ? Colors.white : Colors.indigo.shade900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (m.text.startsWith('[contact:') && m.text.endsWith(']')) {
+      final payload = m.text.substring(9, m.text.length - 1);
+      final parts = payload.split('|');
+      final cName = parts.isNotEmpty ? parts[0] : '';
+      final cPhone = parts.length > 1 ? parts[1] : '';
+
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 260),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: isMe ? Colors.white38 : Colors.grey.shade300),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.indigo.shade100,
+                  child: const Icon(Icons.person,
+                      color: Colors.indigo, size: 20),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        cPhone,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isMe ? Colors.white70 : Colors.indigo,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: isMe ? Colors.white : Colors.indigo,
+                      side: BorderSide(
+                          color: isMe
+                              ? Colors.white38
+                              : Colors.indigo.shade200),
+                    ),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: cPhone));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                                Text(tr('تم نسخ الرقم 📋', 'Copied 📋'))),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 14),
+                    label: Text(tr('نسخ', 'Copy'),
+                        style: const TextStyle(fontSize: 11)),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Colors.green.shade600,
+                    ),
+                    onPressed: () => _makePhoneCall(cName),
+                    icon: const Icon(Icons.call, size: 14),
+                    label: Text(tr('اتصال', 'Call'),
+                        style: const TextStyle(fontSize: 11)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+    if (m.text.startsWith('[audio:') && m.text.endsWith(']')) {
+      final sec = m.text.substring(7, m.text.length - 1);
+      final durationStr = '0:${sec.padLeft(2, '0')}';
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 240),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor:
+                  isMe ? Colors.white24 : Colors.indigo.shade100,
+              child: Icon(
+                Icons.play_arrow_rounded,
+                color: isMe ? Colors.white : Colors.indigo,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              children: List.generate(
+                9,
+                (i) => Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                  width: 3,
+                  height: 8 + ((i * 5) % 18).toDouble(),
+                  decoration: BoxDecoration(
+                    color: isMe ? Colors.white70 : Colors.indigo.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              durationStr,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isMe ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.mic,
+              size: 15,
+              color: isMe ? Colors.white70 : Colors.indigo.shade300,
             ),
           ],
         ),
@@ -556,50 +1326,86 @@ class _DirectChatPageState extends State<DirectChatPage> {
           appBar: AppBar(
             title: InkWell(
               onTap: () => showUserProfileSheet(context, widget.otherParty),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Stack(
                     children: [
-                      Flexible(
-                        child: Text(
-                          otherName,
-                          style: const TextStyle(fontSize: 16),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isBlocked) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
+                      buildUserAvatar(widget.otherParty, radius: 18),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
                           decoration: BoxDecoration(
-                            color: Colors.red.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            tr('محظور', 'Blocked'),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.red.shade900,
-                              fontWeight: FontWeight.bold,
+                            color: Colors.greenAccent.shade400,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.surface,
+                              width: 1.5,
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                  Text(
-                    item.title,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                otherName,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isBlocked) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade100,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  tr('محظور', 'Blocked'),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.red.shade900,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          tr('متصل الآن 🟢', 'Online now 🟢'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.green.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: tr('اتصال هاتفي سريع', 'Quick Call'),
+                icon: const Icon(Icons.call_outlined, color: Colors.green),
+                onPressed: () => _makePhoneCall(otherName),
+              ),
               IconButton(
                 tooltip: tr('ملف وتقييم المستخدم', 'User Profile & Rating'),
                 icon: const Icon(Icons.star_rate_rounded, color: Colors.amber),
@@ -668,6 +1474,170 @@ class _DirectChatPageState extends State<DirectChatPage> {
               constraints: const BoxConstraints(maxWidth: 680),
               child: Column(
                 children: [
+                  // 1. شريط السلعة المثبت بالأعلى (Pinned Auction Bar)
+                  Container(
+                    width: double.infinity,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ItemDetailsPage(item: item),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: item.imagePaths.isNotEmpty
+                                  ? buildSmartImage(item.imagePaths.first,
+                                      fit: BoxFit.cover)
+                                  : const Icon(Icons.image, size: 28),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${tr("السعر الحالي:", "Price:")} ${formatPrice(item.currentPrice)}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  tr('معاينة', 'View'),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.indigo.shade800,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(Icons.arrow_forward_ios,
+                                    size: 11, color: Colors.indigo.shade800),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 2. صندوق نصائح الأمان وسرعة الرد (Safety Tips & Response Speed)
+                  if (_showSafetyTips)
+                    Container(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.info_outline,
+                                  color: Colors.redAccent, size: 18),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  tr('نصائح عامة للمعاينة والأمان 🛡️',
+                                      'General Safety Tips 🛡️'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () =>
+                                    setState(() => _showSafetyTips = false),
+                                child: const Icon(Icons.close,
+                                    size: 16, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '• ${tr("قم بتفقد السلعة جيداً قبل الشراء والاستلام", "Inspect item well before buying")}\n'
+                            '• ${tr("لا تقم بإرسال الأموال مسبقاً خارج المعاينة", "Do not send money in advance")}\n'
+                            '• ${tr("اجتمع في الأماكن العامة فقط للتسليم", "Meet in public places only")}',
+                            style: const TextStyle(fontSize: 11, height: 1.4),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.bolt,
+                                    size: 14, color: Colors.teal),
+                                const SizedBox(width: 4),
+                                Text(
+                                  tr('تجاوب سريع ⚡ - عادة ما يتم الرد خلال دقائق',
+                                      'Fast Response ⚡ - usually replies in minutes'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.teal.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -862,41 +1832,71 @@ class _DirectChatPageState extends State<DirectChatPage> {
                             ),
                           )
                         : Padding(
-                            padding: const EdgeInsets.all(8.0),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0, vertical: 6.0),
                             child: Row(
                               children: [
                                 IconButton(
-                                  tooltip: tr('إرسال صورة', 'Send Photo'),
-                                  icon: const Icon(Icons.add_photo_alternate_outlined,
-                                      color: Colors.indigo),
-                                  onPressed: sendImage,
-                                ),
-                                IconButton(
-                                  tooltip: tr('إرسال موقع التسليم', 'Send Location'),
-                                  icon: const Icon(Icons.location_on_outlined,
-                                      color: Colors.redAccent),
-                                  onPressed: sendLocation,
+                                  tooltip: tr('إرفاق ملف أو موقع', 'Attach'),
+                                  icon: const Icon(Icons.attach_file_rounded,
+                                      color: Colors.blueAccent, size: 26),
+                                  onPressed: () => _showAttachmentSheet(context),
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
-                                  child: TextField(
-                                    controller: textCtrl,
-                                    decoration: InputDecoration(
-                                      hintText: tr('اكتب رسالتك...',
-                                          'Type a message...'),
-                                      border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(24),
-                                      ),
-                                      isDense: true,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(24),
                                     ),
-                                    onSubmitted: (_) => send(),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: textCtrl,
+                                            decoration: InputDecoration(
+                                              hintText: tr(
+                                                  'أرسل رسالة جديدة...',
+                                                  'Type a new message...'),
+                                              border: InputBorder.none,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 10),
+                                              isDense: true,
+                                            ),
+                                            onSubmitted: (_) => send(),
+                                          ),
+                                        ),
+                                        if (!_hasText) ...[
+                                          IconButton(
+                                            tooltip: tr('التقط صورة', 'Camera'),
+                                            icon: const Icon(
+                                                Icons.camera_alt_rounded,
+                                                color: Colors.blueAccent),
+                                            onPressed: () =>
+                                                _pickImage(ImageSource.camera),
+                                          ),
+                                          IconButton(
+                                            tooltip:
+                                                tr('تسجيل صوتي', 'Voice Note'),
+                                            icon: const Icon(Icons.mic_rounded,
+                                                color: Colors.blueAccent),
+                                            onPressed: _recordVoiceNote,
+                                          ),
+                                        ] else ...[
+                                          IconButton.filled(
+                                            onPressed: send,
+                                            icon:
+                                                const Icon(Icons.send_rounded),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton.filled(
-                                  onPressed: send,
-                                  icon: const Icon(Icons.send),
                                 ),
                               ],
                             ),
@@ -930,9 +1930,21 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
     if (text.startsWith('[image:') && text.endsWith(']')) {
       return tr('📷 صورة', '📷 Photo');
     }
+    if (text.startsWith('[video:') && text.endsWith(']')) {
+      return tr('🎥 مقطع فيديو', '🎥 Video');
+    }
     if (text.startsWith('[location:') && text.endsWith(']')) {
       final loc = text.substring(10, text.length - 1);
       return '📍 $loc';
+    }
+    if (text.startsWith('[item_card:') && text.endsWith(']')) {
+      return tr('🏷️ إعلان مزاد', '🏷️ Auction Listing');
+    }
+    if (text.startsWith('[contact:') && text.endsWith(']')) {
+      return tr('👤 جهة اتصال', '👤 Contact Card');
+    }
+    if (text.startsWith('[audio:') && text.endsWith(']')) {
+      return tr('🎤 رسالة صوتية', '🎤 Voice Note');
     }
     return text;
   }
