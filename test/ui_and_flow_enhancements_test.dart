@@ -350,5 +350,41 @@ void main() {
 
       store.items.removeWhere((i) => i.id == 'buy_now_item');
     });
+
+    testWidgets('ItemCard displays 4-row horizontal RTL layout with title, green price, timer, location and bids summary', (tester) async {
+      final cardItem = Item(
+        id: 'duck_card_test',
+        title: 'بطة',
+        description: 'بطة بيضاء',
+        category: 'طيور وحيوانات',
+        seller: 'بائع_الطيور',
+        startPrice: 20000,
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now().add(const Duration(hours: 23, minutes: 31, seconds: 49)),
+        location: 'البصرة',
+        area: 'المدينة',
+      );
+      cardItem.bids.add(Bid('حساب تجريبي', 25000, DateTime.now()));
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: ItemCard(item: cardItem)),
+      ));
+      await tester.pumpAndSettle();
+
+      // Row 1: Title and Favorite button
+      expect(find.text('بطة'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+
+      // Row 2: Green Price and Timer
+      expect(find.text('25,000 دينار'), findsOneWidget);
+      expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
+
+      // Row 3: Location (البصرة - المدينة)
+      expect(find.text('البصرة - المدينة'), findsOneWidget);
+      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+
+      // Row 4: Bids summary
+      expect(find.textContaining('1 مزايدة • حساب تجريبي (أعلى مزايدة)'), findsOneWidget);
+    });
   });
 }

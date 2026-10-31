@@ -7,6 +7,7 @@ class ItemCard extends StatelessWidget {
   const ItemCard({super.key, required this.item});
 
   Widget _buildImage(ColorScheme scheme) {
+    const double size = 90;
     if (item.imagePaths.isNotEmpty &&
         resolveSmartImageProvider(item.imagePaths.first) != null) {
       return Stack(
@@ -15,8 +16,8 @@ class ItemCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: buildSmartImage(
               item.imagePaths.first,
-              width: 76,
-              height: 76,
+              width: size,
+              height: size,
               fit: BoxFit.cover,
             ),
           ),
@@ -44,15 +45,16 @@ class ItemCard extends StatelessWidget {
   }
 
   Widget _fallbackAvatar(ColorScheme scheme) {
+    const double size = 90;
     return Container(
-      width: 68,
-      height: 68,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(14),
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(categoryIcon(item.category),
-          size: 30, color: scheme.onPrimaryContainer),
+          size: 34, color: scheme.onSurfaceVariant),
     );
   }
 
@@ -159,175 +161,200 @@ class ItemCard extends StatelessWidget {
       badgeColor = Colors.redAccent;
     }
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: InkWell(
-        onTap: () => _openItem(context),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildImage(scheme),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (item.isPrivate) ...[
-                          const Icon(Icons.lock,
-                              size: 15, color: Colors.amber),
-                          const SizedBox(width: 4),
+    // ملخص المزايدات للسطر الرابع
+    String bidsSummary;
+    if (item.bids.isNotEmpty) {
+      final topBidder = item.highestBidder != null ? displayName(item.highestBidder!) : '';
+      bidsSummary = '${item.bids.length} ${tr("مزايدة", "bids")} • $topBidder (${tr("أعلى مزايدة", "Top Bid")})';
+    } else if (item.seller == me) {
+      bidsSummary = tr('سلعتك (بدون عروض)', 'Your Item (No bids)');
+    } else {
+      bidsSummary = tr('0 مزايدة • بدون عروض', '0 bids • No bids');
+    }
+
+    final locationText = item.area.isNotEmpty && item.area != 'المركز'
+        ? '${item.location} - ${item.area}'
+        : item.location;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        elevation: 1,
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          onTap: () => _openItem(context),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // الصورة المصغرة (Thumbnail): على أقصى اليمين، بإطار مربع بزوايا منحنية (12px)
+                _buildImage(scheme),
+                const SizedBox(width: 12),
+
+                // منطقة البيانات (Flex-Column): تشغل المساحة المتبقية على يسار الصورة ومقسمة إلى 4 مستويات رأسية
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // الصف الأول: عنوان السلعة بخط عريض على اليمين، يقابله زر المفضلة على أقصى اليسار
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (item.isPrivate) ...[
+                                  const Icon(Icons.lock, size: 14, color: Colors.amber),
+                                  const SizedBox(width: 4),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? Colors.red : Colors.grey.shade400,
+                              size: 22,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => store.toggleFavorite(item.id),
+                          ),
                         ],
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          formatPrice(item.currentPrice),
-                          style: TextStyle(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        if (item.bids.isNotEmpty)
+                      ),
+                      const SizedBox(height: 4),
+
+                      // الصف الثاني: السعر الحالي بخط بارز ولون أخضر مميز على اليمين، يقابله العداد التنازلي مع أيقونة الساعة على أقصى اليسار
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
                           Text(
-                            '(${tr("البداية:", "Start:")} ${formatPrice(item.startPrice)})',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              color: scheme.onSurfaceVariant,
+                            formatPrice(item.currentPrice),
+                            style: const TextStyle(
+                              color: Color(0xFF4CAF50), // لون أخضر بارز ومميز
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15.5,
                             ),
                           ),
-                        if (item.buyNowPrice != null && item.buyNowPrice! > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.green.shade600, width: 0.8),
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.isCancelled
+                                    ? tr('ملغي', 'Cancelled')
+                                    : (item.isScheduled
+                                        ? formatDuration(item.timeUntilStart)
+                                        : formatDuration(item.timeLeft)),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: item.isEnded
+                                      ? Colors.grey
+                                      : (item.isScheduled
+                                          ? Colors.orange.shade800
+                                          : const Color(0xFFE57373)), // لون أحمر/وردي متناسق
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                item.isScheduled
+                                    ? Icons.schedule
+                                    : Icons.timer_outlined,
+                                size: 15,
+                                color: item.isEnded
+                                    ? Colors.grey
+                                    : (item.isScheduled
+                                        ? Colors.orange.shade800
+                                        : const Color(0xFFE57373)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // الصف الثالث: الموقع الجغرافي بتنسيق (أيقونة الموقع + المحافظة - المنطقة/القضاء)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
                             child: Text(
-                              '${tr("شراء فوري:", "Buy Now:")} ${formatPrice(item.buyNowPrice!)}',
+                              locationText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade800,
+                                fontSize: 12,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${item.bids.length} ${tr("مزايدة", "bids")} • ${item.location} (${item.area}) • ${item.deliveryMethod}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: scheme.onSurfaceVariant,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    if (item.videoPath != null) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
+
+                      // الصف الرابع: ملخص المزايدات بخط فرعي أصغر بتنسيق: [عدد] مزايدة • [اسم المستخدم] (أعلى مزايدة)
                       Row(
                         children: [
-                          const Icon(Icons.videocam_outlined,
-                              size: 14, color: Colors.indigo),
-                          const SizedBox(width: 4),
-                          Text(tr('فيديو مرفق', 'Attached Video'),
-                              style: const TextStyle(
-                                  fontSize: 10, color: Colors.indigo)),
+                          Expanded(
+                            child: Text(
+                              bidsSummary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ),
+                          if (badge != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: badgeColor,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                badge,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      isFav ? Icons.favorite : Icons.favorite_border,
-                      color: isFav ? Colors.red : Colors.grey,
-                      size: 22,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => store.toggleFavorite(item.id),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.isScheduled
-                            ? Icons.schedule
-                            : Icons.timer_outlined,
-                        size: 14,
-                        color: item.isEnded
-                            ? Colors.grey
-                            : (item.isScheduled
-                                ? Colors.orange.shade800
-                                : scheme.error),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        item.isCancelled
-                            ? tr('ملغي', 'Cancelled')
-                            : (item.isScheduled
-                                ? formatDuration(item.timeUntilStart)
-                                : formatDuration(item.timeLeft)),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: item.isEnded
-                              ? Colors.grey
-                              : (item.isScheduled
-                                  ? Colors.orange.shade800
-                                  : scheme.error),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 10),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
