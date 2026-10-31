@@ -15,7 +15,7 @@ class DirectChatPage extends StatefulWidget {
   State<DirectChatPage> createState() => _DirectChatPageState();
 }
 
-class _DirectChatPageState extends State<DirectChatPage> {
+class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObserver {
   final textCtrl = TextEditingController();
   int _visibleLimit = 30;
   bool _showSafetyTips = true;
@@ -26,12 +26,14 @@ class _DirectChatPageState extends State<DirectChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _hasText = textCtrl.text.trim().isNotEmpty;
     textCtrl.addListener(_onTextChanged);
     store.markConversationAsRead(widget.item.id, widget.otherParty);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         store.markConversationAsRead(widget.item.id, widget.otherParty);
+        store.pollMessagesForChat(widget.item.id);
       }
     });
 
@@ -40,12 +42,21 @@ class _DirectChatPageState extends State<DirectChatPage> {
       if (mounted) setState(() {});
     });
 
-    // مراسلة فورية واستطلاع مستمر للرسائل الواردة كل 2.5 ثانية
-    _chatPollTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
+    // استطلاع فائق السرعة للرسائل داخل المحادثة النشطة (كل 800 مللي ثانية) لضمان الوصول اللحظي على المتصفح والهاتف
+    _chatPollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) {
       if (mounted) {
         store.pollMessagesForChat(widget.item.id);
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // بمجرد عودة المستخدم لتبويب المتصفح أو فتح شاشة الهاتف، يتم جلب الرسائل فوراً في 0 ثانية
+    if (state == AppLifecycleState.resumed && mounted) {
+      store.pollMessagesForChat(widget.item.id);
+      store.markConversationAsRead(widget.item.id, widget.otherParty);
+    }
   }
 
   void _onTextChanged() {
@@ -57,6 +68,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _onlineStatusTimer?.cancel();
     _chatPollTimer?.cancel();
     textCtrl.removeListener(_onTextChanged);
