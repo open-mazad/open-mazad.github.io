@@ -1062,6 +1062,7 @@ Future<void> _handleGoogleSignIn(BuildContext context) async {
     ),
   );
 
+  LocalStorageHelper.write('auth_return_tab', '4');
   final err = await settings.signInWithGoogle();
   if (err != null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1378,31 +1379,6 @@ class SettingsPage extends StatelessWidget {
                           'Review reports, ban defaulters, and view app analytics')),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => settings.openAdminDashboard!(context),
-                    ),
-                  ),
-                if (settings.openCloudSetup != null)
-                  Card(
-                    child: ListTile(
-                      leading: Icon(
-                        settings.isCloudConfigured
-                            ? Icons.cloud_done
-                            : Icons.cloud_sync_outlined,
-                        color: settings.isCloudConfigured
-                            ? Colors.green
-                            : Colors.deepPurple,
-                      ),
-                      title: Text(tr('الربط السحابي (Supabase) وقاعدة البيانات',
-                          'Supabase Cloud & Database Setup')),
-                      subtitle: Text(
-                        settings.isCloudConfigured
-                            ? tr('متصل بالسحابة 🟢 + الحفظ المحلي الدائم مفعّل',
-                                'Cloud Connected 🟢 + Local Persistence Active')
-                            : tr(
-                                'الحفظ المحلي الدائم مفعّل 💾 • اضغط للربط بـ Supabase',
-                                'Local Persistence Active 💾 • Tap to connect Supabase'),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => settings.openCloudSetup!(context),
                     ),
                   ),
                 const SizedBox(height: 12),

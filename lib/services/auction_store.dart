@@ -30,8 +30,10 @@ class AuctionStore extends ChangeNotifier {
   StreamSubscription? _bidsSub;
   StreamSubscription? _messagesSub;
   StreamSubscription? _profilesSub;
+  StreamSubscription? _reportsSub;
   RealtimeChannel? _chatBroadcastChannel;
   bool _hasInitialSynced = false;
+  final Set<String> adminUserNames = {};
 
   int _nextId = 100;
 
@@ -122,6 +124,7 @@ class AuctionStore extends ChangeNotifier {
     _bidsSub?.cancel();
     _messagesSub?.cancel();
     _profilesSub?.cancel();
+    _reportsSub?.cancel();
 
     try {
       // 1. مزامنة المستخدمين وصلاحية الأدمن (is_admin) لحظياً
@@ -129,6 +132,13 @@ class AuctionStore extends ChangeNotifier {
         _applyProfilesStream(rows);
       }, onError: (e) {
         debugPrint('Profiles stream error: $e');
+      });
+
+      // 2. مزامنة البلاغات والشكاوى لحظياً
+      _reportsSub = client.from('reports').stream(primaryKey: ['id']).listen((rows) {
+        _applyReportsStream(rows);
+      }, onError: (e) {
+        debugPrint('Reports stream error: $e');
       });
 
       // 2. مزامنة المزادات لحظياً (إضافة وحذف وتعديل بالكامل)
@@ -511,6 +521,15 @@ class AuctionStore extends ChangeNotifier {
       // مزامنة حالة الآدمن لحظياً إذا تم تغييرها في قاعدة البيانات
       final isAdm = row['is_admin'];
       final bool isAdminVal = isAdm == true || isAdm == 'true' || isAdm == 1;
+      if (isAdminVal) {
+        adminUserNames.add(id);
+        if (name.isNotEmpty) adminUserNames.add(name);
+        if (full.isNotEmpty) adminUserNames.add(full);
+      } else {
+        adminUserNames.remove(id);
+        adminUserNames.remove(name);
+        adminUserNames.remove(full);
+      }
       if (settings.isLoggedIn &&
           (id == myUuid || (settings.phone.isNotEmpty && ph == settings.phone.trim()))) {
         if (settings.isAdmin != isAdminVal) {
@@ -521,6 +540,52 @@ class AuctionStore extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  void _applyReportsStream(List<Map<String, dynamic>> rows) {
+    for (final row in rows) {
+      final repId = '${row['id'] ?? ''}';
+      final reporterUuid = '${row['reporter_id'] ?? ''}';
+      final reportedUuid = '${row['reported_user_id'] ?? ''}';
+      final reporterName = userDisplayNames[reporterUuid] ?? reporterUuid;
+      final reportedName = userDisplayNames[reportedUuid] ?? reportedUuid;
+      final itemId = '${row['item_id'] ?? ''}';
+      final itemTitle = '${row['item_title'] ?? 'سلعة'}';
+      final reason = '${row['reason'] ?? ''}';
+      final isResolved = row['is_resolved'] == true;
+      final time = parseToLocal(row['created_at']);
+
+      final idx = reports.indexWhere((r) => r.id == repId || itemToUuid(r.id) == repId);
+      if (idx >= 0) {
+        reports[idx].isResolved = isResolved;
+      } else {
+        reports.insert(
+          0,
+          FraudReport(
+            id: repId,
+            reporter: reporterName,
+            reportedUser: reportedName,
+            itemId: itemId,
+            itemTitle: itemTitle,
+            reason: reason,
+            time: time,
+            isResolved: isResolved,
+          ),
+        );
+      }
+    }
+    _saveToDisk();
+    notifyListeners();
+  }
+
+  bool isUserAdmin(String user) {
+    if ((user == me || isUserMe(user)) && settings.isAdmin) return true;
+    final ph = userPhones[user] ?? userPhones[userToUuid(user)];
+    if (ph == '07700000000' || ph == '+9647700000000') return true;
+    if (user == '07700000000' || user == '+9647700000000') return true;
+    final uuid = userToUuid(user);
+    if (adminUserNames.contains(user) || adminUserNames.contains(uuid)) return true;
+    return false;
   }
 
   void _applyItemsStream(List<Map<String, dynamic>> rows) {
@@ -1291,6 +1356,21 @@ class AuctionStore extends ChangeNotifier {
         _saveToDisk();
       }
 
+      // جلب سجل البلاغات والشكاوى وتحديثها
+      try {
+        final (repCode, repBody) =
+            await _fetchRows(baseUrl, 'reports?select=*&order=created_at.desc');
+        if (repCode >= 200 && repCode < 300) {
+          final repList = jsonDecode(repBody);
+          if (repList is List && repList.isNotEmpty) {
+            _applyReportsStream(List<Map<String, dynamic>>.from(
+                repList.whereType<Map<String, dynamic>>()));
+          }
+        }
+      } catch (err) {
+        debugPrint('Fetch reports error: $err');
+      }
+
       isSyncingCloud = false;
       lastSyncTime = DateTime.now();
       lastSyncStatus = tr(
@@ -1314,6 +1394,7 @@ class AuctionStore extends ChangeNotifier {
     _bidsSub?.cancel();
     _messagesSub?.cancel();
     _profilesSub?.cancel();
+    _reportsSub?.cancel();
     _chatBroadcastChannel?.unsubscribe();
   }
 
@@ -2607,19 +2688,38 @@ class AuctionStore extends ChangeNotifier {
     String? itemId,
     String? itemTitle,
   }) {
-    reports.insert(
-      0,
-      FraudReport(
-        id: 'rep_${DateTime.now().millisecondsSinceEpoch}',
-        reporter: me,
-        reportedUser: displayName(reportedUser),
-        itemId: itemId ?? '',
-        itemTitle: itemTitle ?? 'محادثة مباشرة',
-        reason: reason,
-        time: DateTime.now(),
-      ),
+    final newRep = FraudReport(
+      id: 'rep_${DateTime.now().millisecondsSinceEpoch}',
+      reporter: me,
+      reportedUser: displayName(reportedUser),
+      itemId: itemId ?? '',
+      itemTitle: itemTitle ?? 'محادثة مباشرة',
+      reason: reason,
+      time: DateTime.now(),
     );
+    reports.insert(0, newRep);
     _persistAndSync();
+    _recordReportToCloud(newRep);
+  }
+
+  Future<void> _recordReportToCloud(FraudReport rep) async {
+    if (!settings.isCloudConfigured) return;
+    try {
+      final client = supabaseClient;
+      if (client == null) return;
+      await client.from('reports').upsert({
+        'id': itemToUuid(rep.id),
+        'reporter_id': userToUuid(rep.reporter),
+        'reported_user_id': userToUuid(rep.reportedUser),
+        'item_id': rep.itemId.isNotEmpty ? itemToUuid(rep.itemId) : null,
+        'item_title': rep.itemTitle,
+        'reason': rep.reason,
+        'is_resolved': rep.isResolved,
+        'created_at': toIsoUtc(rep.time),
+      }, onConflict: 'id');
+    } catch (e) {
+      debugPrint('Cloud report record error: $e');
+    }
   }
 
   int get totalMessagesCount {
@@ -2876,19 +2976,18 @@ class AuctionStore extends ChangeNotifier {
     required String reportedUser,
     required String reason,
   }) {
-    reports.insert(
-      0,
-      FraudReport(
-        id: 'rep_${DateTime.now().millisecondsSinceEpoch}',
-        reporter: me,
-        reportedUser: reportedUser,
-        itemId: item.id,
-        itemTitle: item.title,
-        reason: reason,
-        time: DateTime.now(),
-      ),
+    final rep = FraudReport(
+      id: 'rep_${DateTime.now().millisecondsSinceEpoch}',
+      reporter: me,
+      reportedUser: reportedUser,
+      itemId: item.id,
+      itemTitle: item.title,
+      reason: reason,
+      time: DateTime.now(),
     );
+    reports.insert(0, rep);
     _persistAndSync();
+    _recordReportToCloud(rep);
   }
 
   void warnUser(String user, String? reportId) {
@@ -2896,6 +2995,11 @@ class AuctionStore extends ChangeNotifier {
     if (reportId != null) {
       for (final r in reports) {
         if (r.id == reportId) r.isResolved = true;
+      }
+      if (settings.isCloudConfigured) {
+        try {
+          supabaseClient?.from('reports').update({'is_resolved': true}).eq('id', itemToUuid(reportId)).ignore();
+        } catch (_) {}
       }
     }
     if ((userWarnings[user] ?? 0) >= 3) {
@@ -2909,6 +3013,11 @@ class AuctionStore extends ChangeNotifier {
     if (reportId != null) {
       for (final r in reports) {
         if (r.id == reportId) r.isResolved = true;
+      }
+      if (settings.isCloudConfigured) {
+        try {
+          supabaseClient?.from('reports').update({'is_resolved': true}).eq('id', itemToUuid(reportId)).ignore();
+        } catch (_) {}
       }
     }
     _persistAndSync();
@@ -2950,21 +3059,37 @@ class AuctionStore extends ChangeNotifier {
     }
   }
 
+  /// قائمة المستخدمين الفريدين بدون تكرار الحسابات والمعرفات (Deduplicated Users)
   List<String> get allKnownUsers {
-    final set = <String>{me};
-    // إضافة المستخدمين الفعليين من قاعدة البيانات فقط
+    final seenKeys = <String>{};
+    final seenDisplays = <String>{};
+    final result = <String>[];
+
+    void addCandidate(String raw) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty || trimmed == 'مستخدم' || trimmed == '؟') return;
+      final uuid = userToUuid(trimmed);
+      final disp = displayName(trimmed).trim();
+      final finalDisp = disp.isNotEmpty ? disp : trimmed;
+
+      if (!seenKeys.add(uuid)) return;
+      if (!seenDisplays.add(finalDisp)) return;
+      result.add(finalDisp);
+    }
+
+    addCandidate(me);
     for (final name in userDisplayNames.values) {
-      if (name.isNotEmpty && name != 'مستخدم') set.add(name);
+      addCandidate(name);
     }
     for (final i in items) {
-      if (i.seller.isNotEmpty) set.add(i.seller);
+      if (i.seller.isNotEmpty) addCandidate(i.seller);
       for (final b in i.bids) {
-        if (b.bidder.isNotEmpty) set.add(b.bidder);
+        if (b.bidder.isNotEmpty) addCandidate(b.bidder);
       }
     }
     const dummyNames = {'علي', 'زينب', 'حسن', 'ليلى', 'سمير_متلاعب'};
-    set.removeWhere((u) => dummyNames.contains(u) && !items.any((i) => i.seller == u));
-    return set.toList();
+    result.removeWhere((u) => dummyNames.contains(u) && !items.any((i) => i.seller == u));
+    return result;
   }
 }
 

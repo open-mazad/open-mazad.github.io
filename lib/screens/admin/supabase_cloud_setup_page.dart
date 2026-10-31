@@ -3,7 +3,8 @@ part of '../../main.dart';
 // ======================= 7. إعداد قاعدة البيانات السحابية (Supabase + الحفظ المحلي) =======================
 
 class SupabaseCloudSetupPage extends StatefulWidget {
-  const SupabaseCloudSetupPage({super.key});
+  final bool embedded;
+  const SupabaseCloudSetupPage({super.key, this.embedded = false});
 
   @override
   State<SupabaseCloudSetupPage> createState() => _SupabaseCloudSetupPageState();
@@ -297,18 +298,13 @@ alter table public.direct_messages replica identity full;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('البيانات الحقيقية والسحابة (Supabase)',
-            'Real Data & Supabase Cloud')),
-      ),
-      body: ListenableBuilder(
-        listenable: Listenable.merge([store, settings]),
-        builder: (context, _) {
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // بطاقة الحفظ المحلي التلقائي
+    final content = ListenableBuilder(
+      listenable: Listenable.merge([store, settings]),
+      builder: (context, _) {
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // بطاقة الحفظ المحلي التلقائي
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -525,7 +521,18 @@ alter table public.direct_messages replica identity full;
             ],
           );
         },
+      );
+
+    if (widget.embedded) {
+      return content;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr('البيانات الحقيقية والسحابة (Supabase)',
+            'Real Data & Supabase Cloud')),
       ),
+      body: content,
     );
   }
 }

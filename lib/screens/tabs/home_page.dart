@@ -21,7 +21,16 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    settings.addListener(_checkProfileOnboarding);
+    // استعادة مسار التوجيه بعد إتمام تسجيل الدخول (العودة إلى شاشة الإعدادات)
+    final returnTab = LocalStorageHelper.read('auth_return_tab');
+    if (returnTab != null) {
+      LocalStorageHelper.delete('auth_return_tab');
+      final targetIndex = int.tryParse(returnTab);
+      if (targetIndex != null && targetIndex >= 0 && targetIndex < 5) {
+        tab = targetIndex;
+      }
+    }
+    settings.addListener(_onSettingsAuthChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkProfileOnboarding();
     });
@@ -29,8 +38,21 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    settings.removeListener(_checkProfileOnboarding);
+    settings.removeListener(_onSettingsAuthChanged);
     super.dispose();
+  }
+
+  void _onSettingsAuthChanged() {
+    if (!mounted) return;
+    _checkProfileOnboarding();
+    final returnTab = LocalStorageHelper.read('auth_return_tab');
+    if (returnTab != null) {
+      LocalStorageHelper.delete('auth_return_tab');
+      final targetIndex = int.tryParse(returnTab);
+      if (targetIndex != null && targetIndex >= 0 && targetIndex < 5) {
+        setState(() => tab = targetIndex);
+      }
+    }
   }
 
   void _checkProfileOnboarding() {
@@ -150,14 +172,15 @@ class _HomePageState extends State<HomePage> {
     return Expanded(
       child: PopupMenuButton<String>(
         position: PopupMenuPosition.under,
-        elevation: 3,
+        elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: scheme.outlineVariant),
         ),
         constraints: BoxConstraints(
+          minWidth: 185,
+          maxWidth: 280,
           maxHeight: maxVisibleItems != null ? (maxVisibleItems * 44.0) : double.infinity,
-          maxWidth: 240,
         ),
         onSelected: (val) => onChanged(val),
         itemBuilder: (context) {
@@ -183,16 +206,17 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: Text(
                       display,
+                      softWrap: false,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow: TextOverflow.visible,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: isSelected ? FontWeight.bold : (count > 0 ? FontWeight.w500 : FontWeight.normal),
                         color: isSelected ? scheme.primary : (count > 0 ? scheme.onSurface : scheme.onSurfaceVariant),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -258,6 +282,214 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  // فلتر المحافظة المتوسط: فتح قائمة منسدلة متمركزة رأسياً وأفقياً بدقة
+  Widget _buildCenteredGovernorateDropdown() {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDefault = governorateFilter == 'الكل' || governorateFilter == 'كل المحافظات';
+    final totalCount = _countForGov(governorateFilter);
+    final displayLabel = isDefault ? tr('المحافظة', 'Gov') : '$governorateFilter ($totalCount)';
+
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _showCenteredGovernorateModal(context),
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isDefault
+                ? scheme.surfaceContainerLow
+                : scheme.primaryContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDefault ? scheme.outlineVariant : scheme.primary,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 14,
+                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isDefault ? FontWeight.w500 : FontWeight.bold,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 18,
+                color: isDefault ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCenteredGovernorateModal(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final allGovs = ['الكل', ...governorates];
+    String searchFilter = '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredGovs = searchFilter.trim().isEmpty
+                ? allGovs
+                : allGovs.where((g) => g.contains(searchFilter.trim())).toList();
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 340,
+                  maxHeight: 460,
+                ),
+                child: Material(
+                  elevation: 8,
+                  color: theme.scaffoldBackgroundColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: scheme.outlineVariant),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on, size: 20, color: scheme.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tr('اختر المحافظة', 'Select Governorate'),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              onPressed: () => Navigator.pop(dialogCtx),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        child: TextField(
+                          onChanged: (val) => setModalState(() => searchFilter = val),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: tr('ابحث عن محافظة...', 'Search governorate...'),
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 12),
+                      Flexible(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          shrinkWrap: true,
+                          itemCount: filteredGovs.length,
+                          itemBuilder: (context, idx) {
+                            final gov = filteredGovs[idx];
+                            final count = _countForGov(gov);
+                            final isSelected = gov == governorateFilter;
+                            final display = gov == 'الكل' ? tr('الكل', 'All') : gov;
+
+                            return InkWell(
+                              onTap: () {
+                                setState(() => governorateFilter = gov);
+                                Navigator.pop(dialogCtx);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
+                                      color: isSelected
+                                          ? scheme.primary
+                                          : (count > 0 ? scheme.primary : scheme.outline),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        display,
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : (count > 0 ? FontWeight.w500 : FontWeight.normal),
+                                          color: isSelected
+                                              ? scheme.primary
+                                              : (count > 0 ? scheme.onSurface : scheme.onSurfaceVariant),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? scheme.primaryContainer
+                                            : (count > 0 ? scheme.surfaceContainerHighest : scheme.surfaceContainerLow),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected
+                                              ? scheme.onPrimaryContainer
+                                              : (count > 0 ? scheme.onSurfaceVariant : scheme.outline),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -412,15 +644,8 @@ class _HomePageState extends State<HomePage> {
                 maxVisibleItems: null, // يتناسب تلقائياً مع خياراته الأربعة دون فرض 8 حقول
               ),
               const SizedBox(width: 6),
-              _buildFilterDropdown(
-                label: tr('المحافظة', 'Gov'),
-                icon: Icons.location_on_outlined,
-                value: governorateFilter,
-                items: const ['الكل', ...governorates],
-                countOf: _countForGov,
-                onChanged: (val) => setState(() => governorateFilter = val),
-                maxVisibleItems: 8, // حد أقصى 8 حقول مع تفعيل التمرير
-              ),
+              // القائمة المنسدلة للمحافظة: متمركزة أفقياً وعمودياً بدقة في وسط الشاشة
+              _buildCenteredGovernorateDropdown(),
               const SizedBox(width: 6),
               _buildFilterDropdown(
                 label: tr('النوع', 'Type'),
@@ -458,7 +683,30 @@ class _HomePageState extends State<HomePage> {
       listenable: Listenable.merge([store, settings]),
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          title: Text(titles[tab]),
+          title: tab == 0
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        color: Colors.white,
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          height: 28,
+                          width: 28,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.gavel_rounded),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(titles[tab]),
+                  ],
+                )
+              : Text(titles[tab]),
           actions: [
             if (settings.isLoggedIn && settings.isAdmin)
               IconButton(

@@ -202,4 +202,55 @@ void main() {
       expect(result, contains('غير مصرح'));
     });
   });
+
+  group('9. Admin Dashboard, Deduplication, Role Badges & Auth Flow Tests', () {
+    test('allKnownUsers deduplicates account IDs', () {
+      final users = store.allKnownUsers;
+      final uniqueUsers = <String>{};
+      final duplicates = <String>[];
+      for (final u in users) {
+        if (!uniqueUsers.add(u)) {
+          duplicates.add(u);
+        }
+      }
+      expect(duplicates, isEmpty, reason: 'Duplicate users found: $duplicates');
+    });
+
+    test('isUserAdmin identifies admin roles properly', () {
+      settings.userId = 'tester_admin_id';
+      settings.isAdmin = true;
+      expect(store.isUserAdmin(settings.userId!), isTrue);
+      expect(store.isUserAdmin('07700000000'), isTrue);
+
+      settings.isAdmin = false;
+      store.adminUserNames.clear();
+      expect(store.isUserAdmin('random_regular_user_xyz'), isFalse);
+    });
+
+    testWidgets('Home page centers governorate picker dialog', (tester) async {
+      await tester.pumpWidget(const AuctionApp());
+      await tester.pumpAndSettle();
+
+      // Find the governorate button
+      final govFinder = find.text('المحافظة');
+      expect(govFinder, findsOneWidget);
+
+      await tester.tap(govFinder);
+      await tester.pumpAndSettle();
+
+      // Verify the centered dialog appeared
+      expect(find.text('اختر المحافظة'), findsOneWidget);
+      expect(find.text('ابحث عن محافظة...'), findsOneWidget);
+
+      // Select Baghdad
+      final baghdadFinder = find.text('بغداد');
+      expect(baghdadFinder, findsOneWidget);
+      await tester.tap(baghdadFinder);
+      await tester.pumpAndSettle();
+
+      // Dialog closed
+      expect(find.text('اختر المحافظة'), findsNothing);
+      store.stopTimers();
+    });
+  });
 }
