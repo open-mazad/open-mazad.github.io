@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Mazad | المنصة الأولى للمزادات العلنية في العراق</title>
+  <meta name="description" content="منصة مزايدة - التطبيق الأول والآمن للمزادات العلنية الذكية في العراق للسيارات، العقارات، الأجهزة، والأرقام المميزة مع التحقق الآمن عبر واتساب.">
+  <meta name="keywords" content="مزايدة, مزاد العراق, مزادات بغداد, سيارات مزاد, عقارات, Muzaida">
+  <meta name="author" content="Muzaida Platform">
+  <meta property="og:title" content="مزايدة • Muzaida | منصة المزادات العلنية الذكية">
+  <meta property="og:description" content="بيع واشترِ بأعلى سعر وبشفافية تامة مع منصة مزايدة الأولى في العراق.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #3730a3;
+      --primary-light: #4f46e5;
+      --primary-dark: #1e1b4b;
+      --secondary: #059669;
+      --accent: #f59e0b;
+      --whatsapp: #25d366;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-card: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Navbar */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .nav-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #fff;
+    }
+    .logo-badge {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+    }
+    .logo-text h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo-text span {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 15px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover {
+      color: #fff;
+    }
+    .nav-cta {
+      background: var(--primary-light);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+    .nav-cta:hover {
+      background: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 90px 0 60px;
+      text-align: center;
+      position: relative;
+    }
+    .hero-glow {
+      position: absolute;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 350px;
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.25) 0%, rgba(15, 23, 42, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(79, 70, 229, 0.15);
+      border: 1px solid rgba(79, 70, 229, 0.35);
+      color: #a5b4fc;
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 24px;
+    }
+    .hero h2 {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1.25;
+      max-width: 850px;
+      margin: 0 auto 20px;
+      color: #fff;
+    }
+    .hero h2 span {
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 700px;
+      margin: 0 auto 36px;
+    }
+    .hero-btns {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 50px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5, #4338ca);
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+      transition: all 0.25s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(79, 70, 229, 0.6);
+    }
+    .btn-secondary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      background: var(--surface-card);
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 40px;
+    }
+    .stat-item h3 {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+    }
+    .stat-item p {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Features */
+    .section-title {
+      text-align: center;
+      margin: 80px 0 45px;
+    }
+    .section-title h3 {
+      font-size: 34px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 28px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(79, 70, 229, 0.4);
+    }
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+      background: rgba(79, 70, 229, 0.15);
+      color: #818cf8;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 18px;
+    }
+    .feature-card h4 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 14.5px;
+      line-height: 1.6;
+    }
+
+    /* WhatsApp Integration Callout */
+    .wa-banner {
+      background: linear-gradient(135deg, rgba(37, 211, 102, 0.12), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(37, 211, 102, 0.35);
+      border-radius: 20px;
+      padding: 40px;
+      margin: 80px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .wa-info {
+      max-width: 650px;
+    }
+    .wa-tag {
+      background: rgba(37, 211, 102, 0.2);
+      color: #25d366;
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .wa-info h3 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    .wa-info p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .wa-btn {
+      background: #25d366;
+      color: #0b2e13;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 15px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
+      transition: all 0.2s;
+    }
+    .wa-btn:hover {
+      background: #20ba5a;
+      transform: translateY(-2px);
+    }
+
+    /* How It Works */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-top: 30px;
+    }
+    .step-card {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .step-card h4 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .step-card p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Meta Compliance & Policy section */
+    .policy-box {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 32px;
+      margin: 60px 0;
+    }
+    .policy-box h4 {
+      font-size: 20px;
+      color: #fff;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .policy-box p, .policy-box li {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .policy-box ul {
+      margin-right: 20px;
+      margin-bottom: 16px;
+    }
+
+    /* Footer */
+    footer {
+      background: #090e1a;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 50px 0 25px;
+      margin-top: 80px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+    .footer-brand p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 12px;
+      max-width: 380px;
+    }
+    .footer-col h5 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .footer-col ul {
+      list-style: none;
+    }
+    .footer-col li {
+      margin-bottom: 10px;
+    }
+    .footer-col a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover {
+      color: #fff;
+    }
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .hero h2 { font-size: 32px; }
+      .nav-links { display: none; }
+      .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+      .wa-banner { text-align: center; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header>
+    <div class="container nav-wrap">
+      <a href="index.html" class="logo">
+        <div class="logo-badge">🔨</div>
+        <div class="logo-text">
+          <h1>مزايدة</h1>
+          <span>MUZAIDA PLATFORM</span>
+        </div>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#about">عن المنصة</a></li>
+        <li><a href="#features">الميزات</a></li>
+        <li><a href="#how-it-works">كيف يعمل</a></li>
+        <li><a href="privacy.html">سياسة الخصوصية</a></li>
+        <li><a href="terms.html">شروط الاستخدام</a></li>
+        <li><a href="#contact">اتصل بنا</a></li>
+      </ul>
+      <a href="#download" class="nav-cta">فتح التطبيق 🚀</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="container">
+      <div class="pill">✨ المنصة الرقمية الموثقة الأولى للمزادات في العراق</div>
+      <h2>بيع واشترِ بأعلى سعر وبشفافية تامة مع <span>منصة مزايدة</span></h2>
+      <p>تطبيق المزادات التفاعلي الأحدث للسيارات، العقارات، الأجهزة، والأرقام المميزة في كافة محافظات العراق، مع نظام تحقق فوري لحماية المشتري والبائع عبر واتساب الرسمي.</p>
+      
+      <div class="hero-btns" id="download">
+        <a href="https://kit-tools-app.github.io/" class="btn-primary">دخول التطبيق والبدء الآن 🚀</a>
+        <a href="#features" class="btn-secondary">استكشاف الميزات والضمانات 🛡️</a>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <h3>100%</h3>
+          <p>شفافية بدون مزايدات وهمية</p>
+        </div>
+        <div class="stat-item">
+          <h3>لحظي</h3>
+          <p>مزامنة حية للأسعار والعروض</p>
+        </div>
+        <div class="stat-item">
+          <h3>موثق</h3>
+          <p>تحقق عبر Meta WhatsApp API</p>
+        </div>
+        <div class="stat-item">
+          <h3>18</h3>
+          <p>محافظة عراقية مدعومة</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="container" id="features">
+    <div class="section-title">
+      <h3>لماذا يفضل العراقيون منصة "مزايدة"؟</h3>
+      <p>صُممت المنصة لتوفير أقصى درجات الأمان والسرعة في إبرام صفقات البيع والشراء</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h4>مزايدة حية وفورية</h4>
+        <p>مزامنة لحظية للأسعار بدون أي تأخير زمني، لتتمكن من المنافسة على السلع ومتابعة العروض ثانية بثانية.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h4>حظر المزايدات الوهمية</h4>
+        <p>نظام ذكي يلزم كل مزايد بتأكيد حسابه برقم هاتف عراقي موثق عبر كود واتساب، مع حظر فوري لأي متلاعب.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🤝</div>
+        <h4>تحكم كامل لصاحب السلعة</h4>
+        <p>يمكن للبائع إنهاء المزاد وقبول أعلى سعر في أي وقت يناسبه، أو تعديل سلعه قبل انطلاق المزاد بسهولة.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📍</div>
+        <h4>تغطية شاملة لكل المحافظات</h4>
+        <p>بغداد، أربيل، البصرة، النجف، نينوى وكافة مدن العراق مع تحديد خيارات الاستلام باليد أو الشحن والتوصيل.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h4>خصوصية وأمان البيانات</h4>
+        <p>لا نشارك بياناتك أو أرقام هواتفك مع أي أطراف خارجية؛ الاتصال يتم فقط بين البائع والمشتري الفائز بالصفقة.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h4>تواصل مباشر وشفاف</h4>
+        <p>محادثات مدمجة ومكالمات مباشرة مع البائعين فور انتهاء المزاد لترتيب الدفع والتسليم بكل مرونة وثقة.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WhatsApp Banner -->
+  <section class="container">
+    <div class="wa-banner">
+      <div class="wa-info">
+        <div class="wa-tag">موثق عبر Meta WhatsApp Cloud API</div>
+        <h3>نظام تحقق آمن يضمن جدية كل مستخدم</h3>
+        <p>تستخدم منصة مزايدة واجهة واتساب السحابية الرسمية (Meta WhatsApp Cloud API) لإرسال رموز التحقق لمرة واحدة (OTP) والتنبيهات، لمنع الحسابات الوهمية وضمان أن كل مزايد هو شخص حقيقي في العراق.</p>
+      </div>
+      <div>
+        <a href="privacy.html" class="wa-btn">
+          <span>🛡️</span>
+          <span>معايير الأمان والخصوصية</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="container" id="how-it-works">
+    <div class="section-title">
+      <h3>كيف يعمل المزاد؟</h3>
+      <p>3 خطوات بسيطة للمشاركة في الصفقات الرابحة</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h4>أنشئ حسابك بالهاتف</h4>
+        <p>أدخل رقم هاتفك العراقي ليصلك كود التحقق السري فوراً عبر واتساب، ثم أكمل بياناتك في ثوانٍ.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h4>اختر سلعتك وزايد</h4>
+        <p>تصفح السيارات، الأجهزة أو العقارات، وقدم عروضك عبر المزايدة المفتوحة أو المزايدة التلقائية الذكية.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h4>اربح الصفقة واستلم</h4>
+        <p>فور انتهاء المزاد أو قبول البائع لطلبك، يظهر كرت التواصل المباشر ورقم الهاتف لإتمام الصفقة باليد.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Meta Policy & Verification Statement -->
+  <section class="container" id="about">
+    <div class="policy-box">
+      <h4>🏢 نبذة عن منصة مزايدة (Muzaida Platform)</h4>
+      <p><strong>مزايدة (Muzaida)</strong> هي منصة إلكترونية رائدة متخصصة في خدمات تداول السلع والمزادات العلنية الرقمية في جمهورية العراق. تأسست لتسهيل عمليات البيع والشراء بين الأفراد والشركات في بيئة آمنة وشفافة تضمن حقوق البائع والمشتري.</p>
+      <br>
+      <h4>⚖️ التزامنا بسياسات Meta و WhatsApp Business:</h4>
+      <ul>
+        <li>تلتزم منصة "مزايدة" التزاماً صارماً بسياسات الاستخدام التجاري وقواعد خصوصية WhatsApp Business Policy الصادرة عن Meta.</li>
+        <li>تُستخدم واجهة WhatsApp Cloud API حصراً لإرسال رموز تأكيد تسجيل الدخول (OTP Verification) وإشعارات الصفقات للمستخدمين الذين يطلبونها بمحض إرادتهم.</li>
+        <li>المنصة تحظر بشكل قاطع الرسائل الترويجية المزعجة (Spam) أو مشاركة بيانات المشتركين مع أي طرف ثالث.</li>
+      </ul>
+      <p>للمزيد من التفاصيل، يرجى مراجعة <a href="privacy.html" style="color: #818cf8; text-decoration: underline;">سياسة الخصوصية الرسمية</a> و <a href="terms.html" style="color: #818cf8; text-decoration: underline;">شروط وأحكام الخدمة</a>.</p>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section class="container" id="contact">
+    <div class="section-title">
+      <h3>تواصل مع إدارة المنصة</h3>
+      <p>فريق خدمة العملاء جاهز للرد على استفساراتك ومساعدتك على مدار الساعة</p>
+    </div>
+
+    <div class="features-grid" style="max-width: 800px; margin: 0 auto;">
+      <div class="feature-card" style="text-align: center;">
+        <div class="feature-icon" style="margin: 0 auto 16px;">📧</div>
+        <h4>البريد الإلكتروني الرسمي</h4>
+        <p style="direction: ltr; font-weight: bold; color: #fff;">support@muzaida.com</p>
+        <p style="font-size: 13px; margin-top: 6px;">للشكاوى، التوثيق، والملاحظات التقنية</p>
+      </div>
+
+      <div class="feature-card" style="text-align: center;">
+        <div class="feature-icon" style="margin: 0 auto 16px;">📍</div>
+        <h4>المقر الرئيسي</h4>
+        <p style="font-weight: bold; color: #fff;">بغداد، جمهورية العراق</p>
+        <p style="font-size: 13px; margin-top: 6px;">المنصور / الكرادة • خدمة عملاء على مدار الساعة</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="logo">
+            <div class="logo-badge">🔨</div>
+            <div class="logo-text">
+              <h2 style="font-size: 20px;">مزايدة • Muzaida</h2>
+              <span>ONLINE AUCTIONS PLATFORM</span>
+            </div>
+          </div>
+          <p>المنصة المعتمدة للمزادات العلنية في العراق. نوفر لك البيئة الأكثر أماناً وموثوقية لعرض مقتنياتك وممتلكاتك وشراء الصفقات بأفضل الأسعار وبأعلى معايير الحماية الرقمية.</p>
+        </div>
+
+        <div class="footer-col">
+          <h5>روابط سريعة</h5>
+          <ul>
+            <li><a href="#about">عن المنصة</a></li>
+            <li><a href="#features">الميزات التقنية</a></li>
+            <li><a href="#how-it-works">كيف تشارك في المزاد</a></li>
+            <li><a href="#contact">الدعم الفني</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>السياسات والشروط</h5>
+          <ul>
+            <li><a href="privacy.html">سياسة الخصوصية (Privacy Policy)</a></li>
+            <li><a href="terms.html">شروط الاستخدام (Terms of Service)</a></li>
+            <li><a href="privacy.html#meta-compliance">امتثال سياسات Meta</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>جميع الحقوق محفوظة © 2026 منصة مزايدة (Muzaida Platform).</div>
+        <div>مرخص وفق المعايير والقوانين المعمول بها لتداول المزادات الرقمية.</div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
