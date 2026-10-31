@@ -30,6 +30,7 @@ class AuctionStore extends ChangeNotifier {
   StreamSubscription? _bidsSub;
   StreamSubscription? _messagesSub;
   StreamSubscription? _profilesSub;
+  RealtimeChannel? _chatBroadcastChannel;
   bool _hasInitialSynced = false;
 
   int _nextId = 100;
@@ -139,6 +140,33 @@ class AuctionStore extends ChangeNotifier {
       }, onError: (e) {
         debugPrint('Messages stream error: $e');
       });
+
+      // 5. قناة البث المباشر الفوري عبر WebSockets للمراسلة اللحظية
+      try {
+        _chatBroadcastChannel?.unsubscribe();
+        _chatBroadcastChannel = client.channel('open_mazad_chat').onBroadcast(
+          event: 'dm',
+          callback: (payload) {
+            try {
+              final raw = payload['msg'];
+              if (raw is Map) {
+                final msg = DirectMessage.fromJson(Map<String, dynamic>.from(raw));
+                final rawItemId = '${payload['itemId']}';
+                if (isUserMe(msg.sender)) return;
+                final myUuid = userToUuid(me);
+                if (!isUserMe(msg.receiver) && userToUuid(msg.receiver) != myUuid) return;
+                _mergeIncomingDirectMessage(rawItemId, msg);
+                recordUserActivity(msg.sender, activityTime: msg.time);
+                notifyListeners();
+              }
+            } catch (e) {
+              debugPrint('Realtime broadcast parse error: $e');
+            }
+          },
+        )..subscribe();
+      } catch (e) {
+        debugPrint('Broadcast channel setup error: $e');
+      }
     } catch (e) {
       debugPrint('Realtime stream setup error: $e');
     }
@@ -620,7 +648,7 @@ class AuctionStore extends ChangeNotifier {
       } else {
         // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً)
         if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
-        recordUserActivity(senderUuid);
+        recordUserActivity(senderUuid, activityTime: time);
         final sender = isUserMe(senderUuid)
             ? me
             : (userDisplayNames[senderUuid] ?? senderUuid);
@@ -637,6 +665,12 @@ class AuctionStore extends ChangeNotifier {
           continue;
         }
 
+        final existingList = directChats[itemId] ?? directChats[_normalizeItemKey(itemId)] ?? [];
+        final existingMsg = existingList.where((em) => em.id == msgId).firstOrNull;
+        final bool isMsgRead = isUserMe(senderUuid) ||
+            (m['is_read'] == true) ||
+            (existingMsg != null && existingMsg.isRead);
+
         newDirectChats.putIfAbsent(itemId, () => []).add(
               DirectMessage(
                 sender,
@@ -647,7 +681,7 @@ class AuctionStore extends ChangeNotifier {
                 senderId: senderUuid,
                 receiverId: receiverUuid,
                 isDelivered: true,
-                isRead: isUserMe(senderUuid),
+                isRead: isMsgRead,
               ),
             );
       }
@@ -1212,6 +1246,12 @@ class AuctionStore extends ChangeNotifier {
                 final receiver = isUserMe(receiverUuid)
                     ? me
                     : (userUuidToName[receiverUuid] ?? receiverUuid);
+                final existingList = directChats[itemId] ?? directChats[_normalizeItemKey(itemId)] ?? [];
+                final existingMsg = existingList.where((em) => em.id == msgId).firstOrNull;
+                final bool isMsgRead = isUserMe(senderUuid) ||
+                    (m['is_read'] == true) ||
+                    (existingMsg != null && existingMsg.isRead);
+
                 _mergeIncomingDirectMessage(
                   itemId,
                   DirectMessage(
@@ -1223,7 +1263,7 @@ class AuctionStore extends ChangeNotifier {
                     senderId: senderUuid,
                     receiverId: receiverUuid,
                     isDelivered: true,
-                    isRead: isUserMe(senderUuid),
+                    isRead: isMsgRead,
                   ),
                 );
               }
@@ -1264,6 +1304,7 @@ class AuctionStore extends ChangeNotifier {
     _bidsSub?.cancel();
     _messagesSub?.cancel();
     _profilesSub?.cancel();
+    _chatBroadcastChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -1695,7 +1736,7 @@ class AuctionStore extends ChangeNotifier {
     }
   }
 
-  /// تعديل بيانات المزاد قبل انطلاقه
+  /// تعديل بيانات المزاد قبل انطلاقه / نشره بالكامل
   Future<void> updateItemDetails({
     required Item item,
     required String title,
@@ -1703,26 +1744,34 @@ class AuctionStore extends ChangeNotifier {
     required int startPrice,
     required String location,
     required String condition,
+    String? category,
+    String? area,
+    String? deliveryMethod,
+    List<String>? imagePaths,
+    Map<String, String>? attributes,
+    String? pinCode,
+    DateTime? startTime,
+    DateTime? endTime,
   }) async {
-    final idx = items.indexWhere((it) => it.id == item.id);
+    final idx = items.indexWhere((it) => it.id == item.id || itemToUuid(it.id) == itemToUuid(item.id));
     if (idx != -1) {
       final updated = Item(
         id: item.id,
         title: title.isNotEmpty ? title : item.title,
         description: description.isNotEmpty ? description : item.description,
-        category: item.category,
+        category: (category != null && category.isNotEmpty) ? category : item.category,
         seller: item.seller,
         startPrice: startPrice > 0 ? startPrice : item.startPrice,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        condition: condition,
-        location: location,
-        area: item.area,
-        deliveryMethod: item.deliveryMethod,
-        imagePaths: item.imagePaths,
+        startTime: startTime ?? item.startTime,
+        endTime: endTime ?? item.endTime,
+        condition: condition.isNotEmpty ? condition : item.condition,
+        location: location.isNotEmpty ? location : item.location,
+        area: (area != null && area.isNotEmpty) ? area : item.area,
+        deliveryMethod: (deliveryMethod != null && deliveryMethod.isNotEmpty) ? deliveryMethod : item.deliveryMethod,
+        imagePaths: imagePaths ?? item.imagePaths,
         videoPath: item.videoPath,
-        attributes: item.attributes,
-        pinCode: item.pinCode,
+        attributes: attributes ?? item.attributes,
+        pinCode: pinCode ?? item.pinCode,
         isEndedEarlyBySeller: item.isEndedEarlyBySeller,
         isCancelled: item.isCancelled,
         isLiveStreaming: item.isLiveStreaming,
@@ -1743,20 +1792,92 @@ class AuctionStore extends ChangeNotifier {
         final client = supabaseClient;
         if (client != null) {
           final itemUuid = itemToUuid(item.id);
+          final attrsWithMeta = <String, String>{
+            ...(attributes ?? item.attributes),
+            '_area': (area != null && area.isNotEmpty) ? area : item.area,
+            '_live': item.isLiveStreaming ? '1' : '0',
+          };
           await client.from('items').update({
             'title': title.isNotEmpty ? title : item.title,
             'description':
                 description.isNotEmpty ? description : item.description,
+            'category': (category != null && category.isNotEmpty) ? category : item.category,
             'start_price': startPrice > 0 ? startPrice : item.startPrice,
             'current_price': item.bids.isEmpty
                 ? (startPrice > 0 ? startPrice : item.startPrice)
                 : item.currentPrice,
-            'location': location,
-            'condition': condition,
+            'location': location.isNotEmpty ? location : item.location,
+            'condition': condition.isNotEmpty ? condition : item.condition,
+            'delivery_method': (deliveryMethod != null && deliveryMethod.isNotEmpty) ? deliveryMethod : item.deliveryMethod,
+            'attributes': jsonEncode(attrsWithMeta),
+            'image_urls': imagePaths ?? item.imagePaths,
+            if (startTime != null) 'start_time': toIsoUtc(startTime),
+            if (endTime != null) 'end_time': toIsoUtc(endTime),
           }).eq('id', itemUuid);
         }
       } catch (e) {
         debugPrint('Update item details error: $e');
+      }
+    }
+  }
+
+  /// إضافة معلومات وملحق إضافي للمزاد بعد نشره (تقييد التعديل لمنع التلاعب)
+  Future<void> appendItemInformation(Item item, String additionalInfo) async {
+    final trimmed = additionalInfo.trim();
+    if (trimmed.isEmpty) return;
+
+    final now = DateTime.now();
+    final timeStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final addition = '\n\n📌 [تحديث معلومات من البائع - $timeStr]:\n$trimmed';
+
+    final idx = items.indexWhere((it) => it.id == item.id || itemToUuid(it.id) == itemToUuid(item.id));
+    if (idx != -1) {
+      final current = items[idx];
+      final newDesc = '${current.description}$addition';
+      final updated = Item(
+        id: current.id,
+        title: current.title,
+        description: newDesc,
+        category: current.category,
+        seller: current.seller,
+        startPrice: current.startPrice,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        condition: current.condition,
+        location: current.location,
+        area: current.area,
+        deliveryMethod: current.deliveryMethod,
+        imagePaths: current.imagePaths,
+        videoPath: current.videoPath,
+        attributes: current.attributes,
+        pinCode: current.pinCode,
+        isEndedEarlyBySeller: current.isEndedEarlyBySeller,
+        isCancelled: current.isCancelled,
+        isLiveStreaming: current.isLiveStreaming,
+        liveViewers: current.liveViewers,
+        extensionsCount: current.extensionsCount,
+        notifiedStart: current.notifiedStart,
+      );
+      updated.bids.addAll(current.bids);
+      updated.comments.addAll(current.comments);
+      updated.autoBids.addAll(current.autoBids);
+      items[idx] = updated;
+
+      _saveToDisk();
+      notifyListeners();
+
+      if (settings.isCloudConfigured) {
+        try {
+          final client = supabaseClient;
+          if (client != null) {
+            final itemUuid = itemToUuid(item.id);
+            await client.from('items').update({
+              'description': newDesc,
+            }).eq('id', itemUuid);
+          }
+        } catch (e) {
+          debugPrint('Append item info error: $e');
+        }
       }
     }
   }
@@ -1972,23 +2093,27 @@ class AuctionStore extends ChangeNotifier {
     return false;
   }
 
-  void recordUserActivity(String? user) {
+  void recordUserActivity(String? user, {DateTime? activityTime}) {
     if (user == null || user.isEmpty) return;
-    final now = DateTime.now();
-    _userLastActiveMap[user] = now;
+    if (isUserMe(user)) return;
+    final actTime = activityTime ?? DateTime.now();
+    // إذا كان التوقيت قديماً بأكثر من 3 دقائق نتجاهله لكي لا تصبح الرسائل القديمة نشاطاً حالياً
+    if (DateTime.now().difference(actTime).inMinutes.abs() > 3) return;
+    _userLastActiveMap[user] = actTime;
     final uUuid = userToUuid(user);
-    if (uUuid.isNotEmpty) _userLastActiveMap[uUuid] = now;
+    if (uUuid.isNotEmpty) _userLastActiveMap[uUuid] = actTime;
     final dName = displayName(user);
-    if (dName.isNotEmpty) _userLastActiveMap[dName] = now;
+    if (dName.isNotEmpty) _userLastActiveMap[dName] = actTime;
   }
 
   bool isUserOnline(String? user) {
     if (user == null || user.isEmpty) return false;
-    if (isUserMe(user)) return true;
+    if (isUserMe(user)) return false;
     final checks = [user, userToUuid(user), displayName(user)];
+    final now = DateTime.now();
     for (final c in checks) {
       final last = _userLastActiveMap[c];
-      if (last != null && DateTime.now().difference(last).inMinutes < 4) {
+      if (last != null && now.difference(last).inMinutes < 3) {
         return true;
       }
     }
@@ -2017,7 +2142,7 @@ class AuctionStore extends ChangeNotifier {
     )) {
       return;
     }
-    recordUserActivity(msg.sender);
+    recordUserActivity(msg.sender, activityTime: msg.time);
 
     final key = _normalizeItemKey(rawItemId);
     final list = directChats.putIfAbsent(key, () => []);
@@ -2122,6 +2247,15 @@ class AuctionStore extends ChangeNotifier {
     list.add(msg);
     _saveToDisk();
     notifyListeners();
+    try {
+      _chatBroadcastChannel?.sendBroadcastMessage(
+        event: 'dm',
+        payload: {
+          'itemId': item.id,
+          'msg': msg.toJson(),
+        },
+      );
+    } catch (_) {}
     _recordDirectMessageToCloud(item, otherParty, msg);
   }
 
@@ -2249,13 +2383,22 @@ class AuctionStore extends ChangeNotifier {
     bool changed = false;
     final otherUuid = userToUuid(otherParty);
     final targetItemUuid = itemToUuid(itemId);
+    final itemKey = _normalizeItemKey(itemId);
+    final otherDisp = displayName(otherParty);
 
     for (final entry in directChats.entries) {
-      if (entry.key == itemId || itemToUuid(entry.key) == targetItemUuid) {
+      final isItemMatch = entry.key == itemId ||
+          entry.key == itemKey ||
+          itemToUuid(entry.key) == targetItemUuid ||
+          _normalizeItemKey(entry.key) == itemKey;
+      if (isItemMatch) {
         for (final m in entry.value) {
           if (!isUserMe(m.sender)) {
             final isSenderOther = m.sender == otherParty ||
+                m.senderId == otherParty ||
+                m.senderId == otherUuid ||
                 userToUuid(m.sender) == otherUuid ||
+                displayName(m.sender) == otherDisp ||
                 displayName(m.sender) == displayName(otherParty);
             if (isSenderOther && !m.isRead) {
               m.isRead = true;
@@ -2269,6 +2412,44 @@ class AuctionStore extends ChangeNotifier {
       _saveToDisk();
       notifyListeners();
     }
+    _syncConversationReadToCloud(itemId, otherParty);
+  }
+
+  Future<void> _syncConversationReadToCloud(String itemId, String otherParty) async {
+    if (!settings.isCloudConfigured) return;
+    try {
+      final client = supabaseClient;
+      if (client != null) {
+        final itemUuid = itemToUuid(itemId);
+        final myUuid = settings.userId ?? userToUuid(me);
+        final otherUuid = userToUuid(otherParty);
+        await client
+            .from('messages')
+            .update({'is_read': true})
+            .eq('item_id', itemUuid)
+            .eq('receiver_id', myUuid)
+            .eq('sender_id', otherUuid);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> pollMessagesForChat(String rawItemId) async {
+    if (!settings.isCloudConfigured) return;
+    try {
+      final client = supabaseClient;
+      if (client == null) return;
+      final itemUuid = itemToUuid(rawItemId);
+      final myUuid = settings.userId ?? userToUuid(me);
+      final rows = await client
+          .from('messages')
+          .select('*')
+          .eq('item_id', itemUuid)
+          .or('sender_id.eq.$myUuid,receiver_id.eq.$myUuid')
+          .order('created_at', ascending: true);
+      if (rows.isNotEmpty) {
+        _applyMessagesStream(List<Map<String, dynamic>>.from(rows));
+      }
+    } catch (_) {}
   }
 
   void deleteConversation(String itemId, String otherParty) {

@@ -5,5 +5,6 @@ void main() {
   testWidgets('AuctionApp smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const AuctionApp());
     expect(find.text('المزادات'), findsWidgets);
+    store.dispose();
   });
 }

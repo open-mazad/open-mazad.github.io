@@ -7,12 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'models/auction_models.dart';
 import 'services/auction_helpers.dart';
 import 'services/local_storage_helper.dart';
 import 'services/web_geolocation.dart';
-import 'services/web_contacts.dart';
 import 'settings_page.dart';
 
 // تصدير النماذج والمساعدات حتى تتاح في أي شاشة تستورد main.dart

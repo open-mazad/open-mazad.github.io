@@ -198,126 +198,13 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Future<void> showEditAuctionDialog() async {
     final item = liveItem;
-    final titleCtrl = TextEditingController(text: item.title);
-    final descCtrl = TextEditingController(text: item.description);
-    final priceCtrl = TextEditingController(text: '${item.startPrice}');
-    String selectedLocation = item.location;
-    String selectedCondition = item.condition;
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.edit_note, color: Colors.indigo),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(
-                      tr('تعديل بيانات المزاد', 'Edit Auction Details'))),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  decoration: InputDecoration(
-                    labelText: tr('عنوان السلعة', 'Item Title'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: tr('الوصف التفصيلي', 'Description'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: priceCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: tr('سعر البداية (د.ع)', 'Start Price (IQD)'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedLocation,
-                  decoration: InputDecoration(
-                    labelText: tr('المحافظة', 'Governorate'),
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: governorates
-                      .map((g) =>
-                          DropdownMenuItem(value: g, child: Text(g)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setSt(() => selectedLocation = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedCondition,
-                  decoration: InputDecoration(
-                    labelText: tr('حالة السلعة', 'Condition'),
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    'جديد بالكرتون',
-                    'شبه جديد',
-                    'مستعمل بحالة جيدة',
-                    'مستعمل'
-                  ]
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setSt(() => selectedCondition = v);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('إلغاء', 'Cancel')),
-            ),
-            FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: Text(tr('حفظ التعديلات', 'Save Changes')),
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddItemPage(itemToEdit: item),
       ),
     );
-
-    if (saved == true && mounted) {
-      final newPrice = int.tryParse(
-              priceCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ??
-          item.startPrice;
-      await store.updateItemDetails(
-        item: item,
-        title: titleCtrl.text.trim(),
-        description: descCtrl.text.trim(),
-        startPrice: newPrice,
-        location: selectedLocation,
-        condition: selectedCondition,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(tr('تم حفظ تعديلات المزاد ومزامنتها بنجاح ✅',
-            'Auction details updated and synced ✅')),
-        backgroundColor: Colors.green.shade700,
-      ));
-    }
+    if (mounted) setState(() {});
   }
 
   Future<void> confirmAcceptHighestBid() async {
@@ -1016,18 +903,30 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   }
                 },
                 itemBuilder: (context) => [
-                  if (item.seller == me &&
-                      (item.isScheduled || (item.bids.isEmpty && !item.isEnded)))
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_outlined, size: 20),
-                          const SizedBox(width: 10),
-                          Text(tr('تعديل المزاد', 'Edit Auction')),
-                        ],
+                  if (item.seller == me && !item.isEnded) ...[
+                    if (item.isScheduled)
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit_outlined, size: 20),
+                            const SizedBox(width: 10),
+                            Text(tr('تعديل كامل تفاصيل الإعلان', 'Edit Full Listing')),
+                          ],
+                        ),
+                      )
+                    else
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.note_add_outlined, size: 20, color: Colors.indigo),
+                            const SizedBox(width: 10),
+                            Text(tr('إضافة معلومات للمزاد ➕', 'Add Info to Listing ➕')),
+                          ],
+                        ),
                       ),
-                    ),
+                  ],
                   if (item.seller == me && item.isScheduled)
                     PopupMenuItem(
                       value: 'launch',

@@ -20,14 +20,31 @@ class _DirectChatPageState extends State<DirectChatPage> {
   int _visibleLimit = 30;
   bool _showSafetyTips = true;
   bool _hasText = false;
+  Timer? _onlineStatusTimer;
+  Timer? _chatPollTimer;
 
   @override
   void initState() {
     super.initState();
     _hasText = textCtrl.text.trim().isNotEmpty;
     textCtrl.addListener(_onTextChanged);
+    store.markConversationAsRead(widget.item.id, widget.otherParty);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      store.markConversationAsRead(widget.item.id, widget.otherParty);
+      if (mounted) {
+        store.markConversationAsRead(widget.item.id, widget.otherParty);
+      }
+    });
+
+    // تحديث تزامني دوري لحالة الاتصال (متصل / غير متصل) كل 10 ثوانٍ
+    _onlineStatusTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
+
+    // مراسلة فورية واستطلاع مستمر للرسائل الواردة كل 2.5 ثانية
+    _chatPollTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
+      if (mounted) {
+        store.pollMessagesForChat(widget.item.id);
+      }
     });
   }
 
@@ -40,6 +57,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   @override
   void dispose() {
+    _onlineStatusTimer?.cancel();
+    _chatPollTimer?.cancel();
     textCtrl.removeListener(_onTextChanged);
     textCtrl.dispose();
     super.dispose();
@@ -101,8 +120,35 @@ class _DirectChatPageState extends State<DirectChatPage> {
   Future<void> sendLocation() async {
     if (store.isUserBlocked(widget.otherParty)) return;
 
-    // محاولة جلب إحداثيات الـ GPS الحية الفعلية من المتصفح / الجهاز
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(tr(
+                  'جاري تحديد إحداثيات موقعك عبر GPS... يرجى منح الإذن 📍',
+                  'Fetching live GPS location... please grant permission 📍',
+                )),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+
+    // جلب إحداثيات الـ GPS الحية الفعلية من المتصفح / الجهاز مباشرة فور منح الإذن
     final gps = await fetchLiveGpsCoordinates();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     if (gps != null) {
       final lat = gps.$1;
       final lng = gps.$2;
@@ -112,15 +158,13 @@ class _DirectChatPageState extends State<DirectChatPage> {
         widget.otherParty,
         '[location:📍 موقع حي عبر GPS (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})|$mapsUrl]',
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('تم إرسال موقعك الفعلي عبر الـ GPS 📍', 'Live GPS location sent 📍')),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() {});
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('تم إرسال موقعك الفعلي عبر الـ GPS 📍', 'Live GPS location sent 📍')),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+      setState(() {});
       return;
     }
 
@@ -300,104 +344,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
     }
   }
 
-  Future<void> _shareContactCard() async {
-    if (store.isUserBlocked(widget.otherParty)) return;
-
-    // طلب إذن الوصول إلى سجل الهاتف الفعلي للجهاز لاختيار جهة اتصال ومشاركتها
-    final deviceContact = await pickPhoneDeviceContact();
-    if (deviceContact != null) {
-      final cName = deviceContact.$1;
-      final cPhone = deviceContact.$2;
-      store.sendDirectMessage(
-        widget.item,
-        widget.otherParty,
-        '[contact:$cName|$cPhone]',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('تمت مشاركة جهة الاتصال بنجاح 👤', 'Contact shared successfully 👤')),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() {});
-      }
-      return;
-    }
-
-    final myName =
-        settings.fullName.isNotEmpty ? settings.fullName : displayName(me);
-    final myPhone =
-        settings.phone.isNotEmpty ? settings.phone : store.getUserPhone(me);
-
-    if (!mounted) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.contact_phone, color: Colors.indigo),
-            const SizedBox(width: 8),
-            Text(tr('مشاركة جهة الاتصال', 'Share Contact Card')),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr(
-                'هل تريد إرسال رقم هاتفك وبياناتك المعتمدة للطرف الآخر للتواصل المباشر؟',
-                'Do you want to share your verified phone number with the other party?')),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.indigo.shade200),
-              ),
-              child: Row(
-                children: [
-                  buildUserAvatar(me, radius: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(myName,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(myPhone,
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('إلغاء', 'Cancel'))),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.send),
-            label: Text(tr('إرسال الآن', 'Send Now')),
-          ),
-        ],
-      ),
-    );
-
-    if (ok == true) {
-      store.sendDirectMessage(
-          widget.item, widget.otherParty, '[contact:$myName|$myPhone]');
-      if (mounted) setState(() {});
-    }
-  }
-
   Future<void> _recordVoiceNote() async {
     if (store.isUserBlocked(widget.otherParty)) return;
     int seconds = 0;
@@ -572,15 +518,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
               onTap: () {
                 Navigator.pop(ctx);
                 sendLocation();
-              },
-            ),
-            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-            _attachmentItem(
-              icon: Icons.contact_phone_outlined,
-              label: tr('جهة اتصال', 'Contact Card'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _shareContactCard();
               },
             ),
             const SizedBox(height: 12),
@@ -889,15 +826,18 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     visualDensity: VisualDensity.compact,
                     backgroundColor: isMe ? Colors.white24 : Colors.blue.shade50,
                   ),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: mapsUrl));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(tr('تم نسخ رابط خرائط Google 🗺️', 'Google Maps link copied 🗺️'))),
-                    );
+                  onPressed: () async {
+                    final uri = Uri.tryParse(mapsUrl);
+                    if (uri != null) {
+                      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      if (!ok) {
+                        await launchUrl(uri);
+                      }
+                    }
                   },
-                  icon: const Icon(Icons.map_outlined, size: 14),
+                  icon: const Icon(Icons.open_in_new, size: 14),
                   label: Text(
-                    tr('نسخ رابط خرائط Google 🗺️', 'Copy Google Maps link 🗺️'),
+                    tr('فتح في خرائط Google 🗺️', 'Open in Google Maps 🗺️'),
                     style: TextStyle(fontSize: 11, color: isMe ? Colors.white : Colors.indigo.shade900),
                   ),
                 ),
@@ -1845,92 +1785,6 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         ],
                       ),
                     ),
-
-                  // 3. مؤشر سرعة الرد ومعدل التجاوب (Response Speed كما في الصورة 2)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF00B0FF),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.bolt, size: 13, color: Colors.black),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              tr('تجاوب عادي', 'Normal Response'),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          tr('عادة ما يتم الرد خلال 19 ساعة', 'Usually replies within 19 hours'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 4. زر التنبيه عند تخفيض سعر الإعلان (Price Alert Prompt كما في الصورة 2)
-                  Center(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {
-                        final alertText = tr(
-                          'أريد أن اتلقى تنبيها اذا تم تخفيض سعر هذا الإعلان',
-                          'I would like an alert if this item price is lowered',
-                        );
-                        store.sendDirectMessage(item, widget.otherParty, alertText);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(tr('تم تفعيل التنبيه وإرسال الرسالة للبائع 🏷️', 'Alert request sent to seller 🏷️')),
-                            backgroundColor: Colors.teal.shade800,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF1E2124)
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.local_offer, size: 15, color: Colors.lightGreen),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                tr('أريد أن اتلقى تنبيها اذا تم تخفيض سعر هذا الإعلان', 'Alert me if this price drops'),
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 4),
                   Expanded(
                     child: visibleMsgs.isEmpty
@@ -2088,15 +1942,32 @@ class _DirectChatPageState extends State<DirectChatPage> {
                               textDirection: TextDirection.ltr,
                               child: Row(
                                 children: [
-                                  // زر مشبك المرفقات في أقصى اليسار باللون الأزرق (كما في الصورة 3)
+                                  // أزرار المايكروفون والكاميرا في أقصى يسار شريط الإدخال
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    tooltip: tr('تسجيل صوتي', 'Voice Note'),
+                                    icon: const Icon(Icons.mic_rounded,
+                                        color: Colors.blueAccent, size: 24),
+                                    onPressed: _recordVoiceNote,
+                                  ),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                    tooltip: tr('التقط صورة بالكاميرا', 'Camera'),
+                                    icon: const Icon(Icons.camera_alt_rounded,
+                                        color: Colors.blueAccent, size: 24),
+                                    onPressed: () => _pickImage(ImageSource.camera),
+                                  ),
+                                  // زر مشبك المرفقات بجانبهما
                                   IconButton(
                                     tooltip: tr('إرفاق ملف أو موقع', 'Attach'),
                                     icon: const Icon(Icons.attach_file_rounded,
-                                        color: Colors.blueAccent, size: 26),
+                                        color: Colors.blueAccent, size: 24),
                                     onPressed: () => _showAttachmentSheet(context),
                                   ),
                                   const SizedBox(width: 4),
-                                  // كبسولة إدخال الرسالة مع أيقونات الكاميرا والصوت في اليمين بالداخل (كما في الصورة 3)
+                                  // كبسولة إدخال الرسالة مع زر الإرسال
                                   Expanded(
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -2136,38 +2007,14 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                               ),
                                             ),
                                           ),
-                                          if (!_hasText) ...[
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                                              tooltip: tr('التقط صورة', 'Camera'),
-                                              icon: const Icon(
-                                                  Icons.camera_alt_rounded,
-                                                  color: Colors.blueAccent,
-                                                  size: 22),
-                                              onPressed: () =>
-                                                  _pickImage(ImageSource.camera),
-                                            ),
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                                              tooltip:
-                                                  tr('تسجيل صوتي', 'Voice Note'),
-                                              icon: const Icon(Icons.mic_rounded,
-                                                  color: Colors.blueAccent,
-                                                  size: 22),
-                                              onPressed: _recordVoiceNote,
-                                            ),
-                                          ] else ...[
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                                              onPressed: send,
-                                              icon: const Icon(Icons.send_rounded,
-                                                  color: Colors.blueAccent,
-                                                  size: 22),
-                                            ),
-                                          ],
+                                          IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                                            onPressed: send,
+                                            icon: Icon(Icons.send_rounded,
+                                                color: _hasText ? Colors.blueAccent : Colors.grey.shade400,
+                                                size: 22),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -2660,7 +2507,9 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                                         otherParty: conv.otherParty,
                                       ),
                                     ),
-                                  );
+                                  ).then((_) {
+                                    if (mounted) setState(() {});
+                                  });
                                 },
                               );
                             },
