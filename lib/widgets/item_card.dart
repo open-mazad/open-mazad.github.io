@@ -142,7 +142,7 @@ class ItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isFav = store.isFavorite(item.id);
-    final isMyItem = item.seller == me;
+    final isMyItem = store.isItemSeller(item);
     final isLeader = item.highestBidder != null && store.isUserMe(item.highestBidder!);
     final didBid = item.bids.any((b) => store.isUserMe(b.bidder));
 

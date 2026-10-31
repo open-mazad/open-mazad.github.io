@@ -63,6 +63,18 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       await showCompleteProfileDialog(context);
       if (!mounted || settings.needsProfileOnboarding) return;
     }
+    // منع البائع من المزايدة على سلعته الخاصة
+    if (store.isItemSeller(liveItem)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'لا يمكنك المزايدة على سلعتك الخاصة 🚫',
+          'You cannot bid on your own item 🚫',
+        )),
+        backgroundColor: Colors.red.shade700,
+      ));
+      return;
+    }
     // منع المزايدة المتتالية (Spam Prevention): التحقق من آخر مزايد
     final lastBidder = liveItem.highestBidder ??
         (liveItem.bids.isNotEmpty ? liveItem.bids.first.bidder : null);
@@ -102,7 +114,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Future<void> showReportDialog() async {
     final item = liveItem;
-    final target = item.seller == me
+    final target = store.isItemSeller(item)
         ? (item.highestBidder ?? 'مزايد')
         : item.seller;
     final reasonCtrl = TextEditingController();
@@ -533,7 +545,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   Widget _buildDealContactCard(Item item, String winner) {
-    final otherPerson = item.seller == me ? winner : item.seller;
+    final otherPerson = store.isItemSeller(item) ? winner : item.seller;
 
     return Card(
       color: Colors.green.shade50,
@@ -565,7 +577,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${item.seller == me ? tr("الفائز بالمزاد:", "Winner:") : tr("البائع:", "Seller:")} ${displayName(otherPerson)}',
+              '${store.isItemSeller(item) ? tr("الفائز بالمزاد:", "Winner:") : tr("البائع:", "Seller:")} ${displayName(otherPerson)}',
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.black87),
             ),
@@ -685,7 +697,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             '🎉 مبروك! وافق البائع على سعرك وأرسى المزاد عليك بمبلغ $price',
             Colors.green.shade700,
           );
-        } else if (item.seller == me) {
+        } else if (store.isItemSeller(item)) {
           resultBanner = banner(
             '🤝 قمت بإنهاء المزاد مبكراً وبيع السلعة إلى "$winner" بمبلغ $price',
             Colors.green.shade700,
@@ -713,11 +725,11 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
           resultBanner,
           if (!item.isCancelled &&
               winner != null &&
-              (winner == me || item.seller == me)) ...[
+              (winner == me || store.isItemSeller(item))) ...[
             const SizedBox(height: 12),
             _buildDealContactCard(item, winner),
           ],
-          if (item.seller == me) ...[
+          if (store.isItemSeller(item)) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
@@ -740,9 +752,42 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       );
     }
 
-    // 3. إذا كان المستخدم هو البائع والمزاد جارٍ
-    if (item.seller == me) {
-      return const SizedBox.shrink();
+    // 3. إذا كان المستخدم هو صاحب السلعة (البائع)
+    if (store.isItemSeller(item)) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.storefront_outlined, color: Colors.blueAccent, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('أنت صاحب هذا المزاد (البائع) 📦', 'You are the seller of this item 📦'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tr('لا يمكنك المزايدة على سلعتك. يمكنك إدارة المزاد وقبول السومة من زر الخيارات بالأعلى.',
+                        'You cannot bid on your own auction. Manage your listing from the top menu.'),
+                    style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     // 4. المشتري: تقديم مزايدة تصاعدية
@@ -1054,7 +1099,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   }
                 },
                 itemBuilder: (context) => [
-                  if (item.seller == me && !item.isEnded)
+                  if (store.isItemSeller(item) && !item.isEnded)
                     PopupMenuItem(
                       value: 'edit',
                       child: Row(
@@ -1065,7 +1110,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         ],
                       ),
                     ),
-                  if (item.seller == me && item.bids.isNotEmpty && !item.isEnded)
+                  if (store.isItemSeller(item) && item.bids.isNotEmpty && !item.isEnded)
                     PopupMenuItem(
                       value: 'accept',
                       child: Row(
@@ -1079,7 +1124,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         ],
                       ),
                     ),
-                  if (item.seller == me || settings.isAdmin)
+                  if (store.isItemSeller(item) || settings.isAdmin)
                     PopupMenuItem(
                       value: 'delete',
                       child: Row(

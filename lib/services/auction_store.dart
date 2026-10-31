@@ -189,6 +189,8 @@ class AuctionStore extends ChangeNotifier {
                     icon: Icons.chat_bubble_outline,
                     color: Colors.blue,
                     itemId: rawItemId,
+                    sender: msg.sender,
+                    type: 'chat',
                   );
                   notifyListeners();
                 }
@@ -759,7 +761,7 @@ class AuctionStore extends ChangeNotifier {
             );
           }
           // 2. تنبيه صاحب السلعة بمزايدة جديدة
-          else if (item.seller == me && !isTopMe) {
+          else if (isItemSeller(item) && !isTopMe) {
             _pushNotification(
               title: tr('🎉 مزايدة جديدة على سلعتك!', '🎉 New bid on your item!'),
               body: tr(
@@ -815,7 +817,7 @@ class AuctionStore extends ChangeNotifier {
               (it) => it?.id == itemId || (it != null && itemToUuid(it.id) == itemToUuid(itemId)),
               orElse: () => null,
             );
-        if (targetItem != null && targetItem.seller == me && !isUserMe(senderUuid)) {
+        if (targetItem != null && isItemSeller(targetItem) && !isUserMe(senderUuid)) {
           final isAlreadyLogged = targetItem.comments.any((c) => c.author == sender && c.text == text);
           if (!isAlreadyLogged) {
             _pushNotification(
@@ -1570,6 +1572,8 @@ class AuctionStore extends ChangeNotifier {
     IconData icon = Icons.notifications,
     Color color = Colors.indigo,
     String? itemId,
+    String? sender,
+    String? type,
   }) {
     final notif = AppNotification(
       id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -1579,6 +1583,8 @@ class AuctionStore extends ChangeNotifier {
       icon: icon,
       color: color,
       itemId: itemId,
+      sender: sender,
+      type: type,
     );
     notifications.insert(0, notif);
     triggerSystemNotification(title: title, body: body, tag: itemId);
@@ -1651,7 +1657,7 @@ class AuctionStore extends ChangeNotifier {
 
   bool isPrivateUnlocked(Item item) =>
       !item.isPrivate ||
-      item.seller == me ||
+      isItemSeller(item) ||
       unlockedPrivateItems.contains(item.id) ||
       unlockedPrivateItems.contains(itemToUuid(item.id));
 
@@ -1701,8 +1707,8 @@ class AuctionStore extends ChangeNotifier {
           'This auction is scheduled and has not started yet');
     }
     if (item.isEnded) return tr('انتهى هذا المزاد', 'This auction has ended');
-    if (item.seller == me) {
-      return tr('لا يمكنك المزايدة على سلعتك', 'You cannot bid on your own item');
+    if (isItemSeller(item)) {
+      return tr('لا يمكنك المزايدة على سلعتك الخاصة 🚫', 'You cannot bid on your own item 🚫');
     }
     if (!isPrivateUnlocked(item)) {
       return tr('هذا المزاد خاص، أدخل رمز PIN أولاً',
@@ -1790,8 +1796,8 @@ class AuctionStore extends ChangeNotifier {
       return tr('المزاد لم يبدأ بعد', 'Auction has not started yet');
     }
     if (item.isEnded) return tr('انتهى هذا المزاد', 'This auction has ended');
-    if (item.seller == me) {
-      return tr('لا يمكنك المزايدة على سلعتك', 'You cannot bid on your own item');
+    if (isItemSeller(item)) {
+      return tr('لا يمكنك المزايدة على سلعتك الخاصة 🚫', 'You cannot bid on your own item 🚫');
     }
     if (maxLimit <= item.currentPrice && item.bids.isNotEmpty) {
       return tr(
@@ -1951,8 +1957,8 @@ class AuctionStore extends ChangeNotifier {
     if (!settings.isLoggedIn) {
       return tr('سجّل الدخول أولاً لإتمام الشراء الفوري', 'Please sign in first');
     }
-    if (item.seller == me) {
-      return tr('لا يمكنك شراء سلعتك الخاصة', 'Cannot buy your own item');
+    if (isItemSeller(item)) {
+      return tr('لا يمكنك شراء سلعتك الخاصة 🚫', 'Cannot buy your own item 🚫');
     }
     if (item.isEnded) return tr('انتهى هذا المزاد بالفعل', 'Already ended');
     if (item.buyNowPrice == null || item.buyNowPrice! <= 0) {
@@ -2569,10 +2575,15 @@ class AuctionStore extends ChangeNotifier {
   }
 
   bool isItemSeller(Item item) {
-    if (item.seller == me) return true;
+    if (isUserMe(item.seller)) return true;
+    if (item.seller == me || item.seller == 'أنا') return true;
     if (settings.userId != null && settings.userId!.isNotEmpty) {
       final sellerUuid = userToUuid(item.seller);
       if (sellerUuid == settings.userId) return true;
+    }
+    if (settings.fullName.isNotEmpty &&
+        item.seller.trim().toLowerCase() == settings.fullName.trim().toLowerCase()) {
+      return true;
     }
     if (settings.phone.isNotEmpty) {
       final ph = getUserPhone(item.seller);

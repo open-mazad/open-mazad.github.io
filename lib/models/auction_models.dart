@@ -149,6 +149,8 @@ class AppNotification {
   final IconData icon;
   final Color color;
   final String? itemId;
+  final String? sender;
+  final String? type;
   bool isRead;
 
   AppNotification({
@@ -159,6 +161,8 @@ class AppNotification {
     this.icon = Icons.notifications,
     this.color = Colors.indigo,
     this.itemId,
+    this.sender,
+    this.type,
     this.isRead = false,
   });
 }
