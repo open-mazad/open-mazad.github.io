@@ -13,7 +13,10 @@ class AuctionStore extends ChangeNotifier {
   final Map<String, List<UserReview>> userReviews = {};
   final Map<String, int> userWarnings = {};
   final Set<String> bannedUsers = {};
+  /// خريطة باتجاه واحد فقط: UUID -> الاسم الكامل للعرض
   static final Map<String, String> userDisplayNames = {};
+  /// خريطة معاكسة مستقلة: الاسم الكامل -> UUID لمنع تداخل الأسماء مع المعرّفات
+  static final Map<String, String> nameToUuidMap = {};
   static final Map<String, String> userPhones = {};
 
   Timer? _timer;
@@ -132,9 +135,9 @@ class AuctionStore extends ChangeNotifier {
     // جلب أولي كامل
     pullFromSupabase(silent: true);
 
-    // مؤقت أمان إضافي للتحديث الدوري السريع (كل ثانيتين) لضمان التزامن اللحظي
+    // مؤقت أمان خفيف في الخلفية (كل 15 ثانية) بينما يعتمد التحديث الفوري على قنوات Realtime
     _pollingSafetyTimer?.cancel();
-    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (settings.isCloudConfigured) {
         pullFromSupabase(silent: true);
       }
@@ -252,9 +255,6 @@ class AuctionStore extends ChangeNotifier {
 
   void _persistAndSync() {
     _saveToDisk();
-    if (settings.isCloudConfigured) {
-      pushToSupabase();
-    }
     notifyListeners();
   }
 
@@ -319,7 +319,7 @@ class AuctionStore extends ChangeNotifier {
     return _toUuid('item_$trimmed');
   }
 
-  /// يتأكد من مطابقة معرّف المستخدم لـ UUID
+  /// يتأكد من مطابقة معرّف المستخدم لـ UUID بالاعتماد على خريطة منفصلة (nameToUuidMap)
   static String userToUuid(String u) {
     if (u == me && settings.userId != null && settings.userId!.isNotEmpty) {
       return settings.userId!;
@@ -329,16 +329,11 @@ class AuctionStore extends ChangeNotifier {
         .hasMatch(trimmed)) {
       return trimmed.toLowerCase();
     }
-    if (userDisplayNames.containsKey(trimmed)) {
-      final mapped = userDisplayNames[trimmed]!;
-      if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-          .hasMatch(mapped)) {
-        return mapped.toLowerCase();
-      }
+    if (nameToUuidMap.containsKey(trimmed)) {
+      return nameToUuidMap[trimmed]!.toLowerCase();
     }
     for (final entry in userDisplayNames.entries) {
-      if (entry.value.trim().toLowerCase() == trimmed.toLowerCase() ||
-          displayName(entry.key).trim().toLowerCase() == trimmed.toLowerCase()) {
+      if (entry.value.trim().toLowerCase() == trimmed.toLowerCase()) {
         if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
             .hasMatch(entry.key)) {
           return entry.key.toLowerCase();
@@ -376,10 +371,14 @@ class AuctionStore extends ChangeNotifier {
   }
 
   bool isUserMe(String identifier) {
+    if (identifier.isEmpty) return false;
     if (identifier == me || identifier == 'أنا') return true;
     if (settings.userId != null &&
         settings.userId!.isNotEmpty &&
         identifier == settings.userId) {
+      return true;
+    }
+    if (settings.fullName.isNotEmpty && identifier == settings.fullName) {
       return true;
     }
     if (userToUuid(me) == identifier) return true;
@@ -440,8 +439,7 @@ class AuctionStore extends ChangeNotifier {
           .join(' ');
       final name = (id == myUuid) ? me : (full.isNotEmpty ? full : 'مستخدم');
       userDisplayNames[id] = full.isNotEmpty ? full : name;
-      if (full.isNotEmpty) userDisplayNames[full] = id;
-      if (firstName.isNotEmpty) userDisplayNames[firstName] = id;
+      if (full.isNotEmpty) nameToUuidMap[full] = id;
       final ph = '${row['phone'] ?? ''}'.trim();
       if (ph.isNotEmpty) {
         userPhones[id] = ph;
@@ -587,6 +585,7 @@ class AuctionStore extends ChangeNotifier {
     final newDirectChats = <String, List<DirectMessage>>{};
 
     for (final m in rows) {
+      final msgId = '${m['id'] ?? ''}';
       final itemId = '${m['item_id'] ?? ''}';
       final senderUuid = '${m['sender_id'] ?? ''}';
       final receiverUuid = m['receiver_id'] as String?;
@@ -601,15 +600,27 @@ class AuctionStore extends ChangeNotifier {
             .putIfAbsent(itemId, () => [])
             .add(AuctionComment(sender, text, time));
       } else {
+        // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً)
+        if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
         final sender = isUserMe(senderUuid)
             ? me
             : (userDisplayNames[senderUuid] ?? senderUuid);
         final receiver = isUserMe(receiverUuid)
             ? me
             : (userDisplayNames[receiverUuid] ?? receiverUuid);
-        newDirectChats
-            .putIfAbsent(itemId, () => [])
-            .add(DirectMessage(sender, receiver, text, time));
+        newDirectChats.putIfAbsent(itemId, () => []).add(
+              DirectMessage(
+                sender,
+                receiver,
+                text,
+                time,
+                id: msgId,
+                senderId: senderUuid,
+                receiverId: receiverUuid,
+                isDelivered: true,
+                isRead: isUserMe(senderUuid),
+              ),
+            );
       }
     }
 
@@ -646,7 +657,10 @@ class AuctionStore extends ChangeNotifier {
         final req = await client.postUrl(uri);
         final key = settings.supabaseAnonKey.trim();
         req.headers.set('apikey', key);
-        if (key.startsWith('eyJ')) {
+        final jwt = settings.activeJwtToken;
+        if (jwt != null && jwt.isNotEmpty) {
+          req.headers.set('Authorization', 'Bearer $jwt');
+        } else if (key.startsWith('eyJ')) {
           req.headers.set('Authorization', 'Bearer $key');
         }
         req.headers.set('Content-Type', 'application/json');
@@ -676,7 +690,10 @@ class AuctionStore extends ChangeNotifier {
         final req = await client.getUrl(uri);
         final key = settings.supabaseAnonKey.trim();
         req.headers.set('apikey', key);
-        if (key.startsWith('eyJ')) {
+        final jwt = settings.activeJwtToken;
+        if (jwt != null && jwt.isNotEmpty) {
+          req.headers.set('Authorization', 'Bearer $jwt');
+        } else if (key.startsWith('eyJ')) {
           req.headers.set('Authorization', 'Bearer $key');
         }
         final res = await req.close();
@@ -861,11 +878,10 @@ class AuctionStore extends ChangeNotifier {
         }
         for (final m in msgs) {
           messageRows.add({
-            'id': _toUuid(
-                'msg_dm_${itemUuid}_${m.sender}_${m.receiver}_${m.time.millisecondsSinceEpoch}'),
+            'id': itemToUuid(m.id),
             'item_id': itemUuid,
-            'sender_id': userToUuid(m.sender),
-            'receiver_id': userToUuid(m.receiver),
+            'sender_id': m.senderId ?? userToUuid(m.sender),
+            'receiver_id': m.receiverId ?? userToUuid(m.receiver),
             'content': m.text,
             'created_at': toIsoUtc(m.time),
           });
@@ -1022,8 +1038,7 @@ class AuctionStore extends ChangeNotifier {
               : (full.isNotEmpty ? full : 'مستخدم');
           userUuidToName[id] = name;
           userDisplayNames[id] = full.isNotEmpty ? full : name;
-          if (full.isNotEmpty) userDisplayNames[full] = id;
-          if (firstName.isNotEmpty) userDisplayNames[firstName] = id;
+          if (full.isNotEmpty) nameToUuidMap[full] = id;
           final ph = '${row['phone'] ?? ''}'.trim();
           if (ph.isNotEmpty) {
             userPhones[id] = ph;
@@ -1133,6 +1148,7 @@ class AuctionStore extends ChangeNotifier {
           final msgList = jsonDecode(msgBody);
           if (msgList is List) {
             for (final m in msgList.whereType<Map<String, dynamic>>()) {
+              final msgId = '${m['id'] ?? ''}';
               final itemId = '${m['item_id'] ?? ''}';
               final item = byId[itemId];
               final senderUuid = '${m['sender_id'] ?? ''}';
@@ -1152,6 +1168,8 @@ class AuctionStore extends ChangeNotifier {
                   item.comments.add(AuctionComment(sender, text, time));
                 }
               } else {
+                // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها
+                if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
                 final sender = isUserMe(senderUuid)
                     ? me
                     : (userUuidToName[senderUuid] ?? senderUuid);
@@ -1159,7 +1177,19 @@ class AuctionStore extends ChangeNotifier {
                     ? me
                     : (userUuidToName[receiverUuid] ?? receiverUuid);
                 _mergeIncomingDirectMessage(
-                    itemId, DirectMessage(sender, receiver, text, time));
+                  itemId,
+                  DirectMessage(
+                    sender,
+                    receiver,
+                    text,
+                    time,
+                    id: msgId,
+                    senderId: senderUuid,
+                    receiverId: receiverUuid,
+                    isDelivered: true,
+                    isRead: isUserMe(senderUuid),
+                  ),
+                );
               }
             }
           }
@@ -1321,7 +1351,11 @@ class AuctionStore extends ChangeNotifier {
   // ======================= منطق المزايدة (مفتوحة الزيادة + تلقائية + منع القنص) =======================
 
   /// يرجع نص الخطأ إن فشلت المزايدة، أو null إن نجحت
-  String? placeBid(Item item, int amount) {
+  String? placeBid(Item itemParam, int amount) {
+    final item = items.firstWhere(
+      (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
+      orElse: () => itemParam,
+    );
     if (!settings.isLoggedIn) {
       return tr('سجّل حساباً من الإعدادات أولاً',
           'Please register an account in Settings first');
@@ -1405,7 +1439,11 @@ class AuctionStore extends ChangeNotifier {
   }
 
   /// تفعيل أو تحديث المزايدة التلقائية (Auto-Bid)
-  String? setAutoBid(Item item, int maxLimit) {
+  String? setAutoBid(Item itemParam, int maxLimit) {
+    final item = items.firstWhere(
+      (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
+      orElse: () => itemParam,
+    );
     if (!settings.isLoggedIn) {
       return tr('سجّل حساباً من الإعدادات أولاً',
           'Please register an account in Settings first');
@@ -1836,7 +1874,11 @@ class AuctionStore extends ChangeNotifier {
 
   // ======================= التعليقات، المحادثات، التقييمات، والبلاغات =======================
 
-  void addComment(Item item, String text) {
+  void addComment(Item itemParam, String text) {
+    final item = items.firstWhere(
+      (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
+      orElse: () => itemParam,
+    );
     final comment = AuctionComment(me, text, DateTime.now());
     item.comments.add(comment);
     _persistAndSync();
@@ -1855,14 +1897,43 @@ class AuctionStore extends ChangeNotifier {
   void _mergeIncomingDirectMessage(String rawItemId, DirectMessage msg) {
     final key = _normalizeItemKey(rawItemId);
     final list = directChats.putIfAbsent(key, () => []);
-    final exists = list.any((em) =>
-        em.sender == msg.sender &&
-        em.receiver == msg.receiver &&
-        em.text == msg.text &&
-        em.time.difference(msg.time).abs().inSeconds < 10);
-    if (!exists) {
-      list.add(msg);
-      list.sort((a, b) => a.time.compareTo(b.time));
+
+    // 1. مطابقة فورية ودقيقة عبر client_msg_id (id) لمنع التكرار دون حذف الرسائل المتشابهة
+    final idxById = list.indexWhere((em) => em.id == msg.id);
+    if (idxById != -1) {
+      list[idxById].isDelivered = true;
+      return;
+    }
+
+    // 2. مطابقة احتياطية فقط للرسائل المحلية القديمة التي ليس لها UUID قياسي
+    final existingIdx = list.indexWhere((em) {
+      if (!em.id.startsWith('msg_')) return false;
+      final sameSender = (em.sender == msg.sender ||
+          userToUuid(em.sender) == userToUuid(msg.sender) ||
+          displayName(em.sender) == displayName(msg.sender));
+      final sameReceiver = (em.receiver == msg.receiver ||
+          userToUuid(em.receiver) == userToUuid(msg.receiver) ||
+          displayName(em.receiver) == displayName(msg.receiver));
+      final sameText = em.text == msg.text;
+      final sameTime = em.time.difference(msg.time).abs().inSeconds < 5;
+      return sameSender && sameReceiver && sameText && sameTime;
+    });
+    if (existingIdx != -1) {
+      list[existingIdx].isDelivered = true;
+      return;
+    }
+
+    list.add(msg);
+    list.sort((a, b) => a.time.compareTo(b.time));
+
+    // إذا وصلت رسالة من الطرف الآخر بعد رسائلي السابقة، تُعلَم رسائلي السابقة كمقروءة (✓✓)
+    if (!isUserMe(msg.sender)) {
+      for (final m in list) {
+        if (isUserMe(m.sender) && m.time.isBefore(msg.time)) {
+          m.isDelivered = true;
+          m.isRead = true;
+        }
+      }
     }
   }
 
@@ -1873,10 +1944,7 @@ class AuctionStore extends ChangeNotifier {
     if (altKey != key && directChats.containsKey(altKey)) {
       final altList = directChats[altKey]!;
       for (final m in altList) {
-        if (!list.any((x) =>
-            x.sender == m.sender &&
-            x.receiver == m.receiver &&
-            x.text == m.text)) {
+        if (!list.any((x) => x.id == m.id)) {
           list.add(m);
         }
       }
@@ -1885,28 +1953,32 @@ class AuctionStore extends ChangeNotifier {
     return list;
   }
 
-  void sendDirectMessage(Item item, String otherParty, String text) {
+  void sendDirectMessage(Item itemParam, String otherParty, String text) {
+    final item = items.firstWhere(
+      (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
+      orElse: () => itemParam,
+    );
+    if (isUserBlocked(otherParty)) return;
+
+    final senderUuid = userToUuid(me);
+    final receiverUuid = userToUuid(otherParty);
+    final msg = DirectMessage(
+      me,
+      otherParty,
+      text,
+      DateTime.now(),
+      id: generateUuid(),
+      senderId: senderUuid,
+      receiverId: receiverUuid,
+      isDelivered: false,
+      isRead: false,
+    );
+
     final list = getDirectMessages(item.id);
-    list.add(DirectMessage(me, otherParty, text, DateTime.now()));
+    list.add(msg);
     _saveToDisk();
     notifyListeners();
-    _recordDirectMessageToCloud(item, otherParty, text);
-
-    // رد تفاعلي تلقائي فقط للبائعين التجريبيين (لا يعمل مع المستخدمين الحقيقيين)
-    const demoSellers = {'علي', 'زينب', 'حسن', 'ليلى', 'كرار'};
-    if (demoSellers.contains(otherParty)) {
-      Future.delayed(const Duration(seconds: 1), () {
-        list.add(DirectMessage(
-          otherParty,
-          me,
-          tr('أهلاً بك! السلعة متوفرة وبحالة ممتازة، وأنا جاهز لأي استفسار أو معاينة.',
-              'Hello! The item is available in great condition, feel free to ask anything.'),
-          DateTime.now(),
-        ));
-        _saveToDisk();
-        notifyListeners();
-      });
-    }
+    _recordDirectMessageToCloud(item, otherParty, msg);
   }
 
   void clearFavorites() {
@@ -1957,7 +2029,7 @@ class AuctionStore extends ChangeNotifier {
     for (final entry in directChats.entries) {
       final itemId = entry.key;
       final item = items.firstWhere(
-        (i) => i.id == itemId || itemToUuid(i.id) == itemId,
+        (i) => i.id == itemId || itemToUuid(i.id) == itemToUuid(itemId),
         orElse: () => Item(
           id: itemId,
           title: 'مزاد سابق',
@@ -1972,23 +2044,36 @@ class AuctionStore extends ChangeNotifier {
 
       for (final msg in entry.value) {
         if (isUserMe(msg.sender) || isUserMe(msg.receiver)) {
-          final otherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
-          final key = '${itemId}_$otherParty';
+          final rawOtherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
+          final cleanOther = displayName(rawOtherParty);
+          final canonUserUuid = userToUuid(rawOtherParty);
+          final canonItemUuid = itemToUuid(item.id);
+          final key = '${canonItemUuid}_$canonUserUuid';
+
+          final isUnread = !isUserMe(msg.sender) && !msg.isRead;
           final existing = convs[key];
-          final count = (existing?.totalMessages ?? 0) + 1;
+          final newCount = (existing?.totalMessages ?? 0) + 1;
+          final newUnread = (existing?.unreadCount ?? 0) + (isUnread ? 1 : 0);
+
+          final finalOtherParty = (cleanOther != 'مستخدم' && !cleanOther.startsWith('user_'))
+              ? cleanOther
+              : (existing?.otherParty ?? cleanOther);
+
           if (existing == null || msg.time.isAfter(existing.lastMessage.time)) {
             convs[key] = ChatConversation(
               item: item,
-              otherParty: otherParty,
+              otherParty: finalOtherParty,
               lastMessage: msg,
-              totalMessages: count,
+              totalMessages: newCount,
+              unreadCount: newUnread,
             );
           } else {
             convs[key] = ChatConversation(
               item: existing.item,
-              otherParty: existing.otherParty,
+              otherParty: (finalOtherParty != 'مستخدم') ? finalOtherParty : existing.otherParty,
               lastMessage: existing.lastMessage,
-              totalMessages: count,
+              totalMessages: newCount,
+              unreadCount: newUnread,
             );
           }
         }
@@ -1997,6 +2082,134 @@ class AuctionStore extends ChangeNotifier {
     final list = convs.values.toList();
     list.sort((a, b) => b.lastMessage.time.compareTo(a.lastMessage.time));
     return list;
+  }
+
+  int get unreadDirectMessagesCount {
+    int total = 0;
+    for (final conv in getMyConversations()) {
+      total += conv.unreadCount;
+    }
+    return total;
+  }
+
+  void markConversationAsRead(String itemId, String otherParty) {
+    bool changed = false;
+    final otherUuid = userToUuid(otherParty);
+    final targetItemUuid = itemToUuid(itemId);
+
+    for (final entry in directChats.entries) {
+      if (entry.key == itemId || itemToUuid(entry.key) == targetItemUuid) {
+        for (final m in entry.value) {
+          if (!isUserMe(m.sender)) {
+            final isSenderOther = m.sender == otherParty ||
+                userToUuid(m.sender) == otherUuid ||
+                displayName(m.sender) == displayName(otherParty);
+            if (isSenderOther && !m.isRead) {
+              m.isRead = true;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+    if (changed) {
+      _saveToDisk();
+      notifyListeners();
+    }
+  }
+
+  void deleteConversation(String itemId, String otherParty) {
+    final otherUuid = userToUuid(otherParty);
+    final targetItemUuid = itemToUuid(itemId);
+
+    final keysToRemove = <String>[];
+    for (final entry in directChats.entries) {
+      if (entry.key == itemId || itemToUuid(entry.key) == targetItemUuid) {
+        entry.value.removeWhere((m) {
+          return m.sender == otherParty ||
+              userToUuid(m.sender) == otherUuid ||
+              displayName(m.sender) == displayName(otherParty) ||
+              m.receiver == otherParty ||
+              userToUuid(m.receiver) == otherUuid ||
+              displayName(m.receiver) == displayName(otherParty);
+        });
+        if (entry.value.isEmpty) {
+          keysToRemove.add(entry.key);
+        }
+      }
+    }
+    for (final k in keysToRemove) {
+      directChats.remove(k);
+    }
+    _saveToDisk();
+    notifyListeners();
+  }
+
+  void deleteSingleMessage(String itemId, DirectMessage msg) {
+    for (final entry in directChats.entries) {
+      if (entry.key == itemId || itemToUuid(entry.key) == itemToUuid(itemId)) {
+        entry.value.removeWhere((m) =>
+            m.id == msg.id ||
+            (m.sender == msg.sender &&
+                m.text == msg.text &&
+                m.time.isAtSameMomentAs(msg.time)));
+      }
+    }
+    _saveToDisk();
+    notifyListeners();
+    if (settings.isCloudConfigured) {
+      try {
+        supabaseClient
+            ?.from('messages')
+            .delete()
+            .eq('id', itemToUuid(msg.id))
+            .ignore();
+      } catch (_) {}
+    }
+  }
+
+  void blockUser(String user) {
+    bannedUsers.add(user);
+    final mapped = userDisplayNames[user];
+    if (mapped != null) bannedUsers.add(mapped);
+    bannedUsers.add(userToUuid(user));
+    _persistAndSync();
+  }
+
+  void unblockUser(String user) {
+    bannedUsers.remove(user);
+    final mapped = userDisplayNames[user];
+    if (mapped != null) bannedUsers.remove(mapped);
+    bannedUsers.remove(userToUuid(user));
+    _persistAndSync();
+  }
+
+  bool isUserBlocked(String user) {
+    if (bannedUsers.contains(user)) return true;
+    final mapped = userDisplayNames[user];
+    if (mapped != null && bannedUsers.contains(mapped)) return true;
+    return bannedUsers.contains(userToUuid(user));
+  }
+
+  void reportUser({
+    required String reportedUser,
+    required String reason,
+    String? itemId,
+    String? itemTitle,
+  }) {
+    reports.insert(
+      0,
+      FraudReport(
+        id: 'rep_${DateTime.now().millisecondsSinceEpoch}',
+        reporter: me,
+        reportedUser: displayName(reportedUser),
+        itemId: itemId ?? '',
+        itemTitle: itemTitle ?? 'محادثة مباشرة',
+        reason: reason,
+        time: DateTime.now(),
+      ),
+    );
+    _persistAndSync();
   }
 
   int get totalMessagesCount {
@@ -2063,47 +2276,88 @@ class AuctionStore extends ChangeNotifier {
   }
 
   Future<void> _recordDirectMessageToCloud(
-      Item item, String otherParty, String text) async {
+      Item item, String otherParty, DirectMessage msg) async {
     if (!settings.isCloudConfigured) return;
-    try {
-      final senderUuid = userToUuid(me);
-      final receiverUuid = userToUuid(otherParty);
-      final itemUuid = itemToUuid(item.id);
+    final senderUuid = msg.senderId ?? userToUuid(me);
+    final receiverUuid = msg.receiverId ?? userToUuid(otherParty);
+    final itemUuid = itemToUuid(item.id);
+    final msgUuid = itemToUuid(msg.id);
 
+    final msgRow = {
+      'id': msgUuid,
+      'item_id': itemUuid,
+      'sender_id': senderUuid,
+      'receiver_id': receiverUuid,
+      'content': msg.text,
+      'created_at': toIsoUtc(msg.time),
+    };
+
+    try {
       await _ensureProfileExists(senderUuid, me);
       await _ensureProfileExists(receiverUuid, otherParty);
       await _ensureItemExists(item);
 
-      final msgRow = {
-        'id': generateUuid(),
-        'item_id': itemUuid,
-        'sender_id': senderUuid,
-        'receiver_id': receiverUuid,
-        'content': text,
-        'created_at': toIsoUtc(DateTime.now()),
-      };
-
       final client = supabaseClient;
       if (client != null) {
-        await client.from('messages').insert(msgRow);
+        await client.from('messages').upsert(msgRow, onConflict: 'id');
+        // تحديث جداول المحادثات المنفصلة الاحترافية إن كانت مفعلة في قاعدة البيانات
+        try {
+          final sellerUuid = userToUuid(item.seller);
+          final buyerUuid =
+              (senderUuid == sellerUuid) ? receiverUuid : senderUuid;
+          final convId = _toUuid('conv_${itemUuid}_$buyerUuid');
+          await client.from('conversations').upsert({
+            'id': convId,
+            'item_id': itemUuid,
+            'buyer_id': buyerUuid,
+            'seller_id': sellerUuid,
+            'last_message_at': toIsoUtc(msg.time),
+            'last_message_preview': msg.text,
+          }, onConflict: 'id');
+          await client.from('conversation_members').upsert([
+            {
+              'conversation_id': convId,
+              'user_id': senderUuid,
+              'last_read_at': toIsoUtc(msg.time),
+            },
+            {
+              'conversation_id': convId,
+              'user_id': receiverUuid,
+            },
+          ]);
+          await client.from('direct_messages').upsert({
+            'id': msgUuid,
+            'conversation_id': convId,
+            'sender_id': senderUuid,
+            'client_msg_id': msgUuid,
+            'body': msg.text,
+            'type': 'text',
+            'created_at': toIsoUtc(msg.time),
+          }, onConflict: 'client_msg_id');
+        } catch (_) {}
+
+        msg.isDelivered = true;
+        _saveToDisk();
+        notifyListeners();
         return;
       }
-      await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+      final (code, _) =
+          await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+      if (code >= 200 && code < 300) {
+        msg.isDelivered = true;
+        _saveToDisk();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Cloud record direct message error: $e');
       try {
-        final senderUuid = userToUuid(me);
-        final receiverUuid = userToUuid(otherParty);
-        final itemUuid = itemToUuid(item.id);
-        final msgRow = {
-          'id': generateUuid(),
-          'item_id': itemUuid,
-          'sender_id': senderUuid,
-          'receiver_id': receiverUuid,
-          'content': text,
-          'created_at': toIsoUtc(DateTime.now()),
-        };
-        await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+        final (code, _) =
+            await _upsertRows(_cleanBaseUrl, 'messages', 'id', [msgRow]);
+        if (code >= 200 && code < 300) {
+          msg.isDelivered = true;
+          _saveToDisk();
+          notifyListeners();
+        }
       } catch (httpErr) {
         debugPrint('Fallback HTTP direct message error: $httpErr');
       }

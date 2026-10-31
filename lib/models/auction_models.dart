@@ -50,17 +50,40 @@ class AuctionComment {
 }
 
 class DirectMessage {
+  final String id; // client_msg_id ثابت وفريد لمنع التكرار أو ضياع الرسائل المتشابهة
   final String sender;
   final String receiver;
+  final String? senderId;
+  final String? receiverId;
   final String text;
   final DateTime time;
-  DirectMessage(this.sender, this.receiver, this.text, this.time);
+  bool isDelivered;
+  bool isRead;
+
+  DirectMessage(
+    this.sender,
+    this.receiver,
+    this.text,
+    this.time, {
+    String? id,
+    this.senderId,
+    this.receiverId,
+    this.isDelivered = false,
+    this.isRead = false,
+  }) : id = (id != null && id.isNotEmpty)
+            ? id
+            : 'msg_${time.microsecondsSinceEpoch}_${sender.hashCode.abs()}_${text.hashCode.abs()}';
 
   Map<String, dynamic> toJson() => {
+        'id': id,
         'sender': sender,
         'receiver': receiver,
+        if (senderId != null) 'senderId': senderId,
+        if (receiverId != null) 'receiverId': receiverId,
         'text': text,
         'time': time.toUtc().toIso8601String(),
+        'isDelivered': isDelivered,
+        'isRead': isRead,
       };
 
   factory DirectMessage.fromJson(Map<String, dynamic> j) => DirectMessage(
@@ -69,20 +92,29 @@ class DirectMessage {
         j['text'] as String? ?? '',
         DateTime.tryParse(j['time'] as String? ?? '')?.toLocal() ??
             DateTime.now(),
+        id: j['id'] as String?,
+        senderId: j['senderId'] as String?,
+        receiverId: j['receiverId'] as String?,
+        isDelivered: j['isDelivered'] as bool? ?? false,
+        isRead: j['isRead'] as bool? ?? false,
       );
 }
 
 class ChatConversation {
   final Item item;
   final String otherParty;
+  final String? otherPartyUuid;
   final DirectMessage lastMessage;
   final int totalMessages;
+  final int unreadCount;
 
   const ChatConversation({
     required this.item,
     required this.otherParty,
+    this.otherPartyUuid,
     required this.lastMessage,
     this.totalMessages = 1,
+    this.unreadCount = 0,
   });
 }
 

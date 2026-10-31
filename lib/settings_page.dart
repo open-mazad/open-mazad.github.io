@@ -163,6 +163,21 @@ class SettingsStore extends ChangeNotifier {
   /// معرّف المستخدم الحقيقي في Supabase Auth (null = غير مسجّل الدخول)
   String? userId;
 
+  /// رموز جلسة المستخدم الحقيقية (JWT Access Token & Refresh Token) لتفعيل RLS و auth.uid()
+  String? accessToken;
+  String? refreshToken;
+
+  /// إرجاع رمز JWT الفعّال للجلسة الحالية لإرساله مع الطلبات السحابية
+  String? get activeJwtToken {
+    try {
+      final sessionToken =
+          Supabase.instance.client.auth.currentSession?.accessToken;
+      if (sessionToken != null && sessionToken.isNotEmpty) return sessionToken;
+    } catch (_) {}
+    if (accessToken != null && accessToken!.isNotEmpty) return accessToken;
+    return null;
+  }
+
   /// كلمة المرور السرية الخاصة بدخول لوحة الإدارة (يمكن تغييرها)
   static const String adminSecretPin = '7788';
   bool get isLoggedIn => userId != null;
@@ -250,6 +265,8 @@ class SettingsStore extends ChangeNotifier {
         'language': language,
         'isAdmin': isAdmin,
         'userId': userId,
+        'accessToken': accessToken,
+        'refreshToken': refreshToken,
         'phone': phone,
         'firstName': firstName,
         'secondName': secondName,
@@ -281,6 +298,10 @@ class SettingsStore extends ChangeNotifier {
       isAdmin = (map['isAdmin'] as bool?) ?? false;
       final savedUid = (map['userId'] as String?)?.trim() ?? '';
       userId = savedUid.isEmpty ? null : savedUid;
+      final savedAcc = (map['accessToken'] as String?)?.trim() ?? '';
+      accessToken = savedAcc.isEmpty ? null : savedAcc;
+      final savedRef = (map['refreshToken'] as String?)?.trim() ?? '';
+      refreshToken = savedRef.isEmpty ? null : savedRef;
       phone = (map['phone'] as String?) ?? '';
       firstName = (map['firstName'] as String?) ?? '';
       secondName = (map['secondName'] as String?) ?? '';
@@ -344,7 +365,10 @@ class SettingsStore extends ChangeNotifier {
   void _attachSupabaseHeaders(HttpClientRequest req) {
     final key = supabaseAnonKey.trim();
     req.headers.set('apikey', key);
-    if (key.startsWith('eyJ')) {
+    final jwt = activeJwtToken;
+    if (jwt != null && jwt.isNotEmpty) {
+      req.headers.set('Authorization', 'Bearer $jwt');
+    } else if (key.startsWith('eyJ')) {
       req.headers.set('Authorization', 'Bearer $key');
     }
   }
@@ -358,7 +382,9 @@ class SettingsStore extends ChangeNotifier {
       Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
         final session = data.session;
         if (session?.user != null) {
-          await handleGoogleAuthSuccess(session!.user);
+          accessToken = session!.accessToken;
+          refreshToken = session.refreshToken;
+          await handleGoogleAuthSuccess(session.user);
         } else if (data.event == AuthChangeEvent.signedOut) {
           _clearProfile();
           notifyListeners();
@@ -371,13 +397,24 @@ class SettingsStore extends ChangeNotifier {
     }
   }
 
-  /// تهيئة الجلسة المحفوظة عند بدء التشغيل
+  /// تهيئة الجلسة المحفوظة عند بدء التشغيل واستعادة رموز المصادقة الحقيقية (JWT)
   Future<void> initAuth() async {
     listenToAuthEvents();
     try {
-      final session = Supabase.instance.client.auth.currentSession;
+      var session = Supabase.instance.client.auth.currentSession;
+      if (session == null && refreshToken != null && refreshToken!.isNotEmpty) {
+        try {
+          final res =
+              await Supabase.instance.client.auth.setSession(refreshToken!);
+          session = res.session;
+        } catch (err) {
+          debugPrint('Restore session from refreshToken failed: $err');
+        }
+      }
       if (session?.user != null) {
-        await handleGoogleAuthSuccess(session!.user);
+        accessToken = session!.accessToken;
+        refreshToken = session.refreshToken;
+        await handleGoogleAuthSuccess(session.user);
         return;
       }
     } catch (_) {}
@@ -644,6 +681,8 @@ class SettingsStore extends ChangeNotifier {
 
   void _clearProfile() {
     userId = null;
+    accessToken = null;
+    refreshToken = null;
     phone = '';
     firstName = '';
     secondName = '';

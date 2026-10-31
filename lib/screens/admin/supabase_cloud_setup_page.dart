@@ -107,9 +107,39 @@ create table if not exists public.reports (
   created_at timestamp with time zone default now()
 );
 
+-- 8. جداول نظام المحادثات الاحترافي المنفصل (Conversations & Direct Messages)
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.items(id) on delete cascade,
+  buyer_id uuid not null references public.profiles(id) on delete cascade,
+  seller_id uuid not null references public.profiles(id) on delete cascade,
+  last_message_at timestamptz default now(),
+  last_message_preview text,
+  created_at timestamptz default now(),
+  unique (item_id, buyer_id)
+);
+
+create table if not exists public.conversation_members (
+  conversation_id uuid references public.conversations(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete cascade,
+  last_read_at timestamptz default 'epoch',
+  primary key (conversation_id, user_id)
+);
+
+create table if not exists public.direct_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  client_msg_id uuid not null unique,
+  body text not null check (length(body) between 1 and 4000),
+  type text not null default 'text',
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_direct_messages_conv_time
+  on public.direct_messages (conversation_id, created_at desc);
+
 -- ============================================================
--- تفعيل الحماية (RLS) مع سياسات القراءة والكتابة للتطبيق
--- (يمنع ظهور رسالة التحذير في Supabase ويسمح للتطبيق بالمزامنة)
+-- تفعيل الحماية (RLS) مع سياسات القراءة والكتابة والخصوصية
 -- ============================================================
 alter table public.profiles enable row level security;
 alter table public.items enable row level security;
@@ -118,6 +148,9 @@ alter table public.auto_bids enable row level security;
 alter table public.messages enable row level security;
 alter table public.reviews enable row level security;
 alter table public.reports enable row level security;
+alter table public.conversations enable row level security;
+alter table public.conversation_members enable row level security;
+alter table public.direct_messages enable row level security;
 
 drop policy if exists "public_all_profiles" on public.profiles;
 create policy "public_all_profiles" on public.profiles for all using (true) with check (true);
@@ -131,8 +164,56 @@ create policy "public_all_bids" on public.bids for all using (true) with check (
 drop policy if exists "public_all_auto_bids" on public.auto_bids;
 create policy "public_all_auto_bids" on public.auto_bids for all using (true) with check (true);
 
+-- سياسة جدول messages: التعليقات العامة متاحة للجميع، والرسائل الخاصة مقصورة على طرفي المحادثة عند توفر جلسة مصادقة
 drop policy if exists "public_all_messages" on public.messages;
-create policy "public_all_messages" on public.messages for all using (true) with check (true);
+create policy "public_all_messages" on public.messages for select using (
+  receiver_id is null
+  or auth.uid() is null
+  or sender_id = auth.uid()
+  or receiver_id = auth.uid()
+);
+drop policy if exists "insert_messages" on public.messages;
+create policy "insert_messages" on public.messages for insert with check (
+  auth.uid() is null or sender_id = auth.uid()
+);
+drop policy if exists "delete_own_messages" on public.messages;
+create policy "delete_own_messages" on public.messages for delete using (
+  auth.uid() is null or sender_id = auth.uid()
+);
+
+drop policy if exists "read_own_conversations" on public.conversations;
+create policy "read_own_conversations" on public.conversations for all using (
+  auth.uid() is null or buyer_id = auth.uid() or seller_id = auth.uid()
+) with check (
+  auth.uid() is null or buyer_id = auth.uid() or seller_id = auth.uid()
+);
+
+drop policy if exists "members_access" on public.conversation_members;
+create policy "members_access" on public.conversation_members for all using (
+  auth.uid() is null or user_id = auth.uid()
+) with check (
+  auth.uid() is null or user_id = auth.uid()
+);
+
+drop policy if exists "read_own_direct_messages" on public.direct_messages;
+create policy "read_own_direct_messages" on public.direct_messages for select using (
+  auth.uid() is null or exists (
+    select 1 from public.conversation_members m
+    where m.conversation_id = direct_messages.conversation_id
+      and m.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "send_own_direct_messages" on public.direct_messages;
+create policy "send_own_direct_messages" on public.direct_messages for insert with check (
+  auth.uid() is null or (
+    sender_id = auth.uid() and exists (
+      select 1 from public.conversation_members m
+      where m.conversation_id = direct_messages.conversation_id
+        and m.user_id = auth.uid()
+    )
+  )
+);
 
 drop policy if exists "public_all_reviews" on public.reviews;
 create policy "public_all_reviews" on public.reviews for all using (true) with check (true);
@@ -142,7 +223,6 @@ create policy "public_all_reports" on public.reports for all using (true) with c
 
 -- ============================================================
 -- تفعيل البث المباشر اللحظي (Supabase Realtime)
--- (يضمن مزامنة فورية في أجزاء من الثانية بين التطبيق وقاعدة البيانات)
 -- ============================================================
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.items;
@@ -151,6 +231,9 @@ alter publication supabase_realtime add table public.auto_bids;
 alter publication supabase_realtime add table public.messages;
 alter publication supabase_realtime add table public.reviews;
 alter publication supabase_realtime add table public.reports;
+alter publication supabase_realtime add table public.conversations;
+alter publication supabase_realtime add table public.conversation_members;
+alter publication supabase_realtime add table public.direct_messages;
 
 alter table public.profiles replica identity full;
 alter table public.items replica identity full;
@@ -159,6 +242,9 @@ alter table public.auto_bids replica identity full;
 alter table public.messages replica identity full;
 alter table public.reviews replica identity full;
 alter table public.reports replica identity full;
+alter table public.conversations replica identity full;
+alter table public.conversation_members replica identity full;
+alter table public.direct_messages replica identity full;
 ''';
 
   @override

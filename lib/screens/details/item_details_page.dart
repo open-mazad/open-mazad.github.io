@@ -19,6 +19,14 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   late final PageController _imagePageCtrl;
   Timer? _imageAutoSlideTimer;
 
+  Item get liveItem => store.items.firstWhere(
+        (it) =>
+            it.id == widget.item.id ||
+            AuctionStore.itemToUuid(it.id) ==
+                AuctionStore.itemToUuid(widget.item.id),
+        orElse: () => widget.item,
+      );
+
   @override
   void initState() {
     super.initState();
@@ -30,7 +38,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     _imageAutoSlideTimer?.cancel();
     _imageAutoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_imagePageCtrl.hasClients) return;
-      final validImages = widget.item.imagePaths
+      final validImages = liveItem.imagePaths
           .where((p) => resolveSmartImageProvider(p) != null)
           .toList();
       if (validImages.length <= 1) return;
@@ -58,7 +66,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         int.tryParse(toLatinDigits(amountCtrl.text.trim()).replaceAll(',', ''));
     final error = amount == null
         ? tr('اكتب مبلغاً صحيحاً بالأرقام', 'Enter a valid number')
-        : store.placeBid(widget.item, amount);
+        : store.placeBid(liveItem, amount);
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(error ?? tr('تمت المزايدة بنجاح ✅', 'Bid placed ✅')),
@@ -72,7 +80,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         toLatinDigits(autoLimitCtrl.text.trim()).replaceAll(',', ''));
     final error = maxLimit == null
         ? tr('اكتب سقف المزايدة التلقائية بالأرقام', 'Enter valid max limit')
-        : store.setAutoBid(widget.item, maxLimit);
+        : store.setAutoBid(liveItem, maxLimit);
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(error ??
@@ -85,13 +93,13 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   void submitComment() {
     final txt = commentCtrl.text.trim();
     if (txt.isEmpty) return;
-    store.addComment(widget.item, txt);
+    store.addComment(liveItem, txt);
     commentCtrl.clear();
     FocusScope.of(context).unfocus();
   }
 
   Future<void> showReportDialog() async {
-    final item = widget.item;
+    final item = liveItem;
     final target = item.seller == me
         ? (item.highestBidder ?? 'مزايد')
         : item.seller;
@@ -179,7 +187,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   Future<void> showEditAuctionDialog() async {
-    final item = widget.item;
+    final item = liveItem;
     final titleCtrl = TextEditingController(text: item.title);
     final descCtrl = TextEditingController(text: item.description);
     final priceCtrl = TextEditingController(text: '${item.startPrice}');
@@ -303,7 +311,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   Future<void> confirmAcceptHighestBid() async {
-    final item = widget.item;
+    final item = liveItem;
     final topBidder = item.highestBidder;
     if (topBidder == null) return;
     final price = formatPrice(item.currentPrice);
@@ -354,7 +362,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   Future<void> confirmDeleteItem() async {
-    final item = widget.item;
+    final item = liveItem;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

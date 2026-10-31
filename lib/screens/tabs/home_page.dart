@@ -500,13 +500,13 @@ class _HomePageState extends State<HomePage> {
             ),
             NavigationDestination(
               icon: Badge(
-                isLabelVisible: store.totalMessagesCount > 0,
-                label: Text('${store.totalMessagesCount}'),
+                isLabelVisible: store.unreadDirectMessagesCount > 0,
+                label: Text('${store.unreadDirectMessagesCount}'),
                 child: const Icon(Icons.chat_bubble_outline),
               ),
               selectedIcon: Badge(
-                isLabelVisible: store.totalMessagesCount > 0,
-                label: Text('${store.totalMessagesCount}'),
+                isLabelVisible: store.unreadDirectMessagesCount > 0,
+                label: Text('${store.unreadDirectMessagesCount}'),
                 child: const Icon(Icons.chat_bubble),
               ),
               label: tr('الرسائل', 'Messages'),

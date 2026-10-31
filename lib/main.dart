@@ -58,12 +58,23 @@ String get me => settings.isLoggedIn
 
 /// اسم الشخص للعرض: اسمي الحقيقي إن سجّلت حساباً، وإلا الاسم المحفوظ
 String displayName(String who) {
+  if (who.isEmpty) return tr('مستخدم', 'User');
   if (who == me ||
       who == 'أنا' ||
-      (settings.userId != null && who == settings.userId)) {
+      (settings.userId != null && who == settings.userId) ||
+      (settings.fullName.isNotEmpty && who == settings.fullName)) {
     return settings.fullName.isEmpty ? tr('أنا', 'Me') : settings.fullName;
   }
-  return AuctionStore.userDisplayNames[who] ?? who;
+  final mapped = AuctionStore.userDisplayNames[who];
+  if (mapped != null && mapped.isNotEmpty) {
+    if (!RegExp(r'^[0-9a-fA-F-]{20,}$').hasMatch(mapped)) {
+      return mapped;
+    }
+  }
+  if (RegExp(r'^[0-9a-fA-F-]{20,}$').hasMatch(who) || who.startsWith('user_')) {
+    return tr('مستخدم', 'User');
+  }
+  return who;
 }
 
 // ======================= التطبيق =======================
