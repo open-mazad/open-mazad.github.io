@@ -13,8 +13,8 @@ class AuctionStore extends ChangeNotifier {
   final Map<String, List<UserReview>> userReviews = {};
   final Map<String, int> userWarnings = {};
   final Set<String> bannedUsers = {};
-  final Map<String, String> userDisplayNames = {};
-  final Map<String, String> userPhones = {};
+  static final Map<String, String> userDisplayNames = {};
+  static final Map<String, String> userPhones = {};
 
   Timer? _timer;
   Timer? _pollingSafetyTimer;
@@ -132,9 +132,9 @@ class AuctionStore extends ChangeNotifier {
     // جلب أولي كامل
     pullFromSupabase(silent: true);
 
-    // مؤقت أمان إضافي للتحديث الدوري (كل 4 ثوانٍ) لضمان الدقة المطلقة
+    // مؤقت أمان إضافي للتحديث الدوري السريع (كل ثانيتين) لضمان التزامن اللحظي
     _pollingSafetyTimer?.cancel();
-    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (settings.isCloudConfigured) {
         pullFromSupabase(silent: true);
       }
@@ -329,6 +329,22 @@ class AuctionStore extends ChangeNotifier {
         .hasMatch(trimmed)) {
       return trimmed.toLowerCase();
     }
+    if (userDisplayNames.containsKey(trimmed)) {
+      final mapped = userDisplayNames[trimmed]!;
+      if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+          .hasMatch(mapped)) {
+        return mapped.toLowerCase();
+      }
+    }
+    for (final entry in userDisplayNames.entries) {
+      if (entry.value.trim().toLowerCase() == trimmed.toLowerCase() ||
+          displayName(entry.key).trim().toLowerCase() == trimmed.toLowerCase()) {
+        if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+            .hasMatch(entry.key)) {
+          return entry.key.toLowerCase();
+        }
+      }
+    }
     return _toUuid('user_$trimmed');
   }
 
@@ -424,6 +440,8 @@ class AuctionStore extends ChangeNotifier {
           .join(' ');
       final name = (id == myUuid) ? me : (full.isNotEmpty ? full : 'مستخدم');
       userDisplayNames[id] = full.isNotEmpty ? full : name;
+      if (full.isNotEmpty) userDisplayNames[full] = id;
+      if (firstName.isNotEmpty) userDisplayNames[firstName] = id;
       final ph = '${row['phone'] ?? ''}'.trim();
       if (ph.isNotEmpty) {
         userPhones[id] = ph;
@@ -1004,6 +1022,8 @@ class AuctionStore extends ChangeNotifier {
               : (full.isNotEmpty ? full : 'مستخدم');
           userUuidToName[id] = name;
           userDisplayNames[id] = full.isNotEmpty ? full : name;
+          if (full.isNotEmpty) userDisplayNames[full] = id;
+          if (firstName.isNotEmpty) userDisplayNames[firstName] = id;
           final ph = '${row['phone'] ?? ''}'.trim();
           if (ph.isNotEmpty) {
             userPhones[id] = ph;
@@ -2150,10 +2170,11 @@ class AuctionStore extends ChangeNotifier {
 
   String getUserPhone(String user) {
     if (user == me && settings.phone.isNotEmpty) return settings.phone;
-    final realPhone = userPhones[user] ?? userPhones[_toUuid('user_$user')];
+    final realPhone = userPhones[user] ?? userPhones[userToUuid(user)];
     if (realPhone != null && realPhone.isNotEmpty) return realPhone;
-    final hash = (user.hashCode.abs() % 9000000) + 1000000;
-    return '+964770$hash';
+    final uUuid = userToUuid(user).replaceAll('-', '');
+    final short = uUuid.length >= 8 ? uUuid.substring(0, 8) : uUuid;
+    return '+96477$short';
   }
 
   List<UserReview> getUserReviews(String user) =>

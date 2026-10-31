@@ -929,12 +929,18 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
     final scheme = Theme.of(context).colorScheme;
 
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        final item = store.items.firstWhere(
+          (it) =>
+              it.id == widget.item.id ||
+              AuctionStore.itemToUuid(it.id) ==
+                  AuctionStore.itemToUuid(widget.item.id),
+          orElse: () => widget.item,
+        );
         final isFav = store.isFavorite(item.id);
         final sellerRating = store.getUserRating(item.seller);
 

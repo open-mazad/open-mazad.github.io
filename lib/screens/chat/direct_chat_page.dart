@@ -34,14 +34,21 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
-    final isDealClosed = item.isEnded &&
-        item.highestBidder != null &&
-        (item.seller == me || item.highestBidder == me);
-
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        final item = store.items.firstWhere(
+          (it) =>
+              it.id == widget.item.id ||
+              AuctionStore.itemToUuid(it.id) ==
+                  AuctionStore.itemToUuid(widget.item.id),
+          orElse: () => widget.item,
+        );
+        final isDealClosed = item.isEnded &&
+            item.highestBidder != null &&
+            (store.isUserMe(item.seller) ||
+                store.isUserMe(item.highestBidder!));
+
         final allMsgs = store.getDirectMessages(item.id);
         final otherUuid = AuctionStore.userToUuid(widget.otherParty);
         final otherName = displayName(widget.otherParty);

@@ -63,7 +63,7 @@ String displayName(String who) {
       (settings.userId != null && who == settings.userId)) {
     return settings.fullName.isEmpty ? tr('أنا', 'Me') : settings.fullName;
   }
-  return store.userDisplayNames[who] ?? who;
+  return AuctionStore.userDisplayNames[who] ?? who;
 }
 
 // ======================= التطبيق =======================
