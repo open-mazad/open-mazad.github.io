@@ -114,13 +114,6 @@
     }
   </style>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (var r of regs) { r.unregister(); }
-      });
-    }
-  </script>
 </head>
 <body>
   <!-- شاشة التحميل التمهيدية بالشعار الرسمي للمنصة -->

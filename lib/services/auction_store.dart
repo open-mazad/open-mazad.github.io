@@ -24,6 +24,11 @@ class AuctionStore extends ChangeNotifier {
   /// خريطة صور المستخدمين الشخصية (سحابية / Base64)
   static final Map<String, String> userPhotos = {};
 
+  /// مؤقت الثواني الخفيف لتحديث عدادات الوقت التنازلي دون إعادة بناء الشاشات بالكامل
+  static final ValueNotifier<DateTime> secondTicker =
+      ValueNotifier<DateTime>(DateTime.now());
+  final Set<String> _notifiedEndedItems = {};
+
   Timer? _timer;
   Timer? _pollingSafetyTimer;
   StreamSubscription? _itemsSub;
@@ -109,8 +114,10 @@ class AuctionStore extends ChangeNotifier {
     }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _checkScheduledAuctions();
-      notifyListeners();
+      secondTicker.value = DateTime.now();
+      if (_checkScheduledAuctions()) {
+        notifyListeners();
+      }
     });
   }
 
@@ -224,9 +231,9 @@ class AuctionStore extends ChangeNotifier {
     // جلب أولي كامل
     pullFromSupabase(silent: true);
 
-    // مؤقت أمان خفيف في الخلفية (كل 15 ثانية) بينما يعتمد التحديث الفوري على قنوات Realtime
+    // مؤقت أمان احتياطي خفيف في الخلفية (كل 45 ثانية) لتقليل استهلاك الشبكة بينما التحديث اللحظي فوري عبر Realtime
     _pollingSafetyTimer?.cancel();
-    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _pollingSafetyTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (settings.isCloudConfigured) {
         pullFromSupabase(silent: true);
       }
@@ -1516,11 +1523,13 @@ class AuctionStore extends ChangeNotifier {
     super.dispose();
   }
 
-  void _checkScheduledAuctions() {
+  bool _checkScheduledAuctions() {
     final now = DateTime.now();
+    bool statusChanged = false;
     for (final item in items) {
       if (!item.notifiedStart && !now.isBefore(item.startTime)) {
         item.notifiedStart = true;
+        statusChanged = true;
         if (item.remindMeUsers.contains(me)) {
           _pushNotification(
             title: tr('🔔 بدأ المزاد المجدول الآن!', '🔔 Scheduled Auction Started!'),
@@ -1532,7 +1541,12 @@ class AuctionStore extends ChangeNotifier {
           );
         }
       }
+      if (item.isEnded && !_notifiedEndedItems.contains(item.id)) {
+        _notifiedEndedItems.add(item.id);
+        statusChanged = true;
+      }
     }
+    return statusChanged;
   }
 
   void _recordUserTyping(String itemId, String sender) {

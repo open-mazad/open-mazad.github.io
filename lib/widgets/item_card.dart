@@ -308,31 +308,34 @@ class ItemCard extends StatelessWidget {
                         onPressed: () => store.toggleFavorite(item.id),
                       ),
 
-                      // المنتصف: عداد الوقت التنازلي مع أيقونة الساعة
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            item.isScheduled
-                                ? Icons.schedule
-                                : Icons.timer_outlined,
-                            size: 13,
-                            color: timerColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            item.isCancelled
-                                ? tr('ملغي', 'Cancelled')
-                                : (item.isScheduled
-                                    ? formatDuration(item.timeUntilStart)
-                                    : formatDuration(item.timeLeft)),
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
+                      // المنتصف: عداد الوقت التنازلي المحدث بخفة عبر مؤقت الثواني
+                      ValueListenableBuilder<DateTime>(
+                        valueListenable: AuctionStore.secondTicker,
+                        builder: (context, _, __) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              item.isScheduled
+                                  ? Icons.schedule
+                                  : Icons.timer_outlined,
+                              size: 13,
                               color: timerColor,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 3),
+                            Text(
+                              item.isCancelled
+                                  ? tr('ملغي', 'Cancelled')
+                                  : (item.isScheduled
+                                      ? formatDuration(item.timeUntilStart)
+                                      : formatDuration(item.timeLeft)),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: timerColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       // الأسفل: شارة الحالة (أزرق: سلعتك / أخضر: أنت الأعلى / أحمر: تم تجاوزك)

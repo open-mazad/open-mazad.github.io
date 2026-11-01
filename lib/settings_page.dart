@@ -299,7 +299,7 @@ ImageProvider? resolveSmartImageProvider(String? source) {
           clean = clean.replaceAll(RegExp(r'\s+'), '');
         }
         final imgProvider = MemoryImage(base64Decode(clean));
-        if (_base64ImageCache.length > 50) {
+        if (_base64ImageCache.length > 150) {
           _base64ImageCache.remove(_base64ImageCache.keys.first);
         }
         _base64ImageCache[cacheKey] = imgProvider;
@@ -325,7 +325,7 @@ ImageProvider? resolveSmartImageProvider(String? source) {
         clean = clean.replaceAll(RegExp(r'\s+'), '');
       }
       final imgProvider = MemoryImage(base64Decode(clean));
-      if (_base64ImageCache.length > 50) {
+      if (_base64ImageCache.length > 150) {
         _base64ImageCache.remove(_base64ImageCache.keys.first);
       }
       _base64ImageCache[cacheKey] = imgProvider;
