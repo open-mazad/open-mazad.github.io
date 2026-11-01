@@ -1624,24 +1624,50 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
         backgroundColor: Colors.black54,
         elevation: 0,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          tooltip: tr('إغلاق', 'Close'),
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           '${_currentIndex + 1} / ${widget.images.length}',
           style: const TextStyle(
               fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            tooltip: tr('إغلاق', 'Close'),
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          if (widget.images.length > 1) ...[
+            IconButton(
+              tooltip: tr('السابق', 'Previous'),
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  size: 20, color: Colors.white),
+              onPressed: _currentIndex > 0
+                  ? () => _pageCtrl.previousPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      )
+                  : null,
+            ),
+            IconButton(
+              tooltip: tr('التالي', 'Next'),
+              icon: const Icon(Icons.arrow_forward_ios,
+                  size: 20, color: Colors.white),
+              onPressed: _currentIndex < widget.images.length - 1
+                  ? () => _pageCtrl.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      )
+                  : null,
+            ),
+          ],
         ],
       ),
       body: PageView.builder(
         controller: _pageCtrl,
         physics: _isZoomed
             ? const NeverScrollableScrollPhysics()
-            : const BouncingScrollPhysics(),
+            : const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
         itemCount: widget.images.length,
         onPageChanged: (idx) {
           setState(() {
@@ -1680,6 +1706,7 @@ class _ZoomableImagePage extends StatefulWidget {
 class _ZoomableImagePageState extends State<_ZoomableImagePage> {
   final TransformationController _transformCtrl = TransformationController();
   TapDownDetails? _doubleTapDetails;
+  bool _isZoomed = false;
 
   @override
   void initState() {
@@ -1689,7 +1716,11 @@ class _ZoomableImagePageState extends State<_ZoomableImagePage> {
 
   void _onTransformChanged() {
     final scale = _transformCtrl.value.getMaxScaleOnAxis();
-    widget.onZoomChanged(scale > 1.05);
+    final zoomed = scale > 1.05;
+    if (_isZoomed != zoomed) {
+      setState(() => _isZoomed = zoomed);
+      widget.onZoomChanged(zoomed);
+    }
   }
 
   @override
@@ -1726,9 +1757,11 @@ class _ZoomableImagePageState extends State<_ZoomableImagePage> {
           clipBehavior: Clip.none,
           minScale: 1.0,
           maxScale: 6.0,
-          panEnabled: true,
+          panEnabled: _isZoomed,
           scaleEnabled: true,
-          boundaryMargin: const EdgeInsets.all(double.infinity),
+          boundaryMargin: _isZoomed
+              ? const EdgeInsets.all(double.infinity)
+              : EdgeInsets.zero,
           child: SizedBox.expand(
             child: Center(
               child: buildSmartImage(
