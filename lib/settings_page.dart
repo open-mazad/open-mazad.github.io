@@ -597,6 +597,15 @@ class SettingsStore extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   String language = 'ar'; // 'ar' أو 'en'
 
+  /// وضع توفير البيانات للشبكات والإنترنت الضعيف
+  bool dataSaverMode = false;
+
+  void toggleDataSaver(bool val) {
+    dataSaverMode = val;
+    _saveToDisk();
+    notifyListeners();
+  }
+
   /// هل المستخدم الحالي أدمن؟
   bool isAdmin = false;
 
@@ -705,6 +714,7 @@ class SettingsStore extends ChangeNotifier {
     final data = {
       'themeMode': themeMode.name,
       'language': language,
+      'dataSaverMode': dataSaverMode,
       'isAdmin': isAdmin,
       'userId': userId,
       'accessToken': accessToken,
@@ -755,6 +765,7 @@ class SettingsStore extends ChangeNotifier {
       if (tm == 'light') themeMode = ThemeMode.light;
       if (tm == 'dark') themeMode = ThemeMode.dark;
       language = (map['language'] as String?) ?? 'ar';
+      dataSaverMode = (map['dataSaverMode'] as bool?) ?? false;
       isAdmin = (map['isAdmin'] as bool?) ?? false;
       final savedUid = (map['userId'] as String?)?.trim() ?? '';
       userId = savedUid.isEmpty ? null : savedUid;
@@ -1552,6 +1563,44 @@ class SettingsPage extends StatelessWidget {
                 ],
                 selected: {settings.themeMode},
                 onSelectionChanged: (s) => settings.setTheme(s.first),
+              ),
+              const SizedBox(height: 14),
+
+              Card(
+                elevation: 0,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+                child: SwitchListTile.adaptive(
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.network_check_rounded, color: Colors.teal, size: 22),
+                  ),
+                  title: Text(
+                    tr('وضع توفير البيانات (للإنترنت الضعيف)', 'Data Saver Mode (Weak Connection)'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    tr(
+                      'تسريع تصفح المزادات وإيقاف التحريك التلقائي للصور لتقليل استهلاك الإنترنت',
+                      'Speeds up browsing and stops auto-sliders to save data',
+                    ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: settings.dataSaverMode,
+                  onChanged: (v) => settings.toggleDataSaver(v),
+                ),
               ),
               const SizedBox(height: 20),
 

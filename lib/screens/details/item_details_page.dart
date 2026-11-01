@@ -34,6 +34,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   void _startImageTimer() {
     _imageAutoSlideTimer?.cancel();
+    if (settings.dataSaverMode) return;
     _imageAutoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_imagePageCtrl.hasClients) return;
       final validImages = liveItem.imagePaths
