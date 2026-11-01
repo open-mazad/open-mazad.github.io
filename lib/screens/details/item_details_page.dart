@@ -324,6 +324,28 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     );
     if (!loggedIn || !mounted) return;
 
+    // فحص الحظر الإداري
+    if (store.bannedUsers.contains(store.me) ||
+        store.bannedUsers.contains(store.userToUuid(store.me))) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('حسابك مجمّد بقرار إداري 🚫', 'Your account is suspended by admin 🚫')),
+        backgroundColor: Colors.red.shade700,
+      ));
+      return;
+    }
+
+    // فحص الحظر الشخصي المتبادل بين الطرفين
+    if (store.isMutualOrBlockedBetween(item.seller, store.me)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'لا يمكنك إتمام الشراء الفوري بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
+          'Cannot complete buy now due to an active block between you and the seller 🚫',
+        )),
+        backgroundColor: Colors.red.shade700,
+      ));
+      return;
+    }
+
     final priceStr = formatPrice(item.buyNowPrice!);
     final ok = await showDialog<bool>(
       context: context,

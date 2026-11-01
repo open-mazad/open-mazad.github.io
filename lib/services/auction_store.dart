@@ -2092,12 +2092,24 @@ class AuctionStore extends ChangeNotifier {
     if (!settings.isLoggedIn) {
       return tr('سجّل الدخول أولاً لإتمام الشراء الفوري', 'Please sign in first');
     }
+    if (bannedUsers.contains(me) || bannedUsers.contains(userToUuid(me))) {
+      return tr('حسابك مجمّد بقرار إداري 🚫', 'Your account is suspended by admin 🚫');
+    }
+    if (isMutualOrBlockedBetween(item.seller, me)) {
+      return tr(
+        'لا يمكنك إتمام الشراء الفوري بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
+        'Cannot complete buy now due to an active block between you and the seller 🚫',
+      );
+    }
     if (isItemSeller(item)) {
       return tr('لا يمكنك شراء سلعتك الخاصة 🚫', 'Cannot buy your own item 🚫');
     }
     if (item.isEnded) return tr('انتهى هذا المزاد بالفعل', 'Already ended');
     if (item.buyNowPrice == null || item.buyNowPrice! <= 0) {
       return tr('لم يتم تعيين خيار الشراء الفوري لهذا المزاد', 'Buy now not available');
+    }
+    if (item.isPrivate && !isPrivateUnlocked(item)) {
+      return tr('هذا المزاد خاص، أدخل رمز PIN أولاً', 'Private auction: enter PIN code first');
     }
 
     final price = item.buyNowPrice!;
