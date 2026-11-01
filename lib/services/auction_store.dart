@@ -128,6 +128,14 @@ class AuctionStore extends ChangeNotifier {
     });
   }
 
+  void _loadPersonalBlockedUsers() {
+    _myBlockedUsers.clear();
+    final currentId = settings.userId ?? userToUuid(me);
+    _myBlockedUsers.addAll(LocalStorageHelper.getUserBlockedUsers(currentId));
+    userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
+    userBlockedMap[me] = Set<String>.from(_myBlockedUsers);
+  }
+
   /// تفعيل قنوات البث المباشر اللحظي (Supabase Realtime)
   /// تضمن مزامنة لحظية بالملي ثانية لأي إضافة، تعديل، أو حذف
   void initRealtime() {

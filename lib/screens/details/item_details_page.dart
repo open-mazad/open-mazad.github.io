@@ -628,8 +628,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(tr(
-                            'لا يمكنك مراسلة هذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
-                            'You cannot message this user due to privacy and block settings 🚫',
+                            'لا يمكنك مراسلة هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
+                            'You cannot message this seller due to privacy and block settings 🚫',
                           )),
                           backgroundColor: Colors.red.shade700,
                         ),
@@ -1358,6 +1358,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 onPressed: () async {
+                                  final otherPerson = item.seller;
                                   final loggedIn = await ensureUserLoggedIn(
                                     context,
                                     reason: tr(
@@ -1370,8 +1371,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(tr(
-                            'لا يمكنك مراسلة هذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
-                            'You cannot message this user due to privacy and block settings 🚫',
+                            'لا يمكنك مراسلة هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
+                            'You cannot message this seller due to privacy and block settings 🚫',
                           )),
                           backgroundColor: Colors.red.shade700,
                         ),
