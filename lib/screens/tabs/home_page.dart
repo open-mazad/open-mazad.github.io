@@ -11,12 +11,43 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int tab = 0;
+  late final PageController _homePageCtrl;
   String query = '';
   String category = 'الكل';
   String governorateFilter = 'الكل';
   String statusFilter = 'الكل'; // 'الكل', 'جارية 🔴', 'قريباً ⏳', 'بث مباشر 🎥', 'خاصة 🔒'
   String sortBy = 'الأحدث';
   bool _hasSelectedSort = false;
+
+  int _tabToPageIndex(int tabIndex) {
+    if (tabIndex >= 3) return tabIndex - 1;
+    if (tabIndex <= 1) return tabIndex;
+    return 0;
+  }
+
+  int _pageIndexToTabIndex(int pageIndex) {
+    if (pageIndex >= 2) return pageIndex + 1;
+    return pageIndex;
+  }
+
+  void _goToTab(int targetTab) {
+    if (targetTab == tab && _homePageCtrl.hasClients && _homePageCtrl.page?.round() == _tabToPageIndex(targetTab)) {
+      return;
+    }
+    setState(() {
+      tab = targetTab;
+      query = '';
+    });
+    globalActiveTabNotifier.value = targetTab;
+    final targetPage = _tabToPageIndex(targetTab);
+    if (_homePageCtrl.hasClients && _homePageCtrl.page?.round() != targetPage) {
+      _homePageCtrl.animateToPage(
+        targetPage,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -31,6 +62,7 @@ class _HomePageState extends State<HomePage> {
         globalActiveTabNotifier.value = targetIndex;
       }
     }
+    _homePageCtrl = PageController(initialPage: _tabToPageIndex(tab));
     globalActiveTabNotifier.addListener(_onGlobalTabChanged);
     settings.addListener(_onSettingsAuthChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -42,11 +74,20 @@ class _HomePageState extends State<HomePage> {
     final nextTab = globalActiveTabNotifier.value;
     if (mounted && nextTab >= 0 && nextTab < 5 && tab != nextTab) {
       setState(() => tab = nextTab);
+      final targetPage = _tabToPageIndex(nextTab);
+      if (_homePageCtrl.hasClients && _homePageCtrl.page?.round() != targetPage) {
+        _homePageCtrl.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+        );
+      }
     }
   }
 
   @override
   void dispose() {
+    _homePageCtrl.dispose();
     globalActiveTabNotifier.removeListener(_onGlobalTabChanged);
     settings.removeListener(_onSettingsAuthChanged);
     super.dispose();
@@ -62,7 +103,7 @@ class _HomePageState extends State<HomePage> {
       LocalStorageHelper.delete('auth_return_tab');
       final targetIndex = int.tryParse(returnTab);
       if (targetIndex != null && targetIndex >= 0 && targetIndex < 5) {
-        setState(() => tab = targetIndex);
+        _goToTab(targetIndex);
       }
     }
   }
@@ -82,10 +123,10 @@ class _HomePageState extends State<HomePage> {
         tr('الإعدادات', 'Settings'),
       ];
 
-  List<Item> visibleItems() {
+  List<Item> getVisibleItems({required bool isMyBidsTab}) {
     Iterable<Item> list = store.items;
 
-    if (tab == 3) {
+    if (isMyBidsTab) {
       // تبويب المزايدات المدمج:
       // 0: الكل (مزايداتي وسلعي مرتبة زمنياً حسب الإضافة/النشر)
       // 1: مزايداتي (التي شارك بها المستخدم)
@@ -128,7 +169,7 @@ class _HomePageState extends State<HomePage> {
     final result = list.toList();
 
     result.sort((a, b) {
-      if (tab == 3 && myBidsSubTab == 0) {
+      if (isMyBidsTab && myBidsSubTab == 0) {
         // الكل: مرتبة زمنياً حسب تاريخ الإضافة/النشر (الأحدث أولاً)
         return b.startTime.compareTo(a.startTime);
       }
@@ -156,6 +197,57 @@ class _HomePageState extends State<HomePage> {
     });
 
     return result;
+  }
+
+  List<Item> visibleItems() => getVisibleItems(isMyBidsTab: tab == 3);
+
+  Widget _buildItemsList({required bool isMyBidsTab}) {
+    final list = getVisibleItems(isMyBidsTab: isMyBidsTab);
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isMyBidsTab
+                  ? (myBidsSubTab == 2
+                      ? Icons.inventory_2_outlined
+                      : Icons.gavel_outlined)
+                  : Icons.inventory_2_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isMyBidsTab
+                  ? (myBidsSubTab == 2
+                      ? tr(
+                          'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
+                          'You have not listed any items yet.',
+                        )
+                      : myBidsSubTab == 1
+                          ? tr(
+                              'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
+                              'No bids yet. Browse items and place bids to see them here.',
+                            )
+                          : tr(
+                              'لا توجد مشاركات أو سلع حتى الآن\nابدأ بالمزايدة أو اعرض سلعة جديدة',
+                              'No bids or listings yet. Start bidding or list an item.',
+                            ))
+                  : tr('لا توجد عناصر مطابقة للبحث',
+                      'No matching items found'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+      itemCount: list.length,
+      itemBuilder: (context, i) => ItemCard(item: list[i]),
+    );
   }
 
   int _countForStatus(String st) {
@@ -801,97 +893,70 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        body: tab == 4
-            ? const SettingsPage()
-            : tab == 1
-                ? MessagesInboxView(
-                    onGoToSettings: () => setState(() => tab = 4),
-                  )
-                : Column(
-                    children: [
-                      if (tab == 0) searchArea(),
-                      if (tab == 3) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                          child: SegmentedButton<int>(
-                            showSelectedIcon: false,
-                            segments: [
-                              ButtonSegment(
-                                value: 0,
-                                label: Text(tr('الكل', 'All')),
-                                icon: const Icon(Icons.all_inbox_outlined, size: 16),
-                              ),
-                              ButtonSegment(
-                                value: 1,
-                                label: Text(tr('مزايداتي', 'My Bids')),
-                                icon: const Icon(Icons.gavel_outlined, size: 16),
-                              ),
-                              ButtonSegment(
-                                value: 2,
-                                label: Text(tr('سلعي', 'My Listings')),
-                                icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                              ),
-                            ],
-                            selected: {myBidsSubTab},
-                            onSelectionChanged: (set) => setState(() => myBidsSubTab = set.first),
-                          ),
+        body: PageView(
+          controller: _homePageCtrl,
+          physics: const BouncingScrollPhysics(),
+          onPageChanged: (pageIndex) {
+            final newTab = _pageIndexToTabIndex(pageIndex);
+            if (tab != newTab) {
+              setState(() {
+                tab = newTab;
+                query = '';
+              });
+              globalActiveTabNotifier.value = newTab;
+            }
+          },
+          children: [
+            _KeepAlivePage(
+              child: Column(
+                children: [
+                  searchArea(),
+                  Expanded(child: _buildItemsList(isMyBidsTab: false)),
+                ],
+              ),
+            ),
+            _KeepAlivePage(
+              child: MessagesInboxView(
+                onGoToSettings: () => _goToTab(4),
+              ),
+            ),
+            _KeepAlivePage(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                    child: SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                          value: 0,
+                          label: Text(tr('الكل', 'All')),
+                          icon: const Icon(Icons.all_inbox_outlined, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: 1,
+                          label: Text(tr('مزايداتي', 'My Bids')),
+                          icon: const Icon(Icons.gavel_outlined, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: 2,
+                          label: Text(tr('سلعي', 'My Listings')),
+                          icon: const Icon(Icons.inventory_2_outlined, size: 16),
                         ),
                       ],
-                      Expanded(
-                        child: Builder(
-                          builder: (context) {
-                            final list = visibleItems();
-                            if (list.isEmpty) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      tab == 3
-                                          ? (myBidsSubTab == 2
-                                              ? Icons.inventory_2_outlined
-                                              : Icons.gavel_outlined)
-                                          : Icons.inventory_2_outlined,
-                                      size: 64,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      tab == 3
-                                          ? (myBidsSubTab == 2
-                                              ? tr(
-                                                  'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
-                                                  'You have not listed any items yet.',
-                                                )
-                                              : myBidsSubTab == 1
-                                                  ? tr(
-                                                      'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
-                                                      'No bids yet. Browse items and place bids to see them here.',
-                                                    )
-                                                  : tr(
-                                                      'لا توجد مشاركات أو سلع حتى الآن\nابدأ بالمزايدة أو اعرض سلعة جديدة',
-                                                      'No bids or listings yet. Start bidding or list an item.',
-                                                    ))
-                                          : tr('لا توجد عناصر مطابقة للبحث',
-                                              'No matching items found'),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                          fontSize: 15, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
-                              itemCount: list.length,
-                              itemBuilder: (context, i) => ItemCard(item: list[i]),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                      selected: {myBidsSubTab},
+                      onSelectionChanged: (set) => setState(() => myBidsSubTab = set.first),
+                    ),
                   ),
+                  Expanded(child: _buildItemsList(isMyBidsTab: true)),
+                ],
+              ),
+            ),
+            const _KeepAlivePage(
+              child: SettingsPage(),
+            ),
+          ],
+        ),
         bottomNavigationBar: NavigationBarTheme(
           data: NavigationBarThemeData(
             height: 56,
@@ -925,8 +990,7 @@ class _HomePageState extends State<HomePage> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(tr('سجّل الدخول أولاً من الإعدادات',
                           'Sign in from Settings first'))));
-                  globalActiveTabNotifier.value = 4;
-                  setState(() => tab = 4);
+                  _goToTab(4);
                   return;
                 }
                 Navigator.push(
@@ -935,11 +999,7 @@ class _HomePageState extends State<HomePage> {
                 );
                 return;
               }
-              globalActiveTabNotifier.value = i;
-              setState(() {
-                tab = i;
-                query = '';
-              });
+              _goToTab(i);
             },
             destinations: [
               NavigationDestination(
@@ -995,6 +1055,26 @@ class _HomePageState extends State<HomePage> {
       );
     },
   );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
