@@ -31,7 +31,7 @@ const governorates = [
   'واسط',
 ];
 
-/// خريطة الأقضية والمناطق التابعة لكل محافظة عراقية
+/// خريطة الأقضية والمناطق التابعة لكل محافظة عراقية (خالية تماماً من أي أقواس)
 const Map<String, List<String>> governorateDistricts = {
   'بغداد': [
     'الرصافة',
@@ -50,9 +50,11 @@ const Map<String, List<String>> governorateDistricts = {
     'حي الجامعة',
     'السيدية',
     'الزعفرانية',
+    'الشعب',
+    'بغداد الجديدة',
   ],
   'البصرة': [
-    'البصرة (المركز)',
+    'المركز',
     'الزبير',
     'القرنة',
     'شط العرب',
@@ -61,8 +63,11 @@ const Map<String, List<String>> governorateDistricts = {
     'المدينة',
     'الهارثة',
     'الدير',
+    'سفوان',
+    'الإمام القائم',
   ],
   'نينوى': [
+    'المركز',
     'الموصل',
     'تلعفر',
     'الحمدانية',
@@ -74,7 +79,7 @@ const Map<String, List<String>> governorateDistricts = {
     'مخمور',
   ],
   'أربيل': [
-    'أربيل (المركز)',
+    'المركز',
     'شقلاوة',
     'سوران',
     'كوي سنجق',
@@ -82,9 +87,10 @@ const Map<String, List<String>> governorateDistricts = {
     'خبات',
     'دشتي هولير',
     'رواندوز',
+    'قوشتبة',
   ],
   'السليمانية': [
-    'السليمانية (المركز)',
+    'المركز',
     'رانية',
     'دوكان',
     'حلبجة',
@@ -92,22 +98,27 @@ const Map<String, List<String>> governorateDistricts = {
     'كلار',
     'دربندخان',
     'جمجمال',
+    'شاربازير',
+    'ماوت',
+    'قره داغ',
   ],
   'دهوك': [
-    'دهوك (المركز)',
+    'المركز',
     'زاخو',
     'سميل',
     'العمادية',
     'عقرة',
     'بردرش',
+    'شيلادزي',
   ],
   'كركوك': [
-    'كركوك (المركز)',
+    'المركز',
     'الحويجة',
     'داقوق',
     'الدبس',
   ],
   'الأنبار': [
+    'المركز',
     'الرمادي',
     'الفلوجة',
     'هيت',
@@ -118,8 +129,11 @@ const Map<String, List<String>> governorateDistricts = {
     'الرطبة',
     'العامرية',
     'الكرمة',
+    'البغدادي',
+    'الصقلاوية',
   ],
   'بابل': [
+    'المركز',
     'الحلة',
     'المحاويل',
     'المسيب',
@@ -127,19 +141,27 @@ const Map<String, List<String>> governorateDistricts = {
     'الإسكندرية',
     'الكفل',
     'القاسم',
+    'المدحتية',
+    'النيل',
   ],
   'كربلاء': [
-    'كربلاء (المركز)',
-    'الهندية (طويريج)',
+    'المركز',
+    'الهندية',
     'عين التمر',
+    'الجدول الغربي',
+    'الحر',
+    'الحسينية',
   ],
   'النجف': [
-    'النجف (المركز)',
+    'المركز',
     'الكوفة',
     'المناذرة',
     'المشخاب',
+    'الحيدرية',
+    'العباسية',
   ],
   'ذي قار': [
+    'المركز',
     'الناصرية',
     'الشطرة',
     'الرفاعي',
@@ -148,16 +170,26 @@ const Map<String, List<String>> governorateDistricts = {
     'قلعة سكر',
     'الفهود',
     'الغراف',
+    'الدواية',
+    'الإصلاح',
+    'البطحاء',
+    'النصر',
+    'سيد دخيل',
   ],
   'ديالى': [
+    'المركز',
     'بعقوبة',
     'المقدادية',
     'الخالص',
     'خانقين',
     'بلدروز',
     'كفري',
+    'مندلي',
+    'جلولاء',
+    'قره تبه',
   ],
   'صلاح الدين': [
+    'المركز',
     'تكريت',
     'سامراء',
     'بلد',
@@ -166,42 +198,141 @@ const Map<String, List<String>> governorateDistricts = {
     'بيجي',
     'الشرقاط',
     'الدور',
+    'الضلوعية',
+    'العلم',
+    'يثرب',
   ],
   'القادسية': [
+    'المركز',
     'الديوانية',
     'الشامية',
     'عفك',
     'الحمزة',
+    'السنية',
+    'الدغارة',
+    'البدير',
+    'الشنافية',
+    'الصلاحية',
+    'غماس',
   ],
   'المثنى': [
+    'المركز',
     'السماوة',
     'الرميثة',
     'الخضر',
     'السلمان',
+    'الوركاء',
+    'النجمي',
+    'الهلال',
+    'المجد',
+    'بصية',
   ],
   'ميسان': [
+    'المركز',
     'العمارة',
     'علي الغربي',
     'الميمونة',
     'المجر الكبير',
     'قلعة صالح',
     'الكحلاء',
+    'علي الشرقي',
+    'السلام',
+    'المشرح',
+    'بني هاشم',
   ],
   'واسط': [
+    'المركز',
     'الكوت',
     'الحي',
     'الصويرة',
     'العزيزية',
     'النعمانية',
     'بدرة',
+    'الزبيدية',
+    'جصان',
+    'الأحرار',
+    'الموفقية',
+    'شيحان',
   ],
 };
 
 List<String> districtsForGovernorate(String? gov) {
-  if (gov == null || gov.isEmpty) return const ['المركز'];
-  final list = governorateDistricts[gov];
+  final cleanGov = sanitizeGovernorate(gov);
+  if (cleanGov.isEmpty) return const ['المركز'];
+  final list = governorateDistricts[cleanGov];
   if (list != null && list.isNotEmpty) return list;
   return const ['المركز'];
+}
+
+/// تنقية اسم المحافظة بدقة لمنع تكرار القضاء أو السلاسل المشوهة (مثل البصرة - المدينة - المدينة)
+String sanitizeGovernorate(String? raw) {
+  if (raw == null) return '';
+  String s = raw.replaceAll('(', '').replaceAll(')', '').trim();
+  if (s.isEmpty) return '';
+
+  // فحص مباشر مع قائمة المحافظات الـ 18
+  for (final g in governorates) {
+    if (s == g ||
+        s.startsWith('$g ') ||
+        s.startsWith('$g-') ||
+        s.startsWith('$g -')) {
+      return g;
+    }
+  }
+
+  // إذا كانت تحتوي على شرطات تفصل المحافظة عن القضاء
+  if (s.contains(' - ')) {
+    final firstPart = s.split(' - ').first.trim();
+    for (final g in governorates) {
+      if (firstPart == g) return g;
+    }
+    s = firstPart;
+  } else if (s.contains('-')) {
+    final firstPart = s.split('-').first.trim();
+    for (final g in governorates) {
+      if (firstPart == g) return g;
+    }
+    s = firstPart;
+  }
+
+  for (final g in governorates) {
+    if (s.contains(g)) return g;
+  }
+
+  return s;
+}
+
+/// تنقية اسم القضاء وإزالة أي أقواس وضمان صحته بالنسبة للمحافظة
+String sanitizeDistrict(String? rawDistrict, String? rawGov) {
+  String d = (rawDistrict ?? '').replaceAll('(', '').replaceAll(')', '').trim();
+
+  // إذا كانت المحافظة تحتوي على قضاء ملحق مفصول بشرطة
+  if (rawGov != null && rawGov.contains(' - ')) {
+    final parts = rawGov
+        .split(' - ')
+        .map((e) => e.replaceAll('(', '').replaceAll(')', '').trim())
+        .toList();
+    if (parts.length > 1) {
+      final extracted = parts[1];
+      if (extracted.isNotEmpty && extracted != parts[0]) {
+        d = extracted;
+      }
+    }
+  }
+
+  final cleanGov = sanitizeGovernorate(rawGov);
+  final validDistricts = districtsForGovernorate(cleanGov);
+
+  if (d.endsWith(' المركز') || d == '$cleanGov المركز') {
+    return 'المركز';
+  }
+
+  if (validDistricts.contains(d)) return d;
+  for (final vd in validDistricts) {
+    if (vd == d || d.contains(vd) || vd.contains(d)) return vd;
+  }
+
+  return validDistricts.isNotEmpty ? validDistricts.first : 'المركز';
 }
 
 /// يحوّل الأرقام العربية (٠١٢...) إلى أرقام إنجليزية (012...)
@@ -635,8 +766,9 @@ class SettingsStore extends ChangeNotifier {
       firstName = (map['firstName'] as String?) ?? '';
       secondName = (map['secondName'] as String?) ?? '';
       thirdName = (map['thirdName'] as String?) ?? '';
-      governorate = (map['governorate'] as String?) ?? '';
-      district = (map['district'] as String?) ?? '';
+      final rawG = (map['governorate'] as String?) ?? '';
+      governorate = sanitizeGovernorate(rawG);
+      district = sanitizeDistrict((map['district'] as String?) ?? '', rawG);
       final (cleanPhoto, extractedHash) =
           unpackCloudPhotoUrl(map['photoPath'] as String?);
       photoPath = cleanPhoto;
@@ -658,8 +790,14 @@ class SettingsStore extends ChangeNotifier {
       .where((s) => s.trim().isNotEmpty && s.trim() != '-')
       .join(' ');
 
-  ProfileData get profileData =>
-      ProfileData(firstName, secondName, thirdName, governorate, photoPath, district: district);
+  ProfileData get profileData => ProfileData(
+        firstName,
+        secondName,
+        thirdName,
+        sanitizeGovernorate(governorate),
+        photoPath,
+        district: sanitizeDistrict(district, governorate),
+      );
 
   void setTheme(ThemeMode mode) {
     themeMode = mode;
@@ -809,7 +947,10 @@ class SettingsStore extends ChangeNotifier {
         final third = '${existing['third_name'] ?? tName}'.trim();
         thirdName = third == '-' ? '' : third;
         final rawGov = '${existing['governorate'] ?? governorate}'.trim();
-        if (rawGov.isNotEmpty) governorate = rawGov;
+        if (rawGov.isNotEmpty) {
+          governorate = sanitizeGovernorate(rawGov);
+          district = sanitizeDistrict(existing['district'] as String?, rawGov);
+        }
         final (cleanPhoto, extractedHash) =
             unpackCloudPhotoUrl(existing['photo_url'] as String?);
         photoPath = cleanPhoto ?? (avatarUrl.isNotEmpty ? avatarUrl : null);
@@ -923,13 +1064,8 @@ class SettingsStore extends ChangeNotifier {
         final third = '${row['third_name'] ?? thirdName}'.trim();
         thirdName = third == '-' ? '' : third;
         final rawGov = '${row['governorate'] ?? governorate}'.trim();
-        if (rawGov.contains(' - ')) {
-          final parts = rawGov.split(' - ');
-          governorate = parts[0].trim();
-          district = parts.sublist(1).join(' - ').trim();
-        } else if (rawGov.isNotEmpty) {
-          governorate = rawGov;
-        }
+        governorate = sanitizeGovernorate(rawGov);
+        district = sanitizeDistrict(row['district'] as String?, rawGov);
         final (cleanPhoto, extractedHash) =
             unpackCloudPhotoUrl(row['photo_url'] as String?);
         if (cleanPhoto != null) photoPath = cleanPhoto;
@@ -953,16 +1089,19 @@ class SettingsStore extends ChangeNotifier {
     String phone07,
     ProfileData d, {
     String? pwHash,
-  }) =>
-      {
-        'id': id,
-        'phone': phone07,
-        'first_name': d.firstName,
-        'second_name': d.secondName,
-        'third_name': d.thirdName.isEmpty ? '-' : d.thirdName,
-        'governorate': d.district.isNotEmpty ? '${d.governorate} - ${d.district}' : d.governorate,
-        'photo_url': packCloudPhotoUrl(d.photoPath, pwHash ?? passwordHash),
-      };
+  }) {
+    final cleanGov = sanitizeGovernorate(d.governorate);
+    final cleanDist = sanitizeDistrict(d.district, d.governorate);
+    return {
+      'id': id,
+      'phone': phone07,
+      'first_name': d.firstName,
+      'second_name': d.secondName,
+      'third_name': d.thirdName.isEmpty ? '-' : d.thirdName,
+      'governorate': cleanDist.isNotEmpty ? '$cleanGov - $cleanDist' : cleanGov,
+      'photo_url': packCloudPhotoUrl(d.photoPath, pwHash ?? passwordHash),
+    };
+  }
 
   Future<(int, String)> _upsertProfileInCloud(
       Map<String, dynamic> profileRow,
@@ -1046,8 +1185,8 @@ class SettingsStore extends ChangeNotifier {
     firstName = d.firstName.trim();
     secondName = d.secondName.trim();
     thirdName = d.thirdName.trim();
-    governorate = d.governorate.trim();
-    district = d.district.trim();
+    governorate = sanitizeGovernorate(d.governorate);
+    district = sanitizeDistrict(d.district, d.governorate);
     photoPath = d.photoPath;
     _saveToDisk();
     notifyListeners();
@@ -1542,12 +1681,12 @@ class _ProfileEditorState extends State<ProfileEditor> {
     first = TextEditingController(text: (i?.firstName ?? '').replaceAll('-', '').trim());
     second = TextEditingController(text: (i?.secondName ?? '').replaceAll('-', '').trim());
     third = TextEditingController(text: (i?.thirdName ?? '').replaceAll('-', '').trim());
-    governorate = i?.governorate ?? '';
-    district = i?.district ?? '';
+    governorate = sanitizeGovernorate(i?.governorate);
+    district = sanitizeDistrict(i?.district, i?.governorate);
     if (governorate.isNotEmpty) {
       final available = districtsForGovernorate(governorate);
       if (!available.contains(district)) {
-        district = available.isNotEmpty ? available.first : '';
+        district = available.isNotEmpty ? available.first : 'المركز';
       }
     }
     photoPath = i?.photoPath;
@@ -1599,11 +1738,11 @@ class _ProfileEditorState extends State<ProfileEditor> {
     );
     if (chosen != null) {
       setState(() {
-        governorate = chosen;
+        governorate = sanitizeGovernorate(chosen);
         govError = false;
         final available = districtsForGovernorate(governorate);
         if (!available.contains(district)) {
-          district = available.isNotEmpty ? available.first : '';
+          district = available.isNotEmpty ? available.first : 'المركز';
         }
         districtError = false;
       });
@@ -1631,7 +1770,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     );
     if (chosen != null) {
       setState(() {
-        district = chosen;
+        district = sanitizeDistrict(chosen, governorate);
         districtError = false;
       });
     }
@@ -1648,9 +1787,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
       first.text.trim(),
       second.text.trim(),
       third.text.trim(),
-      governorate,
+      sanitizeGovernorate(governorate),
       photoPath,
-      district: district,
+      district: sanitizeDistrict(district, governorate),
     ));
   }
 
@@ -1844,13 +1983,7 @@ Future<bool> showCompleteProfileDialog(BuildContext context) async {
               const SizedBox(height: 12),
               ProfileEditor(
                 submitLabel: tr('حفظ ومتابعة للمزاد 🚀', 'Save and Continue 🚀'),
-                initial: ProfileData(
-                  settings.firstName,
-                  settings.secondName,
-                  settings.thirdName,
-                  settings.governorate,
-                  settings.photoPath,
-                ),
+                initial: settings.profileData,
                 onSubmit: (data) async {
                   await settings.completeOnboarding(data);
                   if (ctx.mounted) {
