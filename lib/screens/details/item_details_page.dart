@@ -147,7 +147,16 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
     final txt = commentCtrl.text.trim();
     if (txt.isEmpty) return;
-    store.addComment(liveItem, txt);
+    final err = store.addComment(liveItem, txt);
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
     commentCtrl.clear();
     FocusScope.of(context).unfocus();
   }
@@ -615,6 +624,18 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       ),
                     );
                     if (!loggedIn || !context.mounted) return;
+                    if (store.isUserBlockedBy(otherPerson, me)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(tr(
+                            'لا يمكنك مراسلة هذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
+                            'You cannot message this user due to privacy and block settings 🚫',
+                          )),
+                          backgroundColor: Colors.red.shade700,
+                        ),
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -1345,6 +1366,18 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                     ),
                                   );
                                   if (!loggedIn || !context.mounted) return;
+                    if (store.isUserBlockedBy(otherPerson, me)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(tr(
+                            'لا يمكنك مراسلة هذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
+                            'You cannot message this user due to privacy and block settings 🚫',
+                          )),
+                          backgroundColor: Colors.red.shade700,
+                        ),
+                      );
+                      return;
+                    }
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(

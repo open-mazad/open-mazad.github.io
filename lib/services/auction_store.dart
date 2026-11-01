@@ -12,7 +12,12 @@ class AuctionStore extends ChangeNotifier {
   final Map<String, List<DirectMessage>> directChats = {};
   final Map<String, List<UserReview>> userReviews = {};
   final Map<String, int> userWarnings = {};
+  /// قائمة الحظر الإداري الشامل للمنصة (Admin Global Ban)
   final Set<String> bannedUsers = {};
+  /// قائمة الحظر الشخصية الخاصة بالمستخدم الحالي (Personal Block List)
+  final Set<String> _myBlockedUsers = {};
+  /// خريطة الحظر بين المستخدمين (Blocker -> Set of Blocked)
+  final Map<String, Set<String>> userBlockedMap = {};
   final Set<String> _deletedConversationKeys = {};
   final Set<String> _deletedMessageIds = {};
   final Map<String, DateTime> _userLastActiveMap = {};
@@ -65,7 +70,8 @@ class AuctionStore extends ChangeNotifier {
   AuctionStore() {
     _deletedConversationKeys.addAll(LocalStorageHelper.getDeletedConversationKeys());
     _deletedMessageIds.addAll(LocalStorageHelper.getDeletedMessageIds());
-    bannedUsers.addAll(LocalStorageHelper.getBlockedUsers());
+    bannedUsers.addAll(LocalStorageHelper.getBannedUsers());
+    _loadPersonalBlockedUsers();
 
     if (!_loadFromDisk()) {
       _seed();
@@ -104,6 +110,7 @@ class AuctionStore extends ChangeNotifier {
       notifyListeners();
     };
     settings.onAuthChanged = () {
+      _loadPersonalBlockedUsers();
       notifyListeners();
       if (settings.isCloudConfigured) {
         initRealtime();
@@ -255,6 +262,7 @@ class AuctionStore extends ChangeNotifier {
         ),
         'userWarnings': userWarnings,
         'bannedUsers': bannedUsers.toList(),
+        'myBlockedUsers': _myBlockedUsers.toList(),
       };
 
   void _importStoreJson(Map<String, dynamic> data) {
@@ -324,6 +332,14 @@ class AuctionStore extends ChangeNotifier {
       bannedUsers
         ..clear()
         ..addAll((data['bannedUsers'] as List).map((e) => '$e'));
+    }
+    if (data['myBlockedUsers'] is List) {
+      _myBlockedUsers
+        ..clear()
+        ..addAll((data['myBlockedUsers'] as List).map((e) => '$e'));
+      final currentId = settings.userId ?? userToUuid(me);
+      userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
+      userBlockedMap[me] = Set<String>.from(_myBlockedUsers);
     }
   }
 
@@ -556,8 +572,21 @@ class AuctionStore extends ChangeNotifier {
       }
       if (row['is_banned'] == true) {
         bannedUsers.add(name);
+        bannedUsers.add(id);
       } else {
         bannedUsers.remove(name);
+        bannedUsers.remove(id);
+      }
+      final rawBlocked = row['blocked_users'];
+      if (rawBlocked is List) {
+        final bSet = rawBlocked.map((e) => '$e').toSet();
+        userBlockedMap[id] = bSet;
+        userBlockedMap[name] = bSet;
+        if (full.isNotEmpty) userBlockedMap[full] = bSet;
+        if (id == myUuid) {
+          _myBlockedUsers.addAll(bSet);
+          LocalStorageHelper.saveUserBlockedUsers(id, _myBlockedUsers);
+        }
       }
 
       // مزامنة حالة الآدمن لحظياً إذا تم تغييرها في قاعدة البيانات
@@ -1337,6 +1366,17 @@ class AuctionStore extends ChangeNotifier {
           }
           if (row['is_banned'] == true) {
             bannedUsers.add(name);
+            bannedUsers.add(id);
+          }
+          final rawBlocked = row['blocked_users'];
+          if (rawBlocked is List) {
+            final bSet = rawBlocked.map((e) => '$e').toSet();
+            userBlockedMap[id] = bSet;
+            userBlockedMap[name] = bSet;
+            if (full.isNotEmpty) userBlockedMap[full] = bSet;
+            if (id == myUuid) {
+              _myBlockedUsers.addAll(bSet);
+            }
           }
         }
       }
@@ -1768,10 +1808,22 @@ class AuctionStore extends ChangeNotifier {
       return tr('سجّل حساباً من الإعدادات أولاً',
           'Please register an account in Settings first');
     }
-    if (bannedUsers.contains(me)) {
+    if (bannedUsers.contains(me) || bannedUsers.contains(userToUuid(me))) {
       return tr(
-        'حسابك مجمّد من المزايدة بسبب مخالفة شروط الجدية أو التخلف عن الدفع 🚫',
-        'Your account is suspended from bidding due to policy violation 🚫',
+        'حسابك مجمّد من المزايدة بقرار إداري لمخالفة شروط وسياسات المزاد 🚫',
+        'Your account is suspended by admin from bidding due to policy violation 🚫',
+      );
+    }
+    if (isUserBlockedBy(item.seller, me)) {
+      return tr(
+        'لا يمكنك المزايدة على سلع هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
+        'You cannot bid on this seller\'s items due to privacy and block settings 🚫',
+      );
+    }
+    if (isUserBlockedByMe(item.seller)) {
+      return tr(
+        'لقد قمت بحظر هذا البائع سابقاً. يرجى إلغاء الحظر للمزايدة على سلعه 🚫',
+        'You have blocked this seller. Unblock to place bids on their items 🚫',
       );
     }
     if (item.isScheduled) {
@@ -2419,16 +2471,30 @@ class AuctionStore extends ChangeNotifier {
 
   // ======================= التعليقات، المحادثات، التقييمات، والبلاغات =======================
 
-  void addComment(Item itemParam, String text) {
-    if (!settings.isLoggedIn) return;
+  String? addComment(Item itemParam, String text) {
+    if (!settings.isLoggedIn) {
+      return tr('يجب تسجيل الدخول أولاً', 'Please sign in first');
+    }
+    if (bannedUsers.contains(me) || bannedUsers.contains(userToUuid(me))) {
+      return tr('حسابك مجمّد من التعليق بقرار إداري 🚫', 'Your account is suspended by admin 🚫');
+    }
     final item = items.firstWhere(
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
     );
+    if (isUserBlockedBy(item.seller, me)) {
+      return tr('لا يمكنك التعليق على سلع هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
+          'You cannot comment on this seller\'s items due to privacy and block settings 🚫');
+    }
+    if (isUserBlockedByMe(item.seller)) {
+      return tr('لقد قمت بحظر هذا البائع سابقاً. يرجى إلغاء الحظر للتعليق على سلعه 🚫',
+          'You have blocked this seller. Unblock to comment on their items 🚫');
+    }
     final comment = AuctionComment(me, text, DateTime.now());
     item.comments.add(comment);
     _persistAndSync();
     _recordCommentToCloud(item, comment);
+    return null;
   }
 
   String _normalizeItemKey(String itemId) {
@@ -2511,7 +2577,7 @@ class AuctionStore extends ChangeNotifier {
 
   List<String> get myBlockedUsersList {
     final list = <String>{};
-    for (final u in bannedUsers) {
+    for (final u in _myBlockedUsers) {
       final name = displayName(u);
       if (name.isNotEmpty && !name.contains('-') && name != 'مستخدم') {
         list.add(name);
@@ -2529,6 +2595,10 @@ class AuctionStore extends ChangeNotifier {
       sender: msg.sender,
       receiver: msg.receiver,
     )) {
+      return;
+    }
+    // إسقاط ورفض الرسالة فورياً إذا كان المرسل محظوراً من قِبل المستخدم الحالي
+    if (isUserBlockedByMe(msg.sender)) {
       return;
     }
     recordUserActivity(msg.sender, activityTime: msg.time);
@@ -2597,7 +2667,8 @@ class AuctionStore extends ChangeNotifier {
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
     );
-    if (isUserBlocked(otherParty)) return;
+    if (isUserBlockedByMe(otherParty)) return;
+    if (isUserBlockedBy(otherParty, me)) return;
 
     // استعادة المحادثة وإلغاء وسم الحذف إذا بادر المستخدم بالإرسال مجدداً
     final itemKey = _normalizeItemKey(item.id);
@@ -2966,29 +3037,85 @@ class AuctionStore extends ChangeNotifier {
 
   void blockUser(String user) {
     if (!settings.isLoggedIn) return;
-    bannedUsers.add(user);
-    final mapped = userDisplayNames[user];
-    if (mapped != null) bannedUsers.add(mapped);
-    bannedUsers.add(userToUuid(user));
-    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+    final cleanUser = user.trim();
+    if (cleanUser.isEmpty || isUserMe(cleanUser)) return;
+
+    _myBlockedUsers.add(cleanUser);
+    final mapped = userDisplayNames[cleanUser];
+    if (mapped != null && mapped.isNotEmpty) _myBlockedUsers.add(mapped);
+    _myBlockedUsers.add(userToUuid(cleanUser));
+
+    final currentId = settings.userId ?? userToUuid(me);
+    userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
+    userBlockedMap[me] = Set<String>.from(_myBlockedUsers);
+    LocalStorageHelper.saveUserBlockedUsers(currentId, _myBlockedUsers);
+    _syncBlockedUsersToCloud();
     _persistAndSync();
+    notifyListeners();
   }
 
   void unblockUser(String user) {
     if (!settings.isLoggedIn) return;
-    bannedUsers.remove(user);
-    final mapped = userDisplayNames[user];
-    if (mapped != null) bannedUsers.remove(mapped);
-    bannedUsers.remove(userToUuid(user));
-    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+    final cleanUser = user.trim();
+    if (cleanUser.isEmpty) return;
+
+    _myBlockedUsers.remove(cleanUser);
+    final mapped = userDisplayNames[cleanUser];
+    if (mapped != null) _myBlockedUsers.remove(mapped);
+    _myBlockedUsers.remove(userToUuid(cleanUser));
+
+    final currentId = settings.userId ?? userToUuid(me);
+    userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
+    userBlockedMap[me] = Set<String>.from(_myBlockedUsers);
+    LocalStorageHelper.saveUserBlockedUsers(currentId, _myBlockedUsers);
+    _syncBlockedUsersToCloud();
     _persistAndSync();
+    notifyListeners();
   }
 
-  bool isUserBlocked(String user) {
-    if (bannedUsers.contains(user)) return true;
+  bool isUserBlockedByMe(String user) {
+    if (user.isEmpty) return false;
+    if (_myBlockedUsers.contains(user)) return true;
     final mapped = userDisplayNames[user];
-    if (mapped != null && bannedUsers.contains(mapped)) return true;
-    return bannedUsers.contains(userToUuid(user));
+    if (mapped != null && _myBlockedUsers.contains(mapped)) return true;
+    return _myBlockedUsers.contains(userToUuid(user));
+  }
+
+  bool isUserBlocked(String user) => isUserBlockedByMe(user);
+
+  bool isUserBlockedBy(String blocker, String target) {
+    if (blocker.isEmpty || target.isEmpty) return false;
+    if (isUserMe(blocker)) return isUserBlockedByMe(target);
+
+    final blockerId = userToUuid(blocker);
+    final targetId = userToUuid(target);
+    final targetName = displayName(target);
+
+    final blockedSet = userBlockedMap[blocker] ?? userBlockedMap[blockerId];
+    if (blockedSet != null) {
+      if (blockedSet.contains(target) ||
+          blockedSet.contains(targetId) ||
+          (targetName.isNotEmpty && blockedSet.contains(targetName))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isMutualOrBlockedBetween(String userA, String userB) {
+    return isUserBlockedBy(userA, userB) || isUserBlockedBy(userB, userA);
+  }
+
+  Future<void> _syncBlockedUsersToCloud() async {
+    if (!settings.isCloudConfigured || !settings.isLoggedIn) return;
+    try {
+      final client = supabaseClient;
+      if (client == null) return;
+      final currentId = settings.userId ?? userToUuid(me);
+      await client.from('profiles').update({
+        'blocked_users': _myBlockedUsers.toList(),
+      }).eq('id', currentId);
+    } catch (_) {}
   }
 
   void reportUser({
@@ -3350,7 +3477,7 @@ class AuctionStore extends ChangeNotifier {
     bannedUsers.add(user);
     final userUuid = userToUuid(user);
     bannedUsers.add(userUuid);
-    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+    LocalStorageHelper.saveBannedUsers(bannedUsers);
 
     // قفل الجلسة فورياً إن كان المستخدم هو الحساب الحالي
     if (isUserMe(user)) {
@@ -3397,7 +3524,7 @@ class AuctionStore extends ChangeNotifier {
       bannedUsers.remove(user);
       bannedUsers.remove(userUuid);
     }
-    LocalStorageHelper.saveBlockedUsers(bannedUsers);
+    LocalStorageHelper.saveBannedUsers(bannedUsers);
 
     if (settings.isCloudConfigured) {
       try {

@@ -31,6 +31,31 @@ class LocalStorageHelper {
   static Set<String> getDeletedMessageIds() => getSet('muzaid_deleted_msg_ids');
   static void saveDeletedMessageIds(Iterable<String> ids) => saveSet('muzaid_deleted_msg_ids', ids);
 
+  /// الحظر الإداري الشامل للمنصة (Admin Banned Accounts)
+  static Set<String> getBannedUsers() {
+    final set = getSet('muzaid_admin_banned_users');
+    if (set.isNotEmpty) return set;
+    return {};
+  }
+  static void saveBannedUsers(Iterable<String> users) => saveSet('muzaid_admin_banned_users', users);
+
+  /// قائمة الحظر الشخصية لكل مستخدم (Personal User-to-User Blocks)
+  static Set<String> getUserBlockedUsers(String userId) {
+    final cleanId = userId.trim();
+    if (cleanId.isEmpty) return getSet('muzaid_user_blocks_default');
+    final set = getSet('muzaid_user_blocks_$cleanId');
+    if (set.isNotEmpty) return set;
+    // استعادة قائمة الحظر الشخصية السابقة إن وُجدت
+    final legacy = getSet('muzaid_blocked_users');
+    if (legacy.isNotEmpty) return legacy;
+    return {};
+  }
+  static void saveUserBlockedUsers(String userId, Iterable<String> users) {
+    final cleanId = userId.trim();
+    final key = cleanId.isEmpty ? 'muzaid_user_blocks_default' : 'muzaid_user_blocks_$cleanId';
+    saveSet(key, users);
+  }
+
   static Set<String> getBlockedUsers() => getSet('muzaid_blocked_users');
   static void saveBlockedUsers(Iterable<String> users) => saveSet('muzaid_blocked_users', users);
 }

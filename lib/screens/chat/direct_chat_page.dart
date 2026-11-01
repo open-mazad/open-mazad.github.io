@@ -133,7 +133,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
     if (!settings.isLoggedIn) return;
     final txt = textCtrl.text.trim();
     if (txt.isEmpty) return;
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
     store.sendDirectMessage(widget.item, widget.otherParty, txt);
     textCtrl.clear();
     setState(() {});
@@ -142,7 +142,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
 
   Future<void> _pickImage(ImageSource source) async {
     if (!settings.isLoggedIn) return;
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
     try {
       final picked = await ImagePicker().pickImage(
         source: source,
@@ -166,7 +166,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
 
   Future<void> _pickVideo({bool gallery = false}) async {
     if (!settings.isLoggedIn) return;
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
     try {
       final picked = await ImagePicker().pickVideo(
         source: gallery ? ImageSource.gallery : ImageSource.camera,
@@ -188,7 +188,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
 
   Future<void> sendLocation() async {
     if (!settings.isLoggedIn) return;
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -336,7 +336,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> _shareAuctionItem() async {
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
     final availableItems = store.items.where((it) => !it.isEnded).toList();
     if (availableItems.isEmpty) {
       availableItems.add(widget.item);
@@ -415,7 +415,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> _recordVoiceNote() async {
-    if (store.isUserBlocked(widget.otherParty)) return;
+    if (store.isMutualOrBlockedBetween(widget.otherParty, me)) return;
     int seconds = 0;
     Timer? timer;
 
@@ -1507,7 +1507,8 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
         final allMsgs = store.getDirectMessages(item.id);
         final otherUuid = AuctionStore.userToUuid(widget.otherParty);
         final otherName = displayName(widget.otherParty);
-        final isBlocked = store.isUserBlocked(widget.otherParty);
+        final isBlocked = store.isUserBlockedByMe(widget.otherParty);
+        final isBlockedByOther = store.isUserBlockedBy(widget.otherParty, me);
 
         final msgs = allMsgs.where((m) {
           final isMeSender = store.isUserMe(m.sender);
@@ -1980,7 +1981,32 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                               ],
                             ),
                           )
-                        : Padding(
+                        : isBlockedByOther
+                            ? Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                color: Colors.grey.shade100,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.lock_outline,
+                                        color: Colors.grey.shade700, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        tr('لا يمكنك إرسال رسائل لهذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
+                                            'You cannot message this user due to privacy settings 🚫'),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade800,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10.0, vertical: 6.0),
                             child: Directionality(
@@ -2863,8 +2889,8 @@ Future<void> showBlockedUsersSheet(BuildContext context) async {
                   ),
                 ] else ...[
                   Text(
-                    tr('المستخدمون المحظورون لا يمكنهم مراسلتك أو التعليق على مزاداتك:',
-                        'Blocked users cannot chat with you or comment:'),
+                    tr('المستخدمون المحظورون لا يمكنهم مراسلتك، المزايدة على سلعك، أو التعليق عليها:',
+                        'Blocked users cannot message you, bid on your items, or comment:'),
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 12),
