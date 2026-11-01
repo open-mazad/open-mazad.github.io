@@ -159,6 +159,15 @@ DateTime parseToLocal(dynamic val, {DateTime? fallback}) {
   return parsed.toLocal();
 }
 
+/// إشعار بالتبويب النشط في شاشة التطبيق الرئيسية
+final ValueNotifier<int> globalActiveTabNotifier = ValueNotifier<int>(0);
+
+/// الانتقال المباشر إلى تبويب صفحة الإعدادات في الشريط السفلي دون فتح صفحة مكررة
+void navigateToSettingsTab(BuildContext context) {
+  Navigator.of(context).popUntil((route) => route.isFirst);
+  globalActiveTabNotifier.value = 4;
+}
+
 /// التحقق من تسجيل الدخول قبل تنفيذ العمليات المقيدة (مزايدة، تعليق، تقييم، مراسلة، حظر، فك قفل خاص)
 Future<bool> ensureUserLoggedIn(
   BuildContext context, {
@@ -197,18 +206,15 @@ Future<bool> ensureUserLoggedIn(
         ),
         FilledButton.icon(
           onPressed: () => Navigator.pop(ctx, true),
-          icon: const Icon(Icons.login, size: 18),
-          label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
+          icon: const Icon(Icons.arrow_forward, size: 18),
+          label: Text(tr('الانتقال إلى الإعدادات', 'Go to Settings')),
         ),
       ],
     ),
   );
 
   if (goToLogin == true && context.mounted) {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SettingsPage()),
-    );
+    navigateToSettingsTab(context);
   }
 
   return settings.isLoggedIn;

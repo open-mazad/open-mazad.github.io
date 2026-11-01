@@ -1479,9 +1479,10 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                     ),
                     const SizedBox(height: 20),
                     FilledButton.icon(
-                      onPressed: () => ensureUserLoggedIn(context),
-                      icon: const Icon(Icons.login),
-                      label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
+                      onPressed: () => navigateToSettingsTab(context),
+                      icon: const Icon(Icons.arrow_forward),
+                      label: Text(tr('الانتقال إلى الإعدادات لتسجيل الدخول',
+                          'Go to Settings to Sign In')),
                     ),
                   ],
                 ),
@@ -2170,15 +2171,11 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
                       if (widget.onGoToSettings != null) {
                         widget.onGoToSettings!();
                       } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const SettingsPage()),
-                        );
+                        navigateToSettingsTab(context);
                       }
                     },
-                    icon: const Icon(Icons.login),
-                    label: Text(tr('تسجيل الدخول من الإعدادات',
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(tr('الانتقال إلى الإعدادات لتسجيل الدخول',
                         'Go to Settings to Sign In')),
                   ),
                 ],

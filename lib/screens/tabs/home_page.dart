@@ -28,16 +28,25 @@ class _HomePageState extends State<HomePage> {
       final targetIndex = int.tryParse(returnTab);
       if (targetIndex != null && targetIndex >= 0 && targetIndex < 5) {
         tab = targetIndex;
+        globalActiveTabNotifier.value = targetIndex;
       }
     }
+    globalActiveTabNotifier.addListener(_onGlobalTabChanged);
     settings.addListener(_onSettingsAuthChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkProfileOnboarding();
     });
   }
 
+  void _onGlobalTabChanged() {
+    if (mounted && tab != globalActiveTabNotifier.value) {
+      setState(() => tab = globalActiveTabNotifier.value);
+    }
+  }
+
   @override
   void dispose() {
+    globalActiveTabNotifier.removeListener(_onGlobalTabChanged);
     settings.removeListener(_onSettingsAuthChanged);
     super.dispose();
   }
@@ -915,6 +924,7 @@ class _HomePageState extends State<HomePage> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(tr('سجّل الدخول أولاً من الإعدادات',
                           'Sign in from Settings first'))));
+                  globalActiveTabNotifier.value = 4;
                   setState(() => tab = 4);
                   return;
                 }
@@ -924,6 +934,7 @@ class _HomePageState extends State<HomePage> {
                 );
                 return;
               }
+              globalActiveTabNotifier.value = i;
               setState(() {
                 tab = i;
                 query = '';
