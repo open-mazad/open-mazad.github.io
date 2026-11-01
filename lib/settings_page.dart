@@ -1631,12 +1631,16 @@ class ProfileEditor extends StatefulWidget {
   final String submitLabel;
   final ProfileData? initial;
   final void Function(ProfileData data) onSubmit;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   const ProfileEditor({
     super.key,
     required this.submitLabel,
     required this.onSubmit,
     this.initial,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   @override
@@ -1782,6 +1786,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
     return Form(
       key: formKey,
       child: ListView(
+        shrinkWrap: widget.shrinkWrap,
+        physics: widget.physics,
         padding: const EdgeInsets.all(16),
         children: [
           Center(
@@ -1929,5 +1935,72 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 }
 
-/// تم إلغاء نافذة إكمال البيانات المنبثقة نهائياً بناءً على طلب المستخدم
-Future<bool> showCompleteProfileDialog(BuildContext context) async => true;
+/// نافذة تأكيد بيانات الملف الشخصي (غير إجبارية وقابلة للإغلاق والتخطي)
+Future<bool> showCompleteProfileDialog(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          const Icon(Icons.verified_user, color: Colors.blueAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr('إكمال وتأكيد بيانات الحساب', 'Complete Your Profile'),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            tooltip: tr('إغلاق', 'Close'),
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                tr(
+                  'يرجى تأكيد اسمك ومحافظتك للبدء في المزايدة ونشر المزادات.',
+                  'Please confirm your name and governorate to start bidding and creating auctions.',
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ProfileEditor(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                submitLabel: tr('حفظ ومتابعة للمزاد 🚀', 'Save and Continue 🚀'),
+                initial: settings.profileData,
+                onSubmit: (data) async {
+                  await settings.completeOnboarding(data);
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  tr('تخطي والمتابعة لاحقاً', 'Skip and continue later'),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  return result ?? false;
+}

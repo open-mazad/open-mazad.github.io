@@ -65,6 +65,9 @@ class _HomePageState extends State<HomePage> {
     _homePageCtrl = PageController(initialPage: _tabToPageIndex(tab));
     globalActiveTabNotifier.addListener(_onGlobalTabChanged);
     settings.addListener(_onSettingsAuthChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkProfileOnboarding();
+    });
   }
 
   void _onGlobalTabChanged() {
@@ -94,6 +97,7 @@ class _HomePageState extends State<HomePage> {
 
   void _onSettingsAuthChanged() {
     if (!mounted) return;
+    _checkProfileOnboarding();
     final returnTab = LocalStorageHelper.read('auth_return_tab');
     if (returnTab != null) {
       LocalStorageHelper.delete('auth_return_tab');
@@ -104,7 +108,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _checkProfileOnboarding() {}
+  void _checkProfileOnboarding() {
+    if (!mounted) return;
+    if (settings.isLoggedIn && settings.needsProfileOnboarding) {
+      showCompleteProfileDialog(context);
+    }
+  }
 
   List<String> get titles => [
         tr('الرئيسية', 'Home'),
