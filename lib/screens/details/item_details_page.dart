@@ -1375,7 +1375,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 11.5),
                       ),
-                      trailing: item.seller != me
+                      trailing: (settings.isLoggedIn && !store.isItemSeller(item))
                           ? FilledButton.tonalIcon(
                               style: FilledButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
