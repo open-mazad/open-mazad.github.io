@@ -725,7 +725,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(titles[tab]),
+                    Text(
+                      tr('المزاد المفتوح', 'Open Mazad'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
                   ],
                 )
               : Text(titles[tab]),
