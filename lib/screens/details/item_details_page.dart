@@ -438,6 +438,575 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     ));
   }
 
+  void _showBidderActionsSheet(Item item, Bid bid, bool isTopBid) {
+    final bidder = bid.bidder;
+    final isMe = store.isUserMe(bidder);
+    final isSeller = store.isItemSeller(item);
+    final canDelete = isSeller || isMe || settings.isAdmin;
+    final isBlocked = store.isUserBlockedByMe(bidder);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      buildUserAvatar(bidder, radius: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName(bidder),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isTopBid) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      tr('أعلى مزايدة 👑', 'Top Bid 👑'),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.brown.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${tr("المبلغ:", "Amount:")} ${formatPrice(bid.amount)} • ${ago(bid.time)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          showUserProfileSheet(context, bidder);
+                        },
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: Text(tr('الملف الشخصي', 'Profile')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline,
+                        color: Colors.blue, size: 20),
+                  ),
+                  title: Text(
+                    tr('مراسلة المزايد', 'Message Bidder'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    tr('توجيه فوري لفتح محادثة مباشرة مع صاحب المزايدة',
+                        'Open direct chat with bidder'),
+                    style: TextStyle(
+                        fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _handleMessageBidder(item, bidder);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.delete_outline,
+                        color: Colors.red.shade700, size: 20),
+                  ),
+                  title: Text(
+                    tr('حذف المزايدة', 'Delete Bid'),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red.shade700),
+                  ),
+                  subtitle: Text(
+                    tr('استبعاد وحذف المزايدة المحددة من السجل',
+                        'Remove bid from history'),
+                    style: TextStyle(
+                        fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _handleDeleteBid(item, bid, canDelete);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.flag_outlined,
+                        color: Colors.orange.shade800, size: 20),
+                  ),
+                  title: Text(
+                    tr('إبلاغ عن المزايدة', 'Report Bid'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    tr('رفع تقرير بمخالفة ضد المستخدم أو قيمة المزايدة',
+                        'Submit violation report against user or bid value'),
+                    style: TextStyle(
+                        fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _handleReportBidder(item, bid);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isBlocked ? Colors.teal : Colors.purple)
+                          .withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isBlocked ? Icons.lock_open : Icons.block,
+                      color: isBlocked ? Colors.teal : Colors.purple,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    isBlocked
+                        ? tr('إلغاء حظر المزايد', 'Unblock Bidder')
+                        : tr('حظر المزايد من الإعلان', 'Block Bidder from Listing'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isBlocked ? Colors.teal : Colors.purple,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isBlocked
+                        ? tr('إلغاء الحظر والسماح له بتقديم عروض مجدداً',
+                            'Unblock and allow user to bid again')
+                        : tr('حظر حساب المزايد نهائياً من تقديم أي عروض مستقبلية على الإعلان',
+                            'Block user permanently from making future bids'),
+                    style: TextStyle(
+                        fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _handleBlockBidder(item, bidder, isBlocked);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleMessageBidder(Item item, String bidder) async {
+    if (store.isUserMe(bidder)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('لا يمكنك مراسلة نفسك 🚫', 'You cannot message yourself 🚫')),
+        backgroundColor: Colors.orange.shade800,
+      ));
+      return;
+    }
+
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول لمراسلة هذا المزايد 💬',
+        'Please sign in to message this bidder 💬',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
+    if (store.isMutualOrBlockedBetween(bidder, me)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'لا يمكنك مراسلة هذا المستخدم بسبب وجود حظر نشط بينكما 🚫',
+          'Cannot message this user due to an active block 🚫',
+        )),
+        backgroundColor: Colors.red.shade700,
+      ));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DirectChatPage(
+          item: item,
+          otherParty: bidder,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteBid(Item item, Bid bid, bool canDelete) async {
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول أولاً لإجراء هذا التعديل',
+        'Please sign in first',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
+    if (!canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'صاحب الإعلان فقط (أو صاحب المزايدة) يمكنه حذف واستبعاد هذه المزايدة 🚫',
+          'Only the seller or bidder can delete this bid 🚫',
+        )),
+        backgroundColor: Colors.red.shade700,
+      ));
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.delete_forever, color: Colors.red),
+            const SizedBox(width: 8),
+            Expanded(child: Text(tr('تأكيد حذف المزايدة', 'Confirm Delete Bid'))),
+          ],
+        ),
+        content: Text(
+          tr(
+            'هل أنت متأكد من رغبتك في استبعاد وحذف المزايدة بقيمة (${formatPrice(bid.amount)}) المقدمة من "${displayName(bid.bidder)}"؟\n\nسيتم تحديث السعر وصاحب أعلى مزايدة تلقائياً.',
+            'Are you sure you want to delete bid (${formatPrice(bid.amount)}) by "${displayName(bid.bidder)}"?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('إلغاء', 'Cancel')),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_outline),
+            label: Text(tr('نعم، حذف واستبعاد', 'Yes, Delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final err = await store.deleteBid(item, bid);
+      if (!mounted) return;
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(err),
+          backgroundColor: Colors.red,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr(
+            'تم حذف المزايدة واستبعادها من السجل بنجاح 🗑️',
+            'Bid deleted successfully 🗑️',
+          )),
+          backgroundColor: Colors.green.shade700,
+        ));
+      }
+    }
+  }
+
+  Future<void> _handleReportBidder(Item item, Bid bid) async {
+    final bidder = bid.bidder;
+    if (store.isUserMe(bidder)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('لا يمكنك الإبلاغ عن نفسك 🚫', 'You cannot report yourself 🚫')),
+        backgroundColor: Colors.orange.shade800,
+      ));
+      return;
+    }
+
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول لرفع بلاغ للإدارة 🚨',
+        'Please sign in to submit a report 🚨',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
+    final reasonCtrl = TextEditingController();
+    String selectedPreset = 'مزايدة وهمية لرفع السعر (تلاعب)';
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.report_gmailerrorred, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('إبلاغ عن مزايدة / مستخدم', 'Report Bid or User')),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${tr("المشكو في حقه:", "Reported user:")} ${displayName(bidder)}'),
+              const SizedBox(height: 4),
+              Text(
+                '${tr("قيمة المزايدة:", "Bid amount:")} ${formatPrice(bid.amount)}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: selectedPreset,
+                isExpanded: true,
+                items: [
+                  'مزايدة وهمية لرفع السعر (تلاعب)',
+                  'مزايدة غير جادة أو تعجيزية',
+                  'حساب مشبوه أو احتيالي',
+                  'تخلف عن التواصل أو السداد',
+                  'سبب آخر',
+                ]
+                    .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s, style: const TextStyle(fontSize: 13))))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setSt(() => selectedPreset = v);
+                },
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: tr('تفاصيل إضافية للإدارة', 'Additional details'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('إلغاء', 'Cancel')),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.send),
+              label: Text(tr('إرسال البلاغ للإدارة', 'Submit Report')),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (ok == true && mounted) {
+      final extra = reasonCtrl.text.trim();
+      final fullReason =
+          'مزايدة بقيمة ${formatPrice(bid.amount)}: ${extra.isEmpty ? selectedPreset : "$selectedPreset - $extra"}';
+      store.submitReport(
+        item: item,
+        reportedUser: bidder,
+        reason: fullReason,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'تم رفع البلاغ إلى لوحة الإدارة لمراجعته واتخاذ إجراء الإنذار أو الحظر 🛡️',
+          'Report sent to Admin Dashboard for review 🛡️',
+        )),
+        backgroundColor: Colors.orange.shade900,
+      ));
+    }
+  }
+
+  Future<void> _handleBlockBidder(Item item, String bidder, bool isCurrentlyBlocked) async {
+    if (store.isUserMe(bidder)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('لا يمكنك حظر حسابك الخاص 🚫', 'You cannot block yourself 🚫')),
+        backgroundColor: Colors.orange.shade800,
+      ));
+      return;
+    }
+
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول لإدارة الحظر',
+        'Please sign in to manage blocks',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
+    if (isCurrentlyBlocked) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.lock_open, color: Colors.teal),
+              const SizedBox(width: 8),
+              Expanded(child: Text(tr('إلغاء حظر المزايد', 'Unblock Bidder'))),
+            ],
+          ),
+          content: Text(
+            tr(
+              'هل تريد إلغاء حظر "${displayName(bidder)}"؟\nسيتمكن المستخدم من المزايدة على إعلاناتك ومراسلتك مجدداً.',
+              'Do you want to unblock "${displayName(bidder)}"?',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('إلغاء', 'Cancel')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('نعم، إلغاء الحظر', 'Yes, Unblock')),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        store.unblockUser(bidder);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('تم إلغاء حظر المزايد بنجاح', 'Bidder unblocked successfully')),
+          backgroundColor: Colors.teal,
+        ));
+      }
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.block, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(child: Text(tr('حظر المزايد من الإعلان', 'Block Bidder from Listing'))),
+            ],
+          ),
+          content: Text(
+            tr(
+              'هل تريد حظر "${displayName(bidder)}" نهائياً؟\n\n• سيتم حظر المزايد نهائياً من تقديم أي عروض أو مزايدات مستقبلية على هذا الإعلان وكافة إعلاناتك.\n• لن يتمكن من استخدام الشراء الفوري أو التعليق أو مراسلتك.',
+              'Are you sure you want to block "${displayName(bidder)}"? They will be prevented from bidding on any of your items.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('إلغاء', 'Cancel')),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade800),
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.block),
+              label: Text(tr('نعم، حظر المزايد 🚫', 'Yes, Block 🚫')),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        store.blockUser(bidder);
+        if (item.autoBids.containsKey(bidder)) {
+          item.autoBids.remove(bidder);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr(
+            'تم حظر المزايد بنجاح ومنعه نهائياً من تقديم أي عروض مستقبلية 🚫',
+            'Bidder blocked from making future bids 🚫',
+          )),
+          backgroundColor: Colors.red.shade700,
+        ));
+      }
+    }
+  }
+
   Widget banner(String text, Color color) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -1462,87 +2031,192 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       final index = entry.key;
                       final b = entry.value;
                       final isTopBid = index == 0;
-                      return ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        onTap: () => showUserProfileSheet(context, b.bidder),
-                        leading: buildUserAvatar(
-                          b.bidder,
-                          radius: 18,
-                          badge: isTopBid
-                              ? Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.amber,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.emoji_events,
-                                      size: 11, color: Colors.brown),
-                                )
-                              : (b.isAuto
-                                  ? Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.indigo,
-                                        shape: BoxShape.circle,
+                      final isMe = store.isUserMe(b.bidder);
+                      return Card(
+                        elevation: isTopBid ? 1.5 : 0,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isTopBid
+                                ? Colors.amber.shade400
+                                : scheme.outlineVariant.withValues(alpha: 0.6),
+                            width: isTopBid ? 1.4 : 1,
+                          ),
+                        ),
+                        color: isTopBid
+                            ? Colors.amber.withValues(alpha: 0.05)
+                            : scheme.surfaceContainerLowest,
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _showBidderActionsSheet(item, b, isTopBid),
+                          hoverColor: scheme.primary.withValues(alpha: 0.08),
+                          splashColor: scheme.primary.withValues(alpha: 0.16),
+                          highlightColor: scheme.primary.withValues(alpha: 0.05),
+                          mouseCursor: SystemMouseCursors.click,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Row(
+                              children: [
+                                buildUserAvatar(
+                                  b.bidder,
+                                  radius: 20,
+                                  badge: isTopBid
+                                      ? Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.amber,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.emoji_events,
+                                              size: 11, color: Colors.brown),
+                                        )
+                                      : (b.isAuto
+                                          ? Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.indigo,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.auto_mode,
+                                                  size: 11, color: Colors.white),
+                                            )
+                                          : null),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              displayName(b.bidder),
+                                              style: TextStyle(
+                                                fontWeight: isTopBid
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isMe) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: scheme.primaryContainer,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                tr('أنت', 'You'),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: scheme.onPrimaryContainer,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          if (isTopBid) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade100,
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(
+                                                    color: Colors.amber.shade400),
+                                              ),
+                                              child: Text(
+                                                tr('أعلى مزايدة 👑', 'Top Bid 👑'),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.brown.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          if (b.isAuto) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.indigo.shade50,
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(
+                                                    color: Colors.indigo.shade200),
+                                              ),
+                                              child: Text(
+                                                tr('تلقائية ⚡', 'Auto ⚡'),
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.indigo,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                      child: const Icon(Icons.auto_mode,
-                                          size: 11, color: Colors.white),
-                                    )
-                                  : null),
-                        ),
-                        title: Row(
-                          children: [
-                            Text(displayName(b.bidder),
-                                style: TextStyle(
-                                    fontWeight: isTopBid
-                                        ? FontWeight.bold
-                                        : FontWeight.w600)),
-                            if (isTopBid) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.shade100,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: Colors.amber.shade400),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        ago(b.time),
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: Text(tr('أعلى مزايدة 👑', 'Top Bid 👑'),
-                                    style: TextStyle(
-                                        fontSize: 10,
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      formatPrice(b.amount),
+                                      style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.brown.shade800)),
-                              ),
-                            ],
-                            if (b.isAuto) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: Colors.indigo.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: Colors.indigo.shade200),
+                                        fontSize: 15,
+                                        color: isTopBid
+                                            ? Colors.green.shade800
+                                            : scheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          tr('خيارات', 'Options'),
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 14,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                child: Text(tr('تلقائية ⚡', 'Auto ⚡'),
-                                    style: const TextStyle(
-                                        fontSize: 10, color: Colors.indigo)),
-                              ),
-                            ],
-                          ],
+                              ],
+                            ),
+                          ),
                         ),
-                        subtitle: Text(ago(b.time)),
-                        trailing: Text(formatPrice(b.amount),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: isTopBid
-                                  ? Colors.green.shade800
-                                  : scheme.primary,
-                            )),
                       );
                     },
                   );

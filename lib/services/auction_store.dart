@@ -2151,6 +2151,59 @@ class AuctionStore extends ChangeNotifier {
     return null;
   }
 
+  /// حذف واستبعاد مزايدة معينة من سجل مزايدات السلعة
+  Future<String?> deleteBid(Item item, Bid bid) async {
+    final idx = item.bids.indexOf(bid);
+    final removed = idx != -1
+        ? item.bids.removeAt(idx)
+        : () {
+            final matchIdx = item.bids.indexWhere((b) =>
+                b.bidder == bid.bidder &&
+                b.amount == bid.amount &&
+                (b.time.difference(bid.time).inSeconds.abs() <= 3 || b.time == bid.time));
+            return matchIdx != -1 ? item.bids.removeAt(matchIdx) : null;
+          }();
+
+    if (removed == null) {
+      return tr('لم يتم العثور على المزايدة لحذفها', 'Bid not found');
+    }
+
+    // فرز المزايدات للتأكد من الترتيب التنازلي الصحيح
+    item.bids.sort((a, b) {
+      final cmp = b.amount.compareTo(a.amount);
+      if (cmp != 0) return cmp;
+      return b.time.compareTo(a.time);
+    });
+
+    _persistAndSync();
+    notifyListeners();
+
+    if (settings.isCloudConfigured) {
+      try {
+        final client = supabaseClient;
+        if (client != null) {
+          final itemUuid = itemToUuid(item.id);
+          final bidderUuid = userToUuid(bid.bidder);
+          await client
+              .from('bids')
+              .delete()
+              .eq('item_id', itemUuid)
+              .eq('bidder_id', bidderUuid)
+              .eq('amount', bid.amount);
+
+          final topBidder = item.highestBidder;
+          await client.from('items').update({
+            'current_price': item.currentPrice,
+            'highest_bidder_id': topBidder != null ? userToUuid(topBidder) : null,
+          }).eq('id', itemUuid);
+        }
+      } catch (e) {
+        debugPrint('Cloud delete bid error: $e');
+      }
+    }
+    return null;
+  }
+
   void adminCancelItem(Item item) {
     item.isCancelled = true;
     item.isLiveStreaming = false;
@@ -3062,6 +3115,11 @@ class AuctionStore extends ChangeNotifier {
     userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
     userBlockedMap[me] = Set<String>.from(_myBlockedUsers);
     LocalStorageHelper.saveUserBlockedUsers(currentId, _myBlockedUsers);
+    for (final it in items) {
+      if (it.seller == me && it.autoBids.containsKey(cleanUser)) {
+        it.autoBids.remove(cleanUser);
+      }
+    }
     _syncBlockedUsersToCloud();
     _persistAndSync();
     notifyListeners();
