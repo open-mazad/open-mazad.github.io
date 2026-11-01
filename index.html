@@ -6,13 +6,14 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="منصة المزاد المفتوح للمزادات الحية والتجارة المباشرة">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="المزاد المفتوح">
   <meta name="theme-color" content="#0f172a">
+  <meta name="msapplication-navbutton-color" content="#0f172a">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -33,8 +34,9 @@
       margin: 0;
       padding: 0;
     }
-    html, body {
-      background-color: #0f172a;
+    html, body, flutter-view, flt-glass-pane {
+      background-color: #0f172a !important;
+      background: #0f172a !important;
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", "Tajawal", "Helvetica Neue", sans-serif;
       width: 100%;
@@ -226,6 +228,6 @@
     }, 30000);
   </script>
 
-  <script src="flutter_bootstrap.js?v=20261101_2359" async></script>
+  <script src="flutter_bootstrap.js?v=20261102_0009" async></script>
 </body>
 </html>
