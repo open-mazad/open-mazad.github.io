@@ -936,6 +936,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         );
         final isFav = store.isFavorite(item.id);
         final sellerRating = store.getUserRating(item.seller);
+        final visibleAttributes = item.attributes.entries
+            .where((e) =>
+                !e.key.startsWith('_') &&
+                !e.key.toLowerCase().contains('buy_now_price') &&
+                e.value.trim().isNotEmpty)
+            .toList();
 
         // التحقق الصارم من رمز PIN (PIN Validation Guard)
         if (item.isPrivate && !store.isPrivateUnlocked(item)) {
@@ -1225,13 +1231,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   const SizedBox(height: 16),
 
                   // 4. المواصفات الخاصة بالفئة والحقول الذكية
-                  final visibleAttributes = item.attributes.entries
-                      .where((e) =>
-                          !e.key.startsWith('_') &&
-                          !e.key.toLowerCase().contains('buy_now_price') &&
-                          e.value.trim().isNotEmpty)
-                      .toList();
-
                   if (visibleAttributes.isNotEmpty) ...[
                     Card(
                       elevation: 0,
