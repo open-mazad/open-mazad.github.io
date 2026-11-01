@@ -159,7 +159,7 @@
       <div class="splash-progress-bar" id="splash-progress-bar"></div>
     </div>
     <div class="splash-status" id="splash-status-text">جاري بدء تشغيل المنصة...</div>
-    <div class="splash-substatus" id="splash-substatus-text">سيتم حفظ البيانات محلياً لتفتح فوراً لاحقاً</div>
+    <div class="splash-substatus" id="splash-substatus-text"></div>
   </div>
 
   <script>
@@ -198,7 +198,7 @@
 
     setTimeout(function() {
       if (statusText) statusText.textContent = "أوشك التحميل على الاكتمال... 🚀";
-      if (substatusText) substatusText.textContent = "سيتم تخزين المنصة بالهاتف لفتحها فوراً في المرات القادمة";
+      if (substatusText) substatusText.textContent = "";
     }, 9000);
 
     // الاستماع لحدث اكتمال أول إطار في Flutter Web
@@ -226,6 +226,6 @@
     }, 30000);
   </script>
 
-  <script src="flutter_bootstrap.js?v=20261101_1955" async></script>
+  <script src="flutter_bootstrap.js?v=20261101_2025" async></script>
 </body>
 </html>
