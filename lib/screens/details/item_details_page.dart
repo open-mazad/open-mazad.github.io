@@ -69,10 +69,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     );
     if (!loggedIn || !mounted) return;
 
-    if (settings.needsProfileOnboarding) {
-      await showCompleteProfileDialog(context);
-      if (!mounted || settings.needsProfileOnboarding) return;
-    }
     // منع البائع من المزايدة على سلعته الخاصة
     if (store.isItemSeller(liveItem)) {
       if (!mounted) return;

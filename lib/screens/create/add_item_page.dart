@@ -357,11 +357,6 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
 
-    if (settings.needsProfileOnboarding) {
-      await showCompleteProfileDialog(context);
-      if (!mounted || settings.needsProfileOnboarding) return;
-    }
-
     // التحقق الصارم من الحقول الإلزامية الخمسة وعرض التنبيهات الحمراء أسفل كل حقل
     final totalImages = pickedImages.length + existingImages.length;
     final hasImg = totalImages > 0;

@@ -785,8 +785,7 @@ class SettingsStore extends ChangeNotifier {
       photoPath = cleanPhoto;
       passwordHash =
           (map['passwordHash'] as String?)?.trim() ?? extractedHash ?? '';
-      needsProfileOnboarding =
-          (map['needsProfileOnboarding'] as bool?) ?? false;
+      needsProfileOnboarding = false;
       final loadedUrl = (map['supabaseUrl'] as String?)?.trim() ?? '';
       supabaseUrl = loadedUrl.isEmpty ? defaultSupabaseUrl : loadedUrl;
       final loadedKey = (map['supabaseAnonKey'] as String?)?.trim() ?? '';
@@ -994,7 +993,7 @@ class SettingsStore extends ChangeNotifier {
         thirdName = tName;
         governorate = defaultGov;
         photoPath = avatarUrl.isNotEmpty ? avatarUrl : null;
-        needsProfileOnboarding = true;
+        needsProfileOnboarding = false;
       }
     } catch (e) {
       debugPrint('Error linking Google account in Supabase: $e');
@@ -1462,74 +1461,6 @@ class SettingsPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
-        if (settings.isLoggedIn && settings.needsProfileOnboarding) {
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Card(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.person_add_alt_1_rounded,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 28),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              tr('إكمال معلومات الحساب لأول مرة',
-                                  'Complete Profile Information'),
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        tr(
-                          'أهلاً بك في المزاد المفتوح! يرجى إكمال اسمك ومحافظتك للمتابعة (الصورة اختيارية وتعتمد على حساب Google تلقائياً):',
-                          'Welcome! Please complete your name and governorate to continue:',
-                        ),
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const Divider(height: 24),
-                      Expanded(
-                        child: ProfileEditor(
-                          initial: settings.profileData,
-                          submitLabel: tr('التالي / إكمال التسجيل',
-                              'Next / Complete Registration'),
-                          onSubmit: (data) async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final err =
-                                await settings.completeOnboarding(data);
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(err ??
-                                    tr('تم إكمال حسابك بنجاح! مرحباً بك 🎉',
-                                        'Profile completed successfully! Welcome 🎉')),
-                                backgroundColor:
-                                    err == null ? Colors.green : Colors.red,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
@@ -1998,53 +1929,5 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 }
 
-/// نافذة منبثقة لإكمال وتأكيد بيانات الملف الشخصي عند التسجيل لأول مرة
-Future<bool> showCompleteProfileDialog(BuildContext context) async {
-  final result = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => AlertDialog(
-      title: Row(
-        children: [
-          const Icon(Icons.verified_user, color: Colors.blueAccent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tr('إكمال وتأكيد بيانات الحساب', 'Complete Your Profile'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tr(
-                  'أهلاً بك في تطبيق مزايدة! يرجى تأكيد اسمك ومحافظتك للبدء في المزايدة ونشر المزادات.',
-                  'Welcome to Muzaid! Please confirm your name and governorate to start bidding and creating auctions.',
-                ),
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              ProfileEditor(
-                submitLabel: tr('حفظ ومتابعة للمزاد 🚀', 'Save and Continue 🚀'),
-                initial: settings.profileData,
-                onSubmit: (data) async {
-                  await settings.completeOnboarding(data);
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx, true);
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  return result ?? false;
-}
+/// تم إلغاء نافذة إكمال البيانات المنبثقة نهائياً بناءً على طلب المستخدم
+Future<bool> showCompleteProfileDialog(BuildContext context) async => true;
