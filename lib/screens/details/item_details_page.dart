@@ -436,6 +436,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   void _showBidderActionsSheet(Item item, Bid bid, bool isTopBid) {
+    if (!store.isItemSeller(item) && !settings.isAdmin) return;
     final bidder = bid.bidder;
     final isMe = store.isUserMe(bidder);
     final isSeller = store.isItemSeller(item);
@@ -2029,6 +2030,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       final b = entry.value;
                       final isTopBid = index == 0;
                       final isMe = store.isUserMe(b.bidder);
+                      final isSeller = store.isItemSeller(item);
                       return Card(
                         elevation: isTopBid ? 1.5 : 0,
                         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -2046,11 +2048,21 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                             : scheme.surfaceContainerLowest,
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
-                          onTap: () => _showBidderActionsSheet(item, b, isTopBid),
-                          hoverColor: scheme.primary.withValues(alpha: 0.08),
-                          splashColor: scheme.primary.withValues(alpha: 0.16),
-                          highlightColor: scheme.primary.withValues(alpha: 0.05),
-                          mouseCursor: SystemMouseCursors.click,
+                          onTap: isSeller
+                              ? () => _showBidderActionsSheet(item, b, isTopBid)
+                              : null,
+                          hoverColor: isSeller
+                              ? scheme.primary.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                          splashColor: isSeller
+                              ? scheme.primary.withValues(alpha: 0.16)
+                              : Colors.transparent,
+                          highlightColor: isSeller
+                              ? scheme.primary.withValues(alpha: 0.05)
+                              : Colors.transparent,
+                          mouseCursor: isSeller
+                              ? SystemMouseCursors.click
+                              : SystemMouseCursors.basic,
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -2120,27 +2132,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                               ),
                                             ),
                                           ],
-                                          if (isTopBid) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.shade100,
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(
-                                                    color: Colors.amber.shade400),
-                                              ),
-                                              child: Text(
-                                                tr('أعلى مزايدة 👑', 'Top Bid 👑'),
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.brown.shade800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
                                           if (b.isAuto) ...[
                                             const SizedBox(width: 6),
                                             Container(
@@ -2189,25 +2180,25 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                             : scheme.primary,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          tr('خيارات', 'Options'),
+                                    if (isTopBid) ...[
+                                      const SizedBox(height: 3),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          tr('أعلى مزايدة 👑', 'Top Bid 👑'),
                                           style: TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.grey.shade500,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.brown.shade800,
                                           ),
                                         ),
-                                        Icon(
-                                          Icons.keyboard_arrow_down,
-                                          size: 14,
-                                          color: Colors.grey.shade500,
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],
