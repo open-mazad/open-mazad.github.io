@@ -39,8 +39,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onGlobalTabChanged() {
-    if (mounted && tab != globalActiveTabNotifier.value) {
-      setState(() => tab = globalActiveTabNotifier.value);
+    final nextTab = globalActiveTabNotifier.value;
+    if (mounted && nextTab >= 0 && nextTab < 5 && tab != nextTab) {
+      setState(() => tab = nextTab);
     }
   }
 

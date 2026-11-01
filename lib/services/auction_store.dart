@@ -1808,6 +1808,13 @@ class AuctionStore extends ChangeNotifier {
         'Bid must be higher than current price (${formatPrice(item.currentPrice)})',
       );
     }
+    // فحص عدم تجاوز السعر النهائي (إذا كان محدداً من قبل البائع)
+    if (item.buyNowPrice != null && item.buyNowPrice! > 0 && amount > item.buyNowPrice!) {
+      return tr(
+        'لا يمكن أن يتجاوز مبلغ المزايدة السعر النهائي (${formatPrice(item.buyNowPrice!)}). يمكنك الشراء الفوري بالسعر النهائي.',
+        'Bid cannot exceed the final buy-now price (${formatPrice(item.buyNowPrice!)})',
+      );
+    }
 
     final previousLeader = item.highestBidder;
 

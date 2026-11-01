@@ -101,9 +101,31 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
     final amount =
         int.tryParse(toLatinDigits(amountCtrl.text.trim()).replaceAll(',', ''));
-    final error = amount == null
-        ? tr('اكتب مبلغاً صحيحاً بالأرقام', 'Enter a valid number')
-        : store.placeBid(liveItem, amount);
+    if (amount == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('اكتب مبلغاً صحيحاً بالأرقام', 'Enter a valid number')),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    // فحص عدم تجاوز السعر النهائي (إذا كان محدداً من قبل البائع)
+    if (liveItem.buyNowPrice != null &&
+        liveItem.buyNowPrice! > 0 &&
+        amount > liveItem.buyNowPrice!) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(
+          'لا يمكن أن يتجاوز مبلغ المزايدة السعر النهائي (${formatPrice(liveItem.buyNowPrice!)}). يمكنك الشراء الفوري بالسعر النهائي.',
+          'Bid cannot exceed the final buy-now price (${formatPrice(liveItem.buyNowPrice!)}). You can buy now directly.',
+        )),
+        backgroundColor: Colors.orange.shade800,
+      ));
+      return;
+    }
+
+    final error = store.placeBid(liveItem, amount);
     if (!mounted) return;
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -752,42 +774,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       );
     }
 
-    // 3. إذا كان المستخدم هو صاحب السلعة (البائع)
+    // 3. إذا كان المستخدم هو صاحب السلعة (البائع)، لا نعرض بطاقة المزايدة أو تنبيه البائع
     if (store.isItemSeller(item)) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.storefront_outlined, color: Colors.blueAccent, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr('أنت صاحب هذا المزاد (البائع) 📦', 'You are the seller of this item 📦'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tr('لا يمكنك المزايدة على سلعتك. يمكنك إدارة المزاد وقبول السومة من زر الخيارات بالأعلى.',
-                        'You cannot bid on your own auction. Manage your listing from the top menu.'),
-                    style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // 4. المشتري: تقديم مزايدة تصاعدية
@@ -799,96 +788,65 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // حاوية السعر النهائي / الشراء الفوري لحسم الصفقة مباشرة
+        // السعر النهائي (إذا كان محدداً من قبل البائع) يظهر كزر وليبل أنيق فوق حقل المزايدة
         if (item.buyNowPrice != null && item.buyNowPrice! > 0 && !item.isEnded) ...[
           Container(
-            padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.amber.shade900.withValues(alpha: 0.12),
-                  Colors.amber.shade700.withValues(alpha: 0.05),
-                ],
-                begin: AlignmentDirectional.topStart,
-                end: AlignmentDirectional.bottomEnd,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.amber.shade600, width: 1.5),
+              color: Colors.amber.shade900.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade600, width: 1.2),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade700,
-                        shape: BoxShape.circle,
+                Icon(Icons.flash_on, color: Colors.amber.shade800, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('السعر النهائي المعتمد:', 'Final Fixed Price:'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                      child: const Icon(Icons.flash_on, color: Colors.white, size: 18),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr('السعر النهائي / الشراء الفوري', 'Buy Now / Final Price'),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber.shade900,
-                            ),
-                          ),
-                          Text(
-                            tr('حسم الصفقة وإقفال المزاد مباشرة دون انتظار', 'Settle immediately without waiting'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        formatPrice(item.buyNowPrice!),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade900,
+                        ),
                       ),
-                    ),
-                    Text(
-                      formatPrice(item.buyNowPrice!),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.amber.shade900,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                if (item.seller != me && !item.isEnded && !item.isScheduled) ...[
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.amber.shade800,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () => confirmBuyNow(item),
-                      icon: const Icon(Icons.flash_on, size: 18),
-                      label: Text(
-                        tr('حسم الصفقة وشراء فوري الآن ⚡', 'Buy Now & Settle Deal Now ⚡'),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
+                if (!item.isScheduled)
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.amber.shade800,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => confirmBuyNow(item),
+                    icon: const Icon(Icons.flash_on, size: 16),
+                    label: Text(
+                      tr('شراء فوري', 'Buy Now'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                ],
               ],
             ),
           ),
         ],
         Text(
           item.bids.isEmpty
-              ? '${tr("سعر بداية المزاد:", "Starting Price:")} ${formatPrice(item.startPrice)}'
+              ? '${tr("أدخل مبلغ مزايدتك (سعر البداية", "Starting bid")} ${formatPrice(item.startPrice)}):'
               : '${tr("أدخل مبلغ مزايدتك (أعلى من", "Enter your bid above")} ${formatPrice(current)}):',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
         ),
@@ -900,6 +858,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             labelText: tr('مبلغ مزايدتك (دينار)', 'Your Bid Amount (IQD)'),
+            helperText: (item.buyNowPrice != null && item.buyNowPrice! > 0)
+                ? '${tr("الحد الأقصى للمزايدة هو السعر النهائي:", "Max bid is final price:")} ${formatPrice(item.buyNowPrice!)}'
+                : null,
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.gavel),
           ),
@@ -909,22 +870,16 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
           spacing: 8,
           runSpacing: 6,
           children: [
-            ActionChip(
-              label: Text('+1,000 (${formatPrice(current + 1000)})'),
-              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 1000}',
-            ),
-            ActionChip(
-              label: Text('+5,000 (${formatPrice(current + 5000)})'),
-              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 5000}',
-            ),
-            ActionChip(
-              label: Text('+10,000 (${formatPrice(current + 10000)})'),
-              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 10000}',
-            ),
-            ActionChip(
-              label: Text('+50,000 (${formatPrice(current + 50000)})'),
-              onPressed: isMeHighestBidder ? null : () => amountCtrl.text = '${current + 50000}',
-            ),
+            for (final step in [1000, 5000, 10000, 50000])
+              if (item.buyNowPrice == null ||
+                  item.buyNowPrice! <= 0 ||
+                  (current + step) <= item.buyNowPrice!)
+                ActionChip(
+                  label: Text('+$step (${formatPrice(current + step)})'),
+                  onPressed: isMeHighestBidder
+                      ? null
+                      : () => amountCtrl.text = '${current + step}',
+                ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1183,16 +1138,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               statBox(
-                                item.bids.isEmpty
-                                    ? tr('سعر بداية المزاد', 'Starting Price')
-                                    : tr('السعر الحالي', 'Current Bid'),
+                                tr('السعر الحالي', 'Current Price'),
                                 formatPrice(item.currentPrice),
                               ),
-                              if (item.bids.isNotEmpty)
-                                statBox(
-                                  tr('سعر البداية', 'Start Price'),
-                                  formatPrice(item.startPrice),
-                                ),
                               statBox(
                                 item.isScheduled
                                     ? tr('يبدأ خلال', 'Starts In')
@@ -1221,7 +1169,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 3. الشارات والبيانات التعريفية (حالة السلعة والتصنيف الأساسي)
+                  // 3. الشارات والبيانات التعريفية (حالة السلعة، طريقة التسليم، والتصنيف الأساسي)
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
@@ -1234,6 +1182,11 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         avatar: const Icon(Icons.verified_outlined, size: 16),
                         label: Text(item.condition),
                       ),
+                      if (item.deliveryMethod.trim().isNotEmpty)
+                        Chip(
+                          avatar: const Icon(Icons.local_shipping_outlined, size: 16),
+                          label: Text(item.deliveryMethod.trim()),
+                        ),
                       if (item.isPrivate)
                         Chip(
                           avatar: const Icon(Icons.lock, size: 16),
@@ -1341,73 +1294,76 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 6. كارت معلومات البائع (الاسم، التقييم، وزر المراسلة)
-                  Card(
-                    elevation: 0,
-                    color: scheme.surfaceContainerLow,
-                    child: ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      onTap: () => showUserProfileSheet(context, item.seller),
-                      leading: buildUserAvatar(item.seller, radius: 22),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${tr("البائع:", "Seller:")} ${displayName(item.seller)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.star, color: Colors.amber, size: 15),
-                          Text(
-                            sellerRating.toStringAsFixed(1),
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '📍 ${item.location} - ${item.area} • 🚚 ${item.deliveryMethod}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11.5),
-                      ),
-                      trailing: (settings.isLoggedIn && !store.isItemSeller(item))
-                          ? FilledButton.tonalIcon(
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 6),
-                                visualDensity: VisualDensity.compact,
+                  // 6. كارت معلومات البائع (يختفي إذا كان المستخدم هو البائع نفسه)
+                  if (!store.isItemSeller(item)) ...[
+                    Card(
+                      elevation: 0,
+                      color: scheme.surfaceContainerLow,
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        onTap: () => showUserProfileSheet(context, item.seller),
+                        leading: buildUserAvatar(item.seller, radius: 22),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${tr("البائع:", "Seller:")} ${displayName(item.seller)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              onPressed: () async {
-                                final loggedIn = await ensureUserLoggedIn(
-                                  context,
-                                  reason: tr(
-                                    'يجب تسجيل الدخول لمراسلة البائع وبدء المحادثة 💬',
-                                    'Please sign in to chat with the seller 💬',
-                                  ),
-                                );
-                                if (!loggedIn || !context.mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => DirectChatPage(
-                                      item: item,
-                                      otherParty: item.seller,
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.star, color: Colors.amber, size: 15),
+                            Text(
+                              sellerRating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '📍 ${item.location} - ${item.area}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                        trailing: (settings.isLoggedIn && !store.isItemSeller(item))
+                            ? FilledButton.tonalIcon(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () async {
+                                  final loggedIn = await ensureUserLoggedIn(
+                                    context,
+                                    reason: tr(
+                                      'يجب تسجيل الدخول لمراسلة البائع وبدء المحادثة 💬',
+                                      'Please sign in to chat with the seller 💬',
                                     ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                              label: Text(tr('مراسلة', 'Chat'),
-                                  style: const TextStyle(fontSize: 12)),
-                            )
-                          : null,
+                                  );
+                                  if (!loggedIn || !context.mounted) return;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => DirectChatPage(
+                                        item: item,
+                                        otherParty: item.seller,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                                label: Text(tr('مراسلة', 'Chat'),
+                                    style: const TextStyle(fontSize: 12)),
+                              )
+                            : null,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                  ],
                   const SizedBox(height: 16),
 
                   // 7. قسم المزايدة وإدخال مبالغ المزايدة

@@ -164,7 +164,11 @@ final ValueNotifier<int> globalActiveTabNotifier = ValueNotifier<int>(0);
 
 /// الانتقال المباشر إلى تبويب صفحة الإعدادات في الشريط السفلي دون فتح صفحة مكررة
 void navigateToSettingsTab(BuildContext context) {
-  Navigator.of(context).popUntil((route) => route.isFirst);
+  try {
+    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+  } catch (_) {}
+  // إعادة تعيين القيمة لضمان تفعيل المستمعين حتى لو كانت القيمة الحالية 4
+  globalActiveTabNotifier.value = -1;
   globalActiveTabNotifier.value = 4;
 }
 
