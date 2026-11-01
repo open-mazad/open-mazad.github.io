@@ -1600,6 +1600,7 @@ class FullscreenImageViewer extends StatefulWidget {
 class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
   late int _currentIndex;
   late final PageController _pageCtrl;
+  bool _isZoomed = false;
 
   @override
   void initState() {
@@ -1618,12 +1619,15 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.black54,
+        elevation: 0,
         foregroundColor: Colors.white,
         title: Text(
           '${_currentIndex + 1} / ${widget.images.length}',
-          style: const TextStyle(fontSize: 16, color: Colors.white),
+          style: const TextStyle(
+              fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
@@ -1635,22 +1639,107 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
       ),
       body: PageView.builder(
         controller: _pageCtrl,
+        physics: _isZoomed
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(),
         itemCount: widget.images.length,
-        onPageChanged: (idx) => setState(() => _currentIndex = idx),
+        onPageChanged: (idx) {
+          setState(() {
+            _currentIndex = idx;
+            _isZoomed = false;
+          });
+        },
         itemBuilder: (context, idx) {
-          return Center(
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 5.0,
-              panEnabled: true,
-              scaleEnabled: true,
-              child: buildSmartImage(
-                widget.images[idx],
-                fit: BoxFit.contain,
-              ),
-            ),
+          return _ZoomableImagePage(
+            imageUrl: widget.images[idx],
+            onZoomChanged: (zoomed) {
+              if (_isZoomed != zoomed) {
+                setState(() => _isZoomed = zoomed);
+              }
+            },
           );
         },
+      ),
+    );
+  }
+}
+
+class _ZoomableImagePage extends StatefulWidget {
+  final String imageUrl;
+  final ValueChanged<bool> onZoomChanged;
+
+  const _ZoomableImagePage({
+    required this.imageUrl,
+    required this.onZoomChanged,
+  });
+
+  @override
+  State<_ZoomableImagePage> createState() => _ZoomableImagePageState();
+}
+
+class _ZoomableImagePageState extends State<_ZoomableImagePage> {
+  final TransformationController _transformCtrl = TransformationController();
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformCtrl.addListener(_onTransformChanged);
+  }
+
+  void _onTransformChanged() {
+    final scale = _transformCtrl.value.getMaxScaleOnAxis();
+    widget.onZoomChanged(scale > 1.05);
+  }
+
+  @override
+  void dispose() {
+    _transformCtrl.removeListener(_onTransformChanged);
+    _transformCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    final scale = _transformCtrl.value.getMaxScaleOnAxis();
+    if (scale > 1.05) {
+      // إعادة التكبير إلى الوضع الطبيعي
+      _transformCtrl.value = Matrix4.identity();
+    } else {
+      // تكبير فوري على موضع النقر المزدوج
+      final position = _doubleTapDetails?.localPosition ?? Offset.zero;
+      final x = -position.dx * 1.5;
+      final y = -position.dy * 1.5;
+      _transformCtrl.value = Matrix4.identity()
+        ..translate(x, y)
+        ..scale(2.5);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onDoubleTapDown: (details) => _doubleTapDetails = details,
+      onDoubleTap: _handleDoubleTap,
+      child: SizedBox.expand(
+        child: InteractiveViewer(
+          transformationController: _transformCtrl,
+          clipBehavior: Clip.none,
+          minScale: 1.0,
+          maxScale: 6.0,
+          panEnabled: true,
+          scaleEnabled: true,
+          boundaryMargin: const EdgeInsets.all(double.infinity),
+          child: SizedBox.expand(
+            child: Center(
+              child: buildSmartImage(
+                widget.imageUrl,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
