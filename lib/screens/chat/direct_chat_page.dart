@@ -130,6 +130,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   void send() {
+    if (!settings.isLoggedIn) return;
     final txt = textCtrl.text.trim();
     if (txt.isEmpty) return;
     if (store.isUserBlocked(widget.otherParty)) return;
@@ -140,6 +141,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (!settings.isLoggedIn) return;
     if (store.isUserBlocked(widget.otherParty)) return;
     try {
       final picked = await ImagePicker().pickImage(
@@ -163,6 +165,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> _pickVideo({bool gallery = false}) async {
+    if (!settings.isLoggedIn) return;
     if (store.isUserBlocked(widget.otherParty)) return;
     try {
       final picked = await ImagePicker().pickVideo(
@@ -184,6 +187,7 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> sendLocation() async {
+    if (!settings.isLoggedIn) return;
     if (store.isUserBlocked(widget.otherParty)) return;
 
     if (mounted) {
@@ -1279,6 +1283,15 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
   }
 
   Future<void> _confirmToggleBlock(String otherName, bool currentlyBlocked) async {
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول أولاً لإدارة الحظر وقائمة المحظورين.',
+        'Please sign in to block or unblock users.',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
     if (currentlyBlocked) {
       store.unblockUser(widget.otherParty);
       if (!mounted) return;
@@ -1429,6 +1442,56 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    if (!settings.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(displayName(widget.otherParty)),
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Card(
+              margin: const EdgeInsets.all(20),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_outline,
+                        size: 64, color: Colors.orange),
+                    const SizedBox(height: 16),
+                    Text(
+                      tr('تسجيل الدخول مطلوب 🔒', 'Sign In Required 🔒'),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(
+                        'يجب تسجيل الدخول بحسابك أولاً لتتمكن من مراسلة البائع ومتابعة المحادثات.',
+                        'Please sign in to message the seller and view conversations.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: () => ensureUserLoggedIn(context),
+                      icon: const Icon(Icons.login),
+                      label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
@@ -2742,7 +2805,16 @@ class _InAppVoiceCallScreenState extends State<InAppVoiceCallScreen> {
 
 // ======================= إدارة المستخدمين المحظورين (Blocked Users Sheet) =======================
 
-void showBlockedUsersSheet(BuildContext context) {
+Future<void> showBlockedUsersSheet(BuildContext context) async {
+  final loggedIn = await ensureUserLoggedIn(
+    context,
+    reason: tr(
+      'يجب تسجيل الدخول لعرض وإدارة قائمة المستخدمين المحظورين.',
+      'Please sign in to view and manage blocked users.',
+    ),
+  );
+  if (!loggedIn || !context.mounted) return;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,

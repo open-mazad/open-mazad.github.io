@@ -29,7 +29,16 @@ class _UserProfileSheetState extends State<UserProfileSheet> {
     super.dispose();
   }
 
-  void submitReview() {
+  Future<void> submitReview() async {
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول بحسابك أولاً لتقييم المستخدم وإضافة مراجعة ⭐',
+        'Please sign in to rate this user and leave a review ⭐',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
     final comment = reviewCtrl.text.trim();
     if (comment.isEmpty) return;
     store.addReview(widget.username, selectedStars, comment);

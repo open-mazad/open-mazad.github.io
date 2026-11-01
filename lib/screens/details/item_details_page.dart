@@ -59,6 +59,15 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   Future<void> submitManualBid() async {
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول بحسابك أولاً لتقديم مزايدة على هذه السلعة 🔨',
+        'Please sign in first to place a bid on this item 🔨',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
     if (settings.needsProfileOnboarding) {
       await showCompleteProfileDialog(context);
       if (!mounted || settings.needsProfileOnboarding) return;
@@ -104,7 +113,16 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (error == null) amountCtrl.clear();
   }
 
-  void submitComment() {
+  Future<void> submitComment() async {
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول أولاً لإضافة تعليق أو استفسار على هذا المزاد 💬',
+        'Please sign in to post a comment or inquiry on this auction 💬',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
+
     final txt = commentCtrl.text.trim();
     if (txt.isEmpty) return;
     store.addComment(liveItem, txt);
@@ -266,42 +284,14 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (item.buyNowPrice == null || item.buyNowPrice! <= 0) return;
 
     // تقييد عملية الشراء الفوري (Auth Guard)
-    if (!settings.isLoggedIn) {
-      final goToLogin = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.lock_outline, color: Colors.orange),
-              const SizedBox(width: 8),
-              Expanded(child: Text(tr('تسجيل الدخول مطلوب', 'Sign In Required'))),
-            ],
-          ),
-          content: Text(tr(
-            'يجب تسجيل الدخول بحسابك أولاً لتتمكن من استخدام خاصية الشراء الفوري وحسم الصفقة.',
-            'You must sign in first to use Buy Now and complete the purchase.',
-          )),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('إلغاء', 'Cancel')),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.login),
-              label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
-            ),
-          ],
-        ),
-      );
-      if (goToLogin == true && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SettingsPage()),
-        );
-      }
-      return;
-    }
+    final loggedIn = await ensureUserLoggedIn(
+      context,
+      reason: tr(
+        'يجب تسجيل الدخول بحسابك أولاً لتتمكن من استخدام خاصية الشراء الفوري وحسم الصفقة.',
+        'You must sign in first to use Buy Now and complete the purchase.',
+      ),
+    );
+    if (!loggedIn || !mounted) return;
 
     final priceStr = formatPrice(item.buyNowPrice!);
     final ok = await showDialog<bool>(
@@ -594,15 +584,25 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
                   ),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DirectChatPage(
-                        item: item,
-                        otherParty: otherPerson,
+                  onPressed: () async {
+                    final loggedIn = await ensureUserLoggedIn(
+                      context,
+                      reason: tr(
+                        'يجب تسجيل الدخول لمراسلة البائع وبدء المحادثة 💬',
+                        'Please sign in to chat with the seller 💬',
                       ),
-                    ),
-                  ),
+                    );
+                    if (!loggedIn || !context.mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DirectChatPage(
+                          item: item,
+                          otherParty: otherPerson,
+                        ),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.chat_outlined, size: 18),
                   label: Text(tr('محادثة داخل التطبيق', 'In-App Chat')),
                 ),
@@ -1019,7 +1019,16 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: () {
+                              onPressed: () async {
+                                final loggedIn = await ensureUserLoggedIn(
+                                  context,
+                                  reason: tr(
+                                    'يجب تسجيل الدخول أولاً لتتمكن من فك قفل هذا المزاد الخاص 🔒',
+                                    'Please sign in to unlock this private auction 🔒',
+                                  ),
+                                );
+                                if (!loggedIn || !mounted) return;
+
                                 if (store.unlockPrivateItem(item, pinInputCtrl.text)) {
                                   setState(() {});
                                 } else {
@@ -1373,15 +1382,25 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                     horizontal: 10, vertical: 6),
                                 visualDensity: VisualDensity.compact,
                               ),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DirectChatPage(
-                                    item: item,
-                                    otherParty: item.seller,
+                              onPressed: () async {
+                                final loggedIn = await ensureUserLoggedIn(
+                                  context,
+                                  reason: tr(
+                                    'يجب تسجيل الدخول لمراسلة البائع وبدء المحادثة 💬',
+                                    'Please sign in to chat with the seller 💬',
                                   ),
-                                ),
-                              ),
+                                );
+                                if (!loggedIn || !context.mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DirectChatPage(
+                                      item: item,
+                                      otherParty: item.seller,
+                                    ),
+                                  ),
+                                );
+                              },
                               icon: const Icon(Icons.chat_bubble_outline, size: 15),
                               label: Text(tr('مراسلة', 'Chat'),
                                   style: const TextStyle(fontSize: 12)),

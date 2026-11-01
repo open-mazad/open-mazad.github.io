@@ -75,6 +75,15 @@ class ItemCard extends StatelessWidget {
 
   Future<void> _openItem(BuildContext context) async {
     if (item.isPrivate && !store.isPrivateUnlocked(item)) {
+      final loggedIn = await ensureUserLoggedIn(
+        context,
+        reason: tr(
+          'هذا المزاد مقفل برمز PIN سري. يجب تسجيل الدخول أولاً لتتمكن من فك قفله والمزايدة 🔒',
+          'This auction is PIN protected. Please sign in first to unlock and bid 🔒',
+        ),
+      );
+      if (!loggedIn || !context.mounted) return;
+
       final ctrl = TextEditingController();
       final unlocked = await showDialog<bool>(
         context: context,

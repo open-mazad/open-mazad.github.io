@@ -1727,11 +1727,13 @@ class AuctionStore extends ChangeNotifier {
 
   bool isPrivateUnlocked(Item item) =>
       !item.isPrivate ||
-      isItemSeller(item) ||
-      unlockedPrivateItems.contains(item.id) ||
-      unlockedPrivateItems.contains(itemToUuid(item.id));
+      (settings.isLoggedIn &&
+          (isItemSeller(item) ||
+              unlockedPrivateItems.contains(item.id) ||
+              unlockedPrivateItems.contains(itemToUuid(item.id))));
 
   bool unlockPrivateItem(Item item, String enteredPin) {
+    if (!settings.isLoggedIn) return false;
     if (item.pinCode != null && item.pinCode!.trim() == enteredPin.trim()) {
       unlockedPrivateItems.add(item.id);
       unlockedPrivateItems.add(itemToUuid(item.id));
@@ -2411,6 +2413,7 @@ class AuctionStore extends ChangeNotifier {
   // ======================= التعليقات، المحادثات، التقييمات، والبلاغات =======================
 
   void addComment(Item itemParam, String text) {
+    if (!settings.isLoggedIn) return;
     final item = items.firstWhere(
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
@@ -2582,6 +2585,7 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void sendDirectMessage(Item itemParam, String otherParty, String text) {
+    if (!settings.isLoggedIn) return;
     final item = items.firstWhere(
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
@@ -2954,6 +2958,7 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void blockUser(String user) {
+    if (!settings.isLoggedIn) return;
     bannedUsers.add(user);
     final mapped = userDisplayNames[user];
     if (mapped != null) bannedUsers.add(mapped);
@@ -2963,6 +2968,7 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void unblockUser(String user) {
+    if (!settings.isLoggedIn) return;
     bannedUsers.remove(user);
     final mapped = userDisplayNames[user];
     if (mapped != null) bannedUsers.remove(mapped);
@@ -3264,6 +3270,7 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void addReview(String targetUser, int stars, String comment) {
+    if (!settings.isLoggedIn) return;
     final list = getUserReviews(targetUser);
     list.insert(0, UserReview(me, stars, comment, DateTime.now()));
     _persistAndSync();

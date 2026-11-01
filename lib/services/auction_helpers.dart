@@ -158,3 +158,59 @@ DateTime parseToLocal(dynamic val, {DateTime? fallback}) {
   if (parsed == null) return fallback ?? DateTime.now();
   return parsed.toLocal();
 }
+
+/// التحقق من تسجيل الدخول قبل تنفيذ العمليات المقيدة (مزايدة، تعليق، تقييم، مراسلة، حظر، فك قفل خاص)
+Future<bool> ensureUserLoggedIn(
+  BuildContext context, {
+  String? reason,
+}) async {
+  if (settings.isLoggedIn) return true;
+
+  final goToLogin = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          const Icon(Icons.lock_outline, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr('تسجيل الدخول مطلوب 🔒', 'Sign In Required 🔒'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: Text(
+        reason ??
+            tr(
+              'يجب تسجيل الدخول بحسابك أولاً لتتمكن من استخدام هذه الميزة وإتمام الإجراء.',
+              'You must sign in first to use this feature.',
+            ),
+        style: const TextStyle(fontSize: 14, height: 1.4),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(tr('إلغاء', 'Cancel')),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.pop(ctx, true),
+          icon: const Icon(Icons.login, size: 18),
+          label: Text(tr('تسجيل الدخول الآن', 'Sign In Now')),
+        ),
+      ],
+    ),
+  );
+
+  if (goToLogin == true && context.mounted) {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+  }
+
+  return settings.isLoggedIn;
+}
+
