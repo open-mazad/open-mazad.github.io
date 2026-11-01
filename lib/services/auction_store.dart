@@ -707,6 +707,7 @@ class AuctionStore extends ChangeNotifier {
       }
       final area = rawAttrs.remove('_area') ?? 'المركز';
       final isLive = rawAttrs.remove('_live') == '1';
+      final rawBuyNow = rawAttrs.remove('_buy_now_price') ?? rawAttrs.remove('buy_now_price');
 
       final imgs = <String>[];
       final rawImages = row['images'];
@@ -766,7 +767,7 @@ class AuctionStore extends ChangeNotifier {
         isCancelled: row['is_cancelled'] as bool? ?? false,
         isLiveStreaming: isLive,
         buyNowPrice: (row['buy_now_price'] as num?)?.toInt() ??
-            int.tryParse(rawAttrs['_buy_now_price'] ?? ''),
+            int.tryParse(rawBuyNow ?? ''),
       );
 
       if (existingBids.containsKey(itemId)) {
@@ -1407,6 +1408,7 @@ class AuctionStore extends ChangeNotifier {
           }
           final area = rawAttrs.remove('_area') ?? 'المركز';
           final isLive = rawAttrs.remove('_live') == '1';
+          final rawBuyNow = rawAttrs.remove('_buy_now_price') ?? rawAttrs.remove('buy_now_price');
 
           final imgs = <String>[];
           final rawImages = row['images'];
@@ -1466,7 +1468,7 @@ class AuctionStore extends ChangeNotifier {
             isCancelled: row['is_cancelled'] as bool? ?? false,
             isLiveStreaming: isLive,
             buyNowPrice: (row['buy_now_price'] as num?)?.toInt() ??
-                int.tryParse(rawAttrs['_buy_now_price'] ?? ''),
+                int.tryParse(rawBuyNow ?? ''),
           );
           loadedItems.add(item);
           byId[itemId] = item;

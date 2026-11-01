@@ -1225,7 +1225,14 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   const SizedBox(height: 16),
 
                   // 4. المواصفات الخاصة بالفئة والحقول الذكية
-                  if (item.attributes.isNotEmpty) ...[
+                  final visibleAttributes = item.attributes.entries
+                      .where((e) =>
+                          !e.key.startsWith('_') &&
+                          !e.key.toLowerCase().contains('buy_now_price') &&
+                          e.value.trim().isNotEmpty)
+                      .toList();
+
+                  if (visibleAttributes.isNotEmpty) ...[
                     Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -1250,30 +1257,29 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                               ],
                             ),
                             const Divider(height: 16),
-                            for (final entry in item.attributes.entries)
-                              if (entry.value.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(entry.key,
-                                          style: TextStyle(
-                                              color: scheme.onSurfaceVariant,
-                                              fontSize: 13)),
-                                      Flexible(
-                                        child: Text(
-                                          entry.value,
-                                          textAlign: TextAlign.end,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13),
-                                        ),
+                            for (final entry in visibleAttributes)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(entry.key,
+                                        style: TextStyle(
+                                            color: scheme.onSurfaceVariant,
+                                            fontSize: 13)),
+                                    Flexible(
+                                      child: Text(
+                                        entry.value,
+                                        textAlign: TextAlign.end,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                              ),
                           ],
                         ),
                       ),

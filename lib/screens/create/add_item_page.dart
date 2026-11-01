@@ -99,6 +99,7 @@ class _AddItemPageState extends State<AddItemPage> {
       existingImages.addAll(item.imagePaths);
 
       for (final e in item.attributes.entries) {
+        if (e.key.startsWith('_') || e.key.toLowerCase().contains('buy_now_price')) continue;
         attrCtrls[e.key] = TextEditingController(text: e.value);
       }
     } else {
