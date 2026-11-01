@@ -420,7 +420,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Widget _buildMediaGallery(Item item, ColorScheme scheme) {
     final validImages = item.imagePaths
-        .where((p) => p.trim().isNotEmpty && resolveSmartImageProvider(p) != null)
+        .where((p) => p.trim().isNotEmpty)
         .toList();
 
     if (validImages.isEmpty) {
@@ -1665,15 +1665,13 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
         itemBuilder: (context, idx) {
           return Center(
             child: InteractiveViewer(
-              minScale: 0.8,
+              minScale: 0.5,
               maxScale: 5.0,
               panEnabled: true,
               scaleEnabled: true,
               child: buildSmartImage(
                 widget.images[idx],
                 fit: BoxFit.contain,
-                width: double.infinity,
-                height: double.infinity,
               ),
             ),
           );

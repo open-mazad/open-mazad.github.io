@@ -672,10 +672,38 @@ class AuctionStore extends ChangeNotifier {
       final isLive = rawAttrs.remove('_live') == '1';
 
       final imgs = <String>[];
-      if (row['images'] is List) {
-        for (final img in row['images'] as List) {
-          imgs.add('$img');
+      final rawImages = row['images'];
+      if (rawImages is List) {
+        for (final img in rawImages) {
+          if (img != null && '$img'.trim().isNotEmpty) {
+            imgs.add('$img'.trim());
+          }
         }
+      } else if (rawImages is String && rawImages.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawImages);
+          if (decoded is List) {
+            for (final img in decoded) {
+              if (img != null && '$img'.trim().isNotEmpty) imgs.add('$img'.trim());
+            }
+          } else {
+            imgs.add(rawImages.trim());
+          }
+        } catch (_) {
+          if (rawImages.startsWith('{') && rawImages.endsWith('}')) {
+            final inner = rawImages.substring(1, rawImages.length - 1);
+            for (final p in inner.split(',')) {
+              final clean = p.replaceAll('"', '').trim();
+              if (clean.isNotEmpty) imgs.add(clean);
+            }
+          } else {
+            imgs.add(rawImages.trim());
+          }
+        }
+      }
+      if (imgs.isEmpty && row['image_url'] != null) {
+        final u = '${row['image_url']}'.trim();
+        if (u.isNotEmpty) imgs.add(u);
       }
 
       final item = Item(
@@ -1333,10 +1361,38 @@ class AuctionStore extends ChangeNotifier {
           final isLive = rawAttrs.remove('_live') == '1';
 
           final imgs = <String>[];
-          if (row['images'] is List) {
-            for (final img in row['images'] as List) {
-              imgs.add('$img');
+          final rawImages = row['images'];
+          if (rawImages is List) {
+            for (final img in rawImages) {
+              if (img != null && '$img'.trim().isNotEmpty) {
+                imgs.add('$img'.trim());
+              }
             }
+          } else if (rawImages is String && rawImages.trim().isNotEmpty) {
+            try {
+              final decoded = jsonDecode(rawImages);
+              if (decoded is List) {
+                for (final img in decoded) {
+                  if (img != null && '$img'.trim().isNotEmpty) imgs.add('$img'.trim());
+                }
+              } else {
+                imgs.add(rawImages.trim());
+              }
+            } catch (_) {
+              if (rawImages.startsWith('{') && rawImages.endsWith('}')) {
+                final inner = rawImages.substring(1, rawImages.length - 1);
+                for (final p in inner.split(',')) {
+                  final clean = p.replaceAll('"', '').trim();
+                  if (clean.isNotEmpty) imgs.add(clean);
+                }
+              } else {
+                imgs.add(rawImages.trim());
+              }
+            }
+          }
+          if (imgs.isEmpty && row['image_url'] != null) {
+            final u = '${row['image_url']}'.trim();
+            if (u.isNotEmpty) imgs.add(u);
           }
 
           final item = Item(

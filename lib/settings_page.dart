@@ -283,8 +283,14 @@ String _makeImageCacheKey(String s) {
 /// يختار مزود الصورة المناسب (Base64 سحابي، رابط إنترنت، أو ملف محلي) مع كاش ذكي فائق السرعة
 ImageProvider? resolveSmartImageProvider(String? source) {
   if (source == null || source.trim().isEmpty) return null;
-  final s = source.split('#pw:').first.trim();
+  String s = source.split('#pw:').first.trim();
   if (s.isEmpty) return null;
+
+  // إزالة علامات التنصيص الزائدة إن وجدت
+  if ((s.startsWith('"') && s.endsWith('"')) ||
+      (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.substring(1, s.length - 1).trim();
+  }
 
   // 1. صيغة Data URI (Base64)
   if (s.startsWith('data:')) {
@@ -294,9 +300,13 @@ ImageProvider? resolveSmartImageProvider(String? source) {
     final comma = s.indexOf(',');
     if (comma != -1) {
       try {
-        String clean = s.substring(comma + 1);
+        String clean = s.substring(comma + 1).trim();
         if (clean.contains(' ') || clean.contains('\n') || clean.contains('\r')) {
           clean = clean.replaceAll(RegExp(r'\s+'), '');
+        }
+        clean = clean.replaceAll('-', '+').replaceAll('_', '/');
+        while (clean.length % 4 != 0) {
+          clean += '=';
         }
         final imgProvider = MemoryImage(base64Decode(clean));
         if (_base64ImageCache.length > 150) {
@@ -304,25 +314,30 @@ ImageProvider? resolveSmartImageProvider(String? source) {
         }
         _base64ImageCache[cacheKey] = imgProvider;
         return imgProvider;
-      } catch (_) {
+      } catch (e) {
+        debugPrint('Base64 decode error: $e');
         return null;
       }
     }
   }
 
   // 1b. كود Base64 خام بدون بادئة data:
-  if (s.length > 80 &&
-      (s.startsWith('/9j/') ||
-          s.startsWith('iVBORw0KGgo') ||
-          s.startsWith('R0lGOD') ||
-          s.startsWith('UklGR'))) {
+  if (s.length > 50 &&
+      !s.startsWith('http://') &&
+      !s.startsWith('https://') &&
+      !s.startsWith('assets/') &&
+      !s.startsWith('blob:')) {
     final cacheKey = _makeImageCacheKey(s);
     final cached = _base64ImageCache[cacheKey];
     if (cached != null) return cached;
     try {
-      String clean = s;
+      String clean = s.trim();
       if (clean.contains(' ') || clean.contains('\n') || clean.contains('\r')) {
         clean = clean.replaceAll(RegExp(r'\s+'), '');
+      }
+      clean = clean.replaceAll('-', '+').replaceAll('_', '/');
+      while (clean.length % 4 != 0) {
+        clean += '=';
       }
       final imgProvider = MemoryImage(base64Decode(clean));
       if (_base64ImageCache.length > 150) {
@@ -355,7 +370,7 @@ ImageProvider? resolveSmartImageProvider(String? source) {
   return null;
 }
 
-/// ودجت موحّد لعرض الصور (سحابية Base64 / روابط / ملفات محلية) بأمان تام على كل الأجهزة مع حماية لاستهلاك الذاكرة
+/// ودجت موحّد لعرض الصور (سحابية Base64 / روابط / ملفات محلية) بأمان تام على كل الأجهزة
 Widget buildSmartImage(
   String source, {
   BoxFit fit = BoxFit.cover,
@@ -372,30 +387,49 @@ Widget buildSmartImage(
       child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
     );
   }
+
   ImageProvider effectiveProvider = provider;
-  try {
-    final int? targetWidth = (width != null && width.isFinite)
-        ? (width * 2).round().clamp(100, 1920)
-        : null;
-    final int? targetHeight = (height != null && height.isFinite)
-        ? (height * 2).round().clamp(100, 1920)
-        : null;
-    if (targetWidth != null || targetHeight != null) {
-      effectiveProvider = ResizeImage.resizeIfNeeded(
-        targetWidth,
-        targetHeight,
-        provider,
-      );
+  // منع استخدام ResizeImage على الويب نهائياً لأنه يسبب شاشة بيضاء أو خللاً في الكانفاس
+  if (!kIsWeb) {
+    try {
+      final int? targetWidth = (width != null && width.isFinite)
+          ? (width * 2).round().clamp(100, 1920)
+          : null;
+      final int? targetHeight = (height != null && height.isFinite)
+          ? (height * 2).round().clamp(100, 1920)
+          : null;
+      if (targetWidth != null || targetHeight != null) {
+        effectiveProvider = ResizeImage.resizeIfNeeded(
+          targetWidth,
+          targetHeight,
+          provider,
+        );
+      }
+    } catch (_) {
+      effectiveProvider = provider;
     }
-  } catch (_) {
-    effectiveProvider = provider;
   }
+
   return Image(
     image: effectiveProvider,
     fit: fit,
     width: width,
     height: height,
-    errorBuilder: (_, _, _) => Container(
+    loadingBuilder: (context, child, loadingProgress) {
+      if (loadingProgress == null) return child;
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.black12,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    },
+    errorBuilder: (_, error, stackTrace) => Container(
       width: width,
       height: height,
       color: Colors.black12,
