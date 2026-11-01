@@ -1822,16 +1822,10 @@ class AuctionStore extends ChangeNotifier {
         'Your account is suspended by admin from bidding due to policy violation 🚫',
       );
     }
-    if (isUserBlockedBy(item.seller, me)) {
+    if (isMutualOrBlockedBetween(item.seller, me)) {
       return tr(
-        'لا يمكنك المزايدة على سلع هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
-        'You cannot bid on this seller\'s items due to privacy and block settings 🚫',
-      );
-    }
-    if (isUserBlockedByMe(item.seller)) {
-      return tr(
-        'لقد قمت بحظر هذا البائع سابقاً. يرجى إلغاء الحظر للمزايدة على سلعه 🚫',
-        'You have blocked this seller. Unblock to place bids on their items 🚫',
+        'لا يمكنك المزايدة بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
+        'You cannot place a bid due to an active block between you and the seller 🚫',
       );
     }
     if (item.isScheduled) {
@@ -2490,13 +2484,11 @@ class AuctionStore extends ChangeNotifier {
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
     );
-    if (isUserBlockedBy(item.seller, me)) {
-      return tr('لا يمكنك التعليق على سلع هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
-          'You cannot comment on this seller\'s items due to privacy and block settings 🚫');
-    }
-    if (isUserBlockedByMe(item.seller)) {
-      return tr('لقد قمت بحظر هذا البائع سابقاً. يرجى إلغاء الحظر للتعليق على سلعه 🚫',
-          'You have blocked this seller. Unblock to comment on their items 🚫');
+    if (isMutualOrBlockedBetween(item.seller, me)) {
+      return tr(
+        'لا يمكنك التعليق بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
+        'You cannot post comments due to an active block between you and the seller 🚫',
+      );
     }
     final comment = AuctionComment(me, text, DateTime.now());
     item.comments.add(comment);
@@ -2605,8 +2597,8 @@ class AuctionStore extends ChangeNotifier {
     )) {
       return;
     }
-    // إسقاط ورفض الرسالة فورياً إذا كان المرسل محظوراً من قِبل المستخدم الحالي
-    if (isUserBlockedByMe(msg.sender)) {
+    // إسقاط ورفض الرسالة فورياً إذا كان هناك حظر نشط بين الطرفين
+    if (isMutualOrBlockedBetween(msg.sender, msg.receiver)) {
       return;
     }
     recordUserActivity(msg.sender, activityTime: msg.time);
@@ -2675,8 +2667,7 @@ class AuctionStore extends ChangeNotifier {
       (it) => it.id == itemParam.id || itemToUuid(it.id) == itemToUuid(itemParam.id),
       orElse: () => itemParam,
     );
-    if (isUserBlockedByMe(otherParty)) return;
-    if (isUserBlockedBy(otherParty, me)) return;
+    if (isMutualOrBlockedBetween(otherParty, me)) return;
 
     // استعادة المحادثة وإلغاء وسم الحذف إذا بادر المستخدم بالإرسال مجدداً
     final itemKey = _normalizeItemKey(item.id);

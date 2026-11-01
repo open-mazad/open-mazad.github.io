@@ -1994,8 +1994,8 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        tr('لا يمكنك إرسال رسائل لهذا المستخدم وفقاً لإعدادات الخصوصية والحظر 🚫',
-                                            'You cannot message this user due to privacy settings 🚫'),
+                                        tr('تم قفل المحادثة بسبب وجود حظر نشط بين الطرفين 🚫',
+                                            'Chat is disabled due to an active block between both parties 🚫'),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey.shade800,

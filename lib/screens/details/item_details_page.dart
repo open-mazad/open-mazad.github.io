@@ -624,12 +624,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       ),
                     );
                     if (!loggedIn || !context.mounted) return;
-                    if (store.isUserBlockedBy(otherPerson, me)) {
+                    if (store.isMutualOrBlockedBetween(otherPerson, me)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(tr(
-                            'لا يمكنك مراسلة هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
-                            'You cannot message this seller due to privacy and block settings 🚫',
+                            'لا يمكن بدء محادثة بسبب وجود حظر نشط بين الطرفين 🚫',
+                            'Cannot start chat due to an active block between both parties 🚫',
                           )),
                           backgroundColor: Colors.red.shade700,
                         ),
@@ -1367,12 +1367,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                                     ),
                                   );
                                   if (!loggedIn || !context.mounted) return;
-                    if (store.isUserBlockedBy(otherPerson, me)) {
+                    if (store.isMutualOrBlockedBetween(otherPerson, me)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(tr(
-                            'لا يمكنك مراسلة هذا البائع وفقاً لإعدادات الخصوصية والحظر 🚫',
-                            'You cannot message this seller due to privacy and block settings 🚫',
+                            'لا يمكن بدء محادثة بسبب وجود حظر نشط بين الطرفين 🚫',
+                            'Cannot start chat due to an active block between both parties 🚫',
                           )),
                           backgroundColor: Colors.red.shade700,
                         ),
