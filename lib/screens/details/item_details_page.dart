@@ -325,8 +325,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (!loggedIn || !mounted) return;
 
     // فحص الحظر الإداري
-    if (store.bannedUsers.contains(store.me) ||
-        store.bannedUsers.contains(store.userToUuid(store.me))) {
+    if (store.bannedUsers.contains(me) ||
+        store.bannedUsers.contains(AuctionStore.userToUuid(me))) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(tr('حسابك مجمّد بقرار إداري 🚫', 'Your account is suspended by admin 🚫')),
         backgroundColor: Colors.red.shade700,
@@ -335,7 +335,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     }
 
     // فحص الحظر الشخصي المتبادل بين الطرفين
-    if (store.isMutualOrBlockedBetween(item.seller, store.me)) {
+    if (store.isMutualOrBlockedBetween(item.seller, me)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(tr(
           'لا يمكنك إتمام الشراء الفوري بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
