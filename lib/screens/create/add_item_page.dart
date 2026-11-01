@@ -409,7 +409,21 @@ class _AddItemPageState extends State<AddItemPage> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
 
-    final portableImages = <String>[...existingImages];
+    final portableImages = <String>[];
+    for (final imgStr in existingImages) {
+      if (imgStr.startsWith('data:') && imgStr.length > 300000) {
+        try {
+          final comma = imgStr.indexOf(',');
+          if (comma != -1) {
+            final rawBytes = base64Decode(imgStr.substring(comma + 1));
+            final compressed = compressAndResizeImageBytes(rawBytes, maxDimension: 1080, quality: 75);
+            portableImages.add('data:image/jpeg;base64,${base64Encode(compressed)}');
+            continue;
+          }
+        } catch (_) {}
+      }
+      portableImages.add(imgStr);
+    }
     for (final x in pickedImages) {
       portableImages.add(await xFileToPortableImage(x));
     }

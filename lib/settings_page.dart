@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/local_storage_helper.dart';
 
@@ -236,21 +237,50 @@ File? resolveLocalStoreFile(String fileName) {
   }
 }
 
-/// يحوّل الصورة المختارة إلى نص Base64 محمول يعمل عبر السحابة وبين كل الأجهزة
+/// يضغط ويصغر بايتات الصور إلى دقة متوازنة (بحد أقصى 1080 بكسل وجودة 75) لحماية الذاكرة ومنع الانهيار
+Uint8List compressAndResizeImageBytes(Uint8List rawBytes, {int maxDimension = 1080, int quality = 75}) {
+  try {
+    final decoded = img.decodeImage(rawBytes);
+    if (decoded == null) return rawBytes;
+
+    img.Image resized = decoded;
+    if (decoded.width > maxDimension || decoded.height > maxDimension) {
+      if (decoded.width >= decoded.height) {
+        resized = img.copyResize(decoded, width: maxDimension);
+      } else {
+        resized = img.copyResize(decoded, height: maxDimension);
+      }
+    }
+    final compressedBytes = img.encodeJpg(resized, quality: quality);
+    return Uint8List.fromList(compressedBytes);
+  } catch (e) {
+    debugPrint('Image compression error: $e');
+    return rawBytes;
+  }
+}
+
+/// يحوّل الصورة المختارة إلى نص Base64 محمول ومضغوط يعمل بسلاسة عبر السحابة وبين كل الأجهزة
 Future<String> xFileToPortableImage(XFile picked) async {
   try {
     final bytes = await picked.readAsBytes();
     if (bytes.isNotEmpty) {
-      final mime = picked.mimeType ?? 'image/jpeg';
-      return 'data:$mime;base64,${base64Encode(bytes)}';
+      final compressed = compressAndResizeImageBytes(bytes, maxDimension: 1080, quality: 75);
+      return 'data:image/jpeg;base64,${base64Encode(compressed)}';
     }
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('xFileToPortableImage error: $e');
+  }
   return picked.path;
 }
 
 final Map<String, MemoryImage> _base64ImageCache = {};
 
-/// يختار مزود الصورة المناسب (Base64 سحابي، رابط إنترنت، أو ملف محلي) مع كاش ذكي يمنع الوميض والرمش
+String _makeImageCacheKey(String s) {
+  if (s.length <= 128) return s;
+  return '${s.length}_${s.substring(0, 32)}_${s.substring(s.length - 32)}';
+}
+
+/// يختار مزود الصورة المناسب (Base64 سحابي، رابط إنترنت، أو ملف محلي) مع كاش ذكي فائق السرعة
 ImageProvider? resolveSmartImageProvider(String? source) {
   if (source == null || source.trim().isEmpty) return null;
   final s = source.split('#pw:').first.trim();
@@ -258,18 +288,22 @@ ImageProvider? resolveSmartImageProvider(String? source) {
 
   // 1. صيغة Data URI (Base64)
   if (s.startsWith('data:')) {
-    final cached = _base64ImageCache[s];
+    final cacheKey = _makeImageCacheKey(s);
+    final cached = _base64ImageCache[cacheKey];
     if (cached != null) return cached;
     final comma = s.indexOf(',');
     if (comma != -1) {
       try {
-        final clean = s.substring(comma + 1).replaceAll(RegExp(r'\s+'), '');
-        final img = MemoryImage(base64Decode(clean));
-        if (_base64ImageCache.length > 60) {
+        String clean = s.substring(comma + 1);
+        if (clean.contains(' ') || clean.contains('\n') || clean.contains('\r')) {
+          clean = clean.replaceAll(RegExp(r'\s+'), '');
+        }
+        final imgProvider = MemoryImage(base64Decode(clean));
+        if (_base64ImageCache.length > 50) {
           _base64ImageCache.remove(_base64ImageCache.keys.first);
         }
-        _base64ImageCache[s] = img;
-        return img;
+        _base64ImageCache[cacheKey] = imgProvider;
+        return imgProvider;
       } catch (_) {
         return null;
       }
@@ -282,9 +316,20 @@ ImageProvider? resolveSmartImageProvider(String? source) {
           s.startsWith('iVBORw0KGgo') ||
           s.startsWith('R0lGOD') ||
           s.startsWith('UklGR'))) {
+    final cacheKey = _makeImageCacheKey(s);
+    final cached = _base64ImageCache[cacheKey];
+    if (cached != null) return cached;
     try {
-      final clean = s.replaceAll(RegExp(r'\s+'), '');
-      return MemoryImage(base64Decode(clean));
+      String clean = s;
+      if (clean.contains(' ') || clean.contains('\n') || clean.contains('\r')) {
+        clean = clean.replaceAll(RegExp(r'\s+'), '');
+      }
+      final imgProvider = MemoryImage(base64Decode(clean));
+      if (_base64ImageCache.length > 50) {
+        _base64ImageCache.remove(_base64ImageCache.keys.first);
+      }
+      _base64ImageCache[cacheKey] = imgProvider;
+      return imgProvider;
     } catch (_) {}
   }
 
@@ -310,7 +355,7 @@ ImageProvider? resolveSmartImageProvider(String? source) {
   return null;
 }
 
-/// ودجت موحّد لعرض الصور (سحابية Base64 / روابط / ملفات محلية) بأمان تام على كل الأجهزة
+/// ودجت موحّد لعرض الصور (سحابية Base64 / روابط / ملفات محلية) بأمان تام على كل الأجهزة مع حماية لاستهلاك الذاكرة
 Widget buildSmartImage(
   String source, {
   BoxFit fit = BoxFit.cover,
@@ -327,8 +372,13 @@ Widget buildSmartImage(
       child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
     );
   }
+  final effectiveProvider = ResizeImage.resizeIfNeeded(
+    width != null ? (width * 2).round().clamp(100, 1080) : null,
+    height != null ? (height * 2).round().clamp(100, 1080) : null,
+    provider,
+  );
   return Image(
-    image: provider,
+    image: effectiveProvider,
     fit: fit,
     width: width,
     height: height,
