@@ -1924,8 +1924,14 @@ class AuctionStore extends ChangeNotifier {
       return tr('سجّل حساباً من الإعدادات أولاً',
           'Please register an account in Settings first');
     }
-    if (bannedUsers.contains(me)) {
+    if (bannedUsers.contains(me) || bannedUsers.contains(userToUuid(me))) {
       return tr('حسابك مجمّد من المزايدة 🚫', 'Your account is suspended 🚫');
+    }
+    if (isMutualOrBlockedBetween(item.seller, me)) {
+      return tr(
+        'لا يمكنك تفعيل المزايدة التلقائية بسبب وجود حظر نشط بينك وبين صاحب هذا المزاد 🚫',
+        'Cannot set auto-bid due to an active block with the seller 🚫',
+      );
     }
     if (item.isScheduled) {
       return tr('المزاد لم يبدأ بعد', 'Auction has not started yet');

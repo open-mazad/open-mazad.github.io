@@ -1460,6 +1460,39 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       return const SizedBox.shrink();
     }
 
+    // 4. إذا كان هناك حظر نشط بين المستخدم وصاحب الإعلان، نعرض شريط تنبيهي ونمنع المزايدة والشراء
+    if (store.isMutualOrBlockedBetween(item.seller, me)) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.red.shade900.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade700, width: 1.2),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.block, color: Colors.red.shade400, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                tr(
+                  'تم حظرك من قبل صاحب هذا الإعلان، لا يمكنك المزايدة أو الشراء 🚫',
+                  'You are blocked by the seller and cannot bid or buy 🚫',
+                ),
+                style: TextStyle(
+                  color: Colors.red.shade200,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // 4. المشتري: تقديم مزايدة تصاعدية
     final current = item.currentPrice;
     final lastBidder = item.highestBidder ??
@@ -2342,28 +2375,52 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     ),
                   ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: commentCtrl,
-                      decoration: InputDecoration(
-                        hintText: tr('اكتب سؤالك أو تعليقك للبائع...',
-                            'Write a question or comment...'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
+              if (store.isMutualOrBlockedBetween(item.seller, me))
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade900.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade700.withValues(alpha: 0.6)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.block, color: Colors.red.shade400, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          tr('التعليقات معطلة بسبب وجود حظر نشط بينك وبين صاحب الإعلان 🚫',
+                              'Comments are disabled due to an active block with the seller 🚫'),
+                          style: TextStyle(color: Colors.red.shade200, fontSize: 13),
+                        ),
                       ),
-                      onSubmitted: (_) => submitComment(),
+                    ],
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: commentCtrl,
+                        decoration: InputDecoration(
+                          hintText: tr('اكتب سؤالك أو تعليقك للبائع...',
+                              'Write a question or comment...'),
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) => submitComment(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: submitComment,
-                    icon: const Icon(Icons.send, size: 16),
-                    label: Text(tr('إرسال', 'Send')),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: submitComment,
+                      icon: const Icon(Icons.send, size: 16),
+                      label: Text(tr('إرسال', 'Send')),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 24),
             ],
           ),
