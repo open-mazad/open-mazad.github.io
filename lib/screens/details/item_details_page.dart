@@ -473,49 +473,101 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerLow,
+                    color: isTopBid
+                        ? Colors.amber.withValues(alpha: 0.05)
+                        : scheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      color: isTopBid
+                          ? Colors.amber.shade400
+                          : scheme.outlineVariant.withValues(alpha: 0.5),
+                      width: isTopBid ? 1.4 : 1,
                     ),
                   ),
                   child: Row(
                     children: [
-                      buildUserAvatar(bidder, radius: 24),
+                      buildUserAvatar(
+                        bidder,
+                        radius: 20,
+                        badge: isTopBid
+                            ? Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.amber,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.emoji_events,
+                                    size: 11, color: Colors.brown),
+                              )
+                            : (bid.isAuto
+                                ? Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.indigo,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.auto_mode,
+                                        size: 11, color: Colors.white),
+                                  )
+                                : null),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
                               children: [
                                 Flexible(
                                   child: Text(
                                     displayName(bidder),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                                    style: TextStyle(
+                                      fontWeight: isTopBid
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      fontSize: 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (isTopBid) ...[
+                                if (isMe) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                        horizontal: 6, vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
+                                      color: scheme.primaryContainer,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      tr('أعلى مزايدة 👑', 'Top Bid 👑'),
+                                      tr('أنت', 'You'),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.brown.shade800,
+                                        color: scheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (bid.isAuto) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.indigo.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: Colors.indigo.shade200),
+                                    ),
+                                    child: Text(
+                                      tr('تلقائية ⚡', 'Auto ⚡'),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.indigo,
                                       ),
                                     ),
                                   ),
@@ -524,30 +576,76 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '${tr("المبلغ:", "Amount:")} ${formatPrice(bid.amount)} • ${ago(bid.time)}',
+                              ago(bid.time),
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          showUserProfileSheet(context, bidder);
-                        },
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: Text(tr('الملف الشخصي', 'Profile')),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            formatPrice(bid.amount),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: isTopBid
+                                  ? Colors.green.shade800
+                                  : scheme.primary,
+                            ),
+                          ),
+                          if (isTopBid) ...[
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                tr('أعلى مزايدة 👑', 'Top Bid 👑'),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.brown.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person_outline,
+                        color: Colors.purple, size: 20),
+                  ),
+                  title: Text(
+                    tr('الملف الشخصي', 'Profile'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    showUserProfileSheet(context, bidder);
+                  },
+                ),
                 ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(8),
@@ -561,12 +659,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   title: Text(
                     tr('مراسلة المزايد', 'Message Bidder'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    tr('توجيه فوري لفتح محادثة مباشرة مع صاحب المزايدة',
-                        'Open direct chat with bidder'),
-                    style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -586,16 +678,10 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         color: Colors.red.shade700, size: 20),
                   ),
                   title: Text(
-                    tr('حذف المزايدة', 'Delete Bid'),
+                    tr('حذف المزايد', 'Delete Bidder'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: Colors.red.shade700),
-                  ),
-                  subtitle: Text(
-                    tr('استبعاد وحذف المزايدة المحددة من السجل',
-                        'Remove bid from history'),
-                    style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -615,14 +701,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         color: Colors.orange.shade800, size: 20),
                   ),
                   title: Text(
-                    tr('إبلاغ عن المزايدة', 'Report Bid'),
+                    tr('إبلاغ عن المزايد', 'Report Bidder'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    tr('رفع تقرير بمخالفة ضد المستخدم أو قيمة المزايدة',
-                        'Submit violation report against user or bid value'),
-                    style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -653,15 +733,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       fontWeight: FontWeight.w600,
                       color: isBlocked ? Colors.teal : Colors.purple,
                     ),
-                  ),
-                  subtitle: Text(
-                    isBlocked
-                        ? tr('إلغاء الحظر والسماح له بتقديم عروض مجدداً',
-                            'Unblock and allow user to bid again')
-                        : tr('حظر حساب المزايد نهائياً من تقديم أي عروض مستقبلية على الإعلان',
-                            'Block user permanently from making future bids'),
-                    style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
