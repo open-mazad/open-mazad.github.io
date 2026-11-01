@@ -420,7 +420,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Widget _buildMediaGallery(Item item, ColorScheme scheme) {
     final validImages = item.imagePaths
-        .where((p) => p.trim().isNotEmpty)
+        .where((p) => p.trim().isNotEmpty && resolveSmartImageProvider(p) != null)
         .toList();
 
     if (validImages.isEmpty) {

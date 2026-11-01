@@ -372,11 +372,24 @@ Widget buildSmartImage(
       child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
     );
   }
-  final effectiveProvider = ResizeImage.resizeIfNeeded(
-    width != null ? (width * 2).round().clamp(100, 1080) : null,
-    height != null ? (height * 2).round().clamp(100, 1080) : null,
-    provider,
-  );
+  ImageProvider effectiveProvider = provider;
+  try {
+    final int? targetWidth = (width != null && width.isFinite)
+        ? (width * 2).round().clamp(100, 1920)
+        : null;
+    final int? targetHeight = (height != null && height.isFinite)
+        ? (height * 2).round().clamp(100, 1920)
+        : null;
+    if (targetWidth != null || targetHeight != null) {
+      effectiveProvider = ResizeImage.resizeIfNeeded(
+        targetWidth,
+        targetHeight,
+        provider,
+      );
+    }
+  } catch (_) {
+    effectiveProvider = provider;
+  }
   return Image(
     image: effectiveProvider,
     fit: fit,
