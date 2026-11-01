@@ -142,6 +142,7 @@ class AuctionApp extends StatelessWidget {
         theme: ThemeData(
           colorSchemeSeed: Colors.indigo,
           useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF0F172A),
           navigationBarTheme: NavigationBarThemeData(
             indicatorColor: Colors.black.withValues(alpha: 0.08),
             iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -163,6 +164,7 @@ class AuctionApp extends StatelessWidget {
           colorSchemeSeed: Colors.indigo,
           brightness: Brightness.dark,
           useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF0F172A),
           navigationBarTheme: NavigationBarThemeData(
             indicatorColor: Colors.white.withValues(alpha: 0.16),
             iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -214,9 +216,11 @@ class AuctionApp extends StatelessWidget {
             data: responsiveMQ,
             child: Directionality(
               textDirection: TextDirection.rtl,
-              child: IconTheme(
-                data: IconThemeData(size: iconSize),
-                child: Stack(
+              child: ColoredBox(
+                color: const Color(0xFF0F172A),
+                child: IconTheme(
+                  data: IconThemeData(size: iconSize),
+                  child: Stack(
                   children: [
                     child!,
                     // بانر تنبيهي عائم بأعلى الشاشة عند تجاوز السومة
@@ -314,7 +318,8 @@ class AuctionApp extends StatelessWidget {
                 ),
               ),
             ),
-          );
+          ),
+        );
         },
         home: const HomePage(),
       ),
