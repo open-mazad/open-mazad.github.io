@@ -242,7 +242,7 @@ class _MyProfileViewState extends State<MyProfileView> {
                         ),
                       ),
                       Text(
-                        formatRelativeTime(review.createdAt),
+                        ago(review.time),
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
