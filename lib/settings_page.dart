@@ -1544,9 +1544,11 @@ class SettingsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // 2. بطاقة الحساب (تسجيل الدخول / الملف)
-                  settings.isLoggedIn ? profileCard(context) : guestCard(context),
-                  const SizedBox(height: 24),
+                  // 2. بطاقة الحساب (تظهر فقط للمستخدم المسجل)
+                  if (settings.isLoggedIn) ...[
+                    profileCard(context),
+                    const SizedBox(height: 24),
+                  ],
 
               // رادار البحث متاح للمستخدم
               if (settings.openSavedRadar != null) ...[

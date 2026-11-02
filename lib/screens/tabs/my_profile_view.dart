@@ -79,26 +79,6 @@ class _MyProfileViewState extends State<MyProfileView> {
                                 borderRadius: BorderRadius.circular(14)),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            if (widget.onGoToSettings != null) {
-                              widget.onGoToSettings!();
-                            } else {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const SettingsPage()),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.settings_outlined, size: 18),
-                          label: Text(tr('فتح الإعدادات العامة', 'Open Settings')),
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                          ),
-                        ),
                       ],
                     ),
                   ),
