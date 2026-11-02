@@ -2722,9 +2722,17 @@ class AuctionStore extends ChangeNotifier {
       return sameSender && sameReceiver && sameText && sameTime;
     });
     if (existingIdx != -1) {
-      list[existingIdx].id = msg.id;
-      list[existingIdx].isDelivered = true;
-      list[existingIdx].isRead = list[existingIdx].isRead || msg.isRead;
+      list[existingIdx] = DirectMessage(
+        list[existingIdx].sender,
+        list[existingIdx].receiver,
+        list[existingIdx].text,
+        list[existingIdx].time,
+        id: msg.id,
+        senderId: list[existingIdx].senderId ?? msg.senderId,
+        receiverId: list[existingIdx].receiverId ?? msg.receiverId,
+        isDelivered: true,
+        isRead: list[existingIdx].isRead || msg.isRead,
+      );
       return;
     }
 
