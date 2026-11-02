@@ -142,20 +142,36 @@ class AuctionApp extends StatelessWidget {
         themeMode: settings.themeMode,
         theme: ThemeData(
           colorSchemeSeed: Colors.indigo,
+          brightness: Brightness.light,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF0F172A),
+          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFFFFFFFF),
+            foregroundColor: Color(0xFF0F172A),
+            elevation: 0.5,
+            surfaceTintColor: Colors.transparent,
+          ),
+          cardTheme: CardTheme(
+            color: Colors.white,
+            elevation: 0.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+          ),
           navigationBarTheme: NavigationBarThemeData(
-            indicatorColor: Colors.black.withValues(alpha: 0.08),
+            backgroundColor: Colors.white,
+            indicatorColor: Colors.indigo.withValues(alpha: 0.12),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return IconThemeData(
-                color: selected ? Colors.black : Colors.black87,
+                color: selected ? Colors.indigo : const Color(0xFF64748B),
               );
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
-                color: selected ? Colors.black : Colors.black87,
+                color: selected ? Colors.indigo : const Color(0xFF64748B),
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
@@ -218,7 +234,7 @@ class AuctionApp extends StatelessWidget {
             child: Directionality(
               textDirection: TextDirection.rtl,
               child: ColoredBox(
-                color: const Color(0xFF0F172A),
+                color: Theme.of(context).scaffoldBackgroundColor,
                 child: IconTheme(
                   data: IconThemeData(size: iconSize),
                   child: Stack(
