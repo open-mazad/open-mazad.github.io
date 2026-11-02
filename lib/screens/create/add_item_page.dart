@@ -304,12 +304,16 @@ class _AddItemPageState extends State<AddItemPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.indigo.shade50
-                            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.6)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF0F172A)
+                                : const Color(0xFFF1F5F9)),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? Colors.indigo : Colors.grey.withValues(alpha: 0.25),
-                          width: isSelected ? 2 : 1,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outlineVariant,
+                          width: isSelected ? 1.5 : 1,
                         ),
                       ),
                       child: Row(
@@ -317,7 +321,7 @@ class _AddItemPageState extends State<AddItemPage> {
                           Icon(
                             categoryIcon(cat),
                             size: 20,
-                            color: isSelected ? Colors.indigo : Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -326,13 +330,13 @@ class _AddItemPageState extends State<AddItemPage> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected ? Colors.indigo : null,
+                                color: isSelected ? Theme.of(context).colorScheme.primary : null,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (isSelected)
-                            const Icon(Icons.check_circle, size: 16, color: Colors.indigo),
+                            Icon(Icons.check_circle, size: 16, color: Theme.of(context).colorScheme.primary),
                         ],
                       ),
                     ),
@@ -518,62 +522,66 @@ class _AddItemPageState extends State<AddItemPage> {
                 children: [
                   // في حالة تعديل المزاد: تنبيه بالصلاحيات المتاحة
                   if (isEditing) ...[
-                    Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.blue.shade700, width: 1.2),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.blue.shade900, size: 24),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tr('صلاحيات تعديل المزاد 🔒', 'Auction Edit Permissions 🔒'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade900,
-                                  fontSize: 14,
-                                ),
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4), width: 1.2),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary, size: 24),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tr('صلاحيات تعديل المزاد 🔒', 'Auction Edit Permissions 🔒'),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.primary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    tr(
+                                      'لحماية حقوق ومصداقية المزايدات: يمكنك إضافة صور جديدة (حتى 12 صورة)، تعديل عنوان الإعلان، وإدارة رمز الدخول السري (PIN)، مع قفل باقي الحقول كالسعر والموقع وتصنيف الفئة.',
+                                      'You can add new photos (up to 12), update title, and manage PIN room. Core fields and category remain locked.',
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                tr(
-                                  'لحماية حقوق ومصداقية المزايدات: يمكنك إضافة صور جديدة (حتى 12 صورة)، تعديل عنوان الإعلان، وإدارة رمز الدخول السري (PIN)، مع قفل باقي الحقول كالسعر والموقع وتصنيف الفئة.',
-                                  'You can add new photos (up to 12), update title, and manage PIN room. Core fields and category remain locked.',
-                                ),
-                                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.blue.shade900),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
                 // 1. قسم صور السلعة في الأعلى مع حد بصري فاصل تحته
-                Container(
+                Card(
                   key: _imagesSectionKey,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasImageError
-                          ? Colors.red.shade400
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: _hasImageError ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: _hasImageError
+                      ? RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.red.shade400, width: 1.5),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -705,55 +713,57 @@ class _AddItemPageState extends State<AddItemPage> {
                     ],
                   ),
                 ),
+              ),
 
                 // الحد البصري الفاصل تحت قسم صور السلعة
-                const SizedBox(height: 12),
-                Divider(
-                  thickness: 1.5,
-                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
 
                 // 2. اختيار الفئة عبر نافذة منبثقة (Popup / Modal)
-                Container(
+                Card(
                   key: _categorySectionKey,
-                  decoration: BoxDecoration(
-                    color: isEditing
-                        ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15)
-                        : (_hasCategoryError
-                            ? Colors.red.withValues(alpha: 0.05)
-                            : Theme.of(context).colorScheme.surfaceContainerLow),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasCategoryError
-                          ? Colors.red.shade600
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: _hasCategoryError ? 1.5 : 1,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('تصنيف الفئة *', 'Category *'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: _hasCategoryError ? Colors.red.shade700 : null,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: _hasCategoryError
+                      ? RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.red.shade600, width: 1.5),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('تصنيف الفئة *', 'Category *'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: _hasCategoryError ? Colors.red.shade700 : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: isEditing ? null : () => _showCategoryPickerModal(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isEditing
-                                ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15)
-                                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(14),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: isEditing ? null : () => _showCategoryPickerModal(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isEditing
+                                  ? (Theme.of(context).brightness == Brightness.dark
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFFF1F5F9))
+                                  : (Theme.of(context).brightness == Brightness.dark
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFFF8FAFC)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: category.isEmpty
+                                    ? (Theme.of(context).brightness == Brightness.dark
+                                        ? const Color(0xFF334155)
+                                        : const Color(0xFFE2E8F0))
+                                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                              ),
+                            ),
                             border: Border.all(
                               color: category.isEmpty ? Colors.grey.shade400 : Colors.indigo.withValues(alpha: 0.3),
                             ),
@@ -861,173 +871,162 @@ class _AddItemPageState extends State<AddItemPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+              ),
 
                 // 3. كتلة عنوان الإعلان
-                Container(
+                Card(
                   key: _titleSectionKey,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _hasTitleError
-                        ? Colors.red.withValues(alpha: 0.05)
-                        : Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasTitleError
-                          ? Colors.red.shade600
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: _hasTitleError ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('عنوان الإعلان / اسم السلعة *', 'Auction Title *'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _hasTitleError ? Colors.red.shade700 : null,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: titleCtrl,
-                        enabled: true, // عنوان الإعلان متاح للتعديل دائماً
-                        decoration: InputDecoration(
-                          hintText: tr('مثال: آيفون 15 برو ماكس 256GB بحالة الوكالة', 'e.g. iPhone 15 Pro Max'),
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.title),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? tr('يرجى كتابة عنوان الإعلان', 'Please enter auction title')
-                            : null,
-                      ),
-                      if (_hasTitleError) ...[
-                        const SizedBox(height: 8),
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: _hasTitleError
+                      ? RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.red.shade600, width: 1.5),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          tr('يرجى كتابة عنوان الإعلان / اسم السلعة قبل النشر *', 'Please enter auction title *'),
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
+                          tr('عنوان الإعلان / اسم السلعة *', 'Auction Title *'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _hasTitleError ? Colors.red.shade700 : null,
+                          ),
                         ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: titleCtrl,
+                          enabled: true, // عنوان الإعلان متاح للتعديل دائماً
+                          decoration: InputDecoration(
+                            hintText: tr('مثال: آيفون 15 برو ماكس 256GB بحالة الوكالة', 'e.g. iPhone 15 Pro Max'),
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.title),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? tr('يرجى كتابة عنوان الإعلان', 'Please enter auction title')
+                              : null,
+                        ),
+                        if (_hasTitleError) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            tr('يرجى كتابة عنوان الإعلان / اسم السلعة قبل النشر *', 'Please enter auction title *'),
+                            style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
 
                 // 4. كتلة التفاصيل والوصف + الحقول الذكية المرتبطة بالفئة
-                Container(
+                Card(
                   key: _descSectionKey,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _hasDescError
-                        ? Colors.red.withValues(alpha: 0.05)
-                        : Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasDescError
-                          ? Colors.red.shade600
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: _hasDescError ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('تفاصيل ووصف السلعة *', 'Item Description *'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _hasDescError ? Colors.red.shade700 : null,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: descCtrl,
-                        enabled: !isPublished,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: tr('اكتب وصفاً مفصلاً ودقيقاً عن حالة السلعة والمرفقات...',
-                              'Describe the item details...'),
-                          border: const OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? tr('يرجى كتابة تفاصيل ووصف السلعة', 'Please enter item description')
-                            : null,
-                      ),
-                      if (_hasDescError) ...[
-                        const SizedBox(height: 8),
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: _hasDescError
+                      ? RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.red.shade600, width: 1.5),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          tr('يرجى كتابة تفاصيل ووصف السلعة قبل النشر *', 'Please enter item description *'),
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                      if (currentDynamicFields.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
+                          tr('تفاصيل ووصف السلعة *', 'Item Description *'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _hasDescError ? Colors.red.shade700 : null,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(categoryIcon(category), size: 18, color: Colors.indigo),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${tr("الحقول الذكية التلقائية لفئة:", "Smart Fields for:")} $category',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo,
-                                      fontSize: 13,
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: descCtrl,
+                          enabled: !isPublished,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText: tr('اكتب وصفاً مفصلاً ودقيقاً عن حالة السلعة والمرفقات...',
+                                'Describe the item details...'),
+                            border: const OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? tr('يرجى كتابة تفاصيل ووصف السلعة', 'Please enter item description')
+                              : null,
+                        ),
+                        if (_hasDescError) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            tr('يرجى كتابة تفاصيل ووصف السلعة قبل النشر *', 'Please enter item description *'),
+                            style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                        if (currentDynamicFields.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(categoryIcon(category), size: 18, color: Theme.of(context).colorScheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${tr("الحقول الذكية التلقائية لفئة:", "Smart Fields for:")} $category',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                for (final fieldLabel in currentDynamicFields) ...[
+                                  TextFormField(
+                                    controller: attrCtrls[fieldLabel],
+                                    enabled: !isPublished,
+                                    decoration: InputDecoration(
+                                      labelText: fieldLabel,
+                                      border: const OutlineInputBorder(),
+                                      isDense: true,
+                                      filled: true,
                                     ),
                                   ),
+                                  const SizedBox(height: 8),
                                 ],
-                              ),
-                              const SizedBox(height: 10),
-                              for (final fieldLabel in currentDynamicFields) ...[
-                                TextFormField(
-                                  controller: attrCtrls[fieldLabel],
-                                  enabled: !isPublished,
-                                  decoration: InputDecoration(
-                                    labelText: fieldLabel,
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                    filled: true,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // 5. كتلة السعر
-                Container(
-                  key: _priceSectionKey,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _hasPriceError
-                        ? Colors.red.withValues(alpha: 0.05)
-                        : Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasPriceError
-                          ? Colors.red.shade600
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: _hasPriceError ? 1.5 : 1,
                     ),
                   ),
-                  child: Column(
+                ),
+
+                // 5. كتلة السعر
+                Card(
+                  key: _priceSectionKey,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: _hasPriceError
+                      ? RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.red.shade600, width: 1.5),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -1110,15 +1109,11 @@ class _AddItemPageState extends State<AddItemPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+              ),
 
                 // 6. كتلة خيارات التسليم والموقع
                 Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                  ),
+                  margin: const EdgeInsets.only(bottom: 14),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
@@ -1224,11 +1219,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
                 // 7. كتلة حالة السلعة
                 Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                  ),
+                  margin: const EdgeInsets.only(bottom: 14),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
@@ -1257,16 +1248,11 @@ class _AddItemPageState extends State<AddItemPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
 
                 // 8. كتلة موعد وتوقيت المزاد
                 if (!isPublished) ...[
                   Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                    ),
+                    margin: const EdgeInsets.only(bottom: 14),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
@@ -1404,11 +1390,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
                 // 9. كتلة الخيارات الخاصة (مزاد خاص برمز PIN)
                 Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                  ),
+                  margin: const EdgeInsets.only(bottom: 14),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(

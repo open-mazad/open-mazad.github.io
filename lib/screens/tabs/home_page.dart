@@ -793,14 +793,14 @@ class _HomePageState extends State<HomePage> {
           ),
           child: NavigationBar(
             height: 56,
-            backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
             selectedIndex: tab,
             onDestinationSelected: (i) {
               if (i == 2) {
                 if (!settings.isLoggedIn) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(tr('سجّل الدخول أولاً من الإعدادات',
-                          'Sign in from Settings first'))));
+                      content: Text(tr('سجّل الدخول أولاً من ملفي',
+                          'Sign in from My Profile first'))));
                   _goToTab(4);
                   return;
                 }

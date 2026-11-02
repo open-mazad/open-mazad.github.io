@@ -1228,11 +1228,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   Widget _buildDealContactCard(Item item, String winner) {
     final otherPerson = store.isItemSeller(item) ? winner : item.seller;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      color: Colors.green.shade50,
+      color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : Colors.green.shade50,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.green.shade400, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: isDark ? Colors.green.shade700 : Colors.green.shade400, width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1327,11 +1328,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     // 1. إذا كان المزاد مجدولاً ولم يبدأ بعد
     if (item.isScheduled) {
       final reminded = store.isRemindMeSet(item);
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       return Card(
-        color: Colors.orange.shade50,
+        color: isDark ? const Color(0xFF7C2D12).withValues(alpha: 0.25) : Colors.orange.shade50,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.orange.shade300),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: isDark ? Colors.orange.shade800 : Colors.orange.shade300),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1849,7 +1851,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
                   // 2. بطاقة السعر الحالي والوقت المتبقي في الصدارة
                   Card(
-                    color: scheme.secondaryContainer,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -1926,11 +1927,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   // 4. المواصفات الخاصة بالفئة والحقول الذكية
                   if (visibleAttributes.isNotEmpty) ...[
                     Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: scheme.outlineVariant),
-                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -1981,12 +1977,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
                   // 5. تفاصيل ووصف السلعة المكتوب
                   Card(
-                    elevation: 0,
-                    color: scheme.surfaceContainerLowest,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
@@ -2016,8 +2006,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   // 6. كارت معلومات البائع (يختفي إذا كان المستخدم هو البائع نفسه)
                   if (!store.isItemSeller(item)) ...[
                     Card(
-                      elevation: 0,
-                      color: scheme.surfaceContainerLow,
                       child: ListTile(
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -2148,8 +2136,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                           ),
                         ),
                         color: isTopBid
-                            ? Colors.amber.withValues(alpha: 0.05)
-                            : scheme.surfaceContainerLowest,
+                            ? Colors.amber.withValues(alpha: 0.08)
+                            : null,
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
                           onTap: isSeller
@@ -2340,8 +2328,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
               else
                 for (final c in item.comments)
                   Card(
-                    elevation: 0,
-                    color: scheme.surfaceContainerLowest,
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: ListTile(
                       dense: true,

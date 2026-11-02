@@ -192,6 +192,16 @@ class AuctionApp extends StatelessWidget {
               );
             }),
           ),
+          segmentedButtonTheme: SegmentedButtonThemeData(
+            style: SegmentedButton.styleFrom(
+              backgroundColor: Colors.white,
+              selectedBackgroundColor: Colors.indigo.withValues(alpha: 0.12),
+              selectedForegroundColor: Colors.indigo,
+              foregroundColor: const Color(0xFF64748B),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ),
         darkTheme: ThemeData(
           colorSchemeSeed: Colors.indigo,
@@ -242,6 +252,16 @@ class AuctionApp extends StatelessWidget {
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
+          ),
+          segmentedButtonTheme: SegmentedButtonThemeData(
+            style: SegmentedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              selectedBackgroundColor: Colors.white.withValues(alpha: 0.16),
+              selectedForegroundColor: Colors.white,
+              foregroundColor: Colors.white70,
+              side: const BorderSide(color: Color(0xFF334155)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ),
         builder: (context, child) {
