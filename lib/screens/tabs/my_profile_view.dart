@@ -118,7 +118,10 @@ class _MyProfileViewState extends State<MyProfileView> {
         final avgRating = store.getUserRating(userMe);
         final reviews = store.getUserReviews(userMe);
         final phone = settings.phone;
-        final email = settings.email;
+        final isPhone = RegExp(r'^0?7\d{9}$').hasMatch(phone);
+        final phoneDisplay = isPhone
+            ? '+964 ${phone.startsWith('0') ? phone.substring(1) : phone}'
+            : phone;
 
         // المزادات التي شارك بها المستخدم
         final myBidsItems = store.items.where((i) {
@@ -171,9 +174,9 @@ class _MyProfileViewState extends State<MyProfileView> {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                if (phone.isNotEmpty || email.isNotEmpty)
+                                if (phoneDisplay.isNotEmpty)
                                   Text(
-                                    phone.isNotEmpty ? phone : email,
+                                    phoneDisplay,
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       color: scheme.onSurfaceVariant,
@@ -410,9 +413,10 @@ class _MyProfileViewState extends State<MyProfileView> {
     final myTopBid = item.bids
         .where((b) => b.bidder == userMe || store.isUserMe(b.bidder))
         .map((b) => b.amount)
-        .fold<int>(0, max);
+        .fold<int>(0, (prev, amt) => amt > prev ? amt : prev);
 
-    final isWinning = item.highestBidder == userMe || store.isUserMe(item.highestBidder);
+    final isWinning = item.highestBidder == userMe ||
+        (item.highestBidder != null && store.isUserMe(item.highestBidder!));
     final isEnded = item.isEnded;
 
     Color badgeColor;
