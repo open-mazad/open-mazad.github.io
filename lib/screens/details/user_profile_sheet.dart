@@ -116,7 +116,7 @@ class _UserProfileSheetState extends State<UserProfileSheet> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                if (!isBanned && warnings == 0)
+                                if (store.isUserVerified(u))
                                   const Icon(Icons.verified,
                                       color: Colors.blue, size: 18),
                               ],

@@ -14,7 +14,6 @@ class _MyProfileViewState extends State<MyProfileView> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ListenableBuilder(
       listenable: Listenable.merge([settings, store]),
@@ -92,21 +91,7 @@ class _MyProfileViewState extends State<MyProfileView> {
             : (displayName(userMe).isNotEmpty ? displayName(userMe) : tr('مستخدم', 'User'));
         final avgRating = store.getUserRating(userMe);
         final reviews = store.getUserReviews(userMe);
-        final phone = settings.phone;
-        final isPhone = RegExp(r'^0?7\d{9}$').hasMatch(phone);
-        final phoneDisplay = isPhone
-            ? '+964 ${phone.startsWith('0') ? phone.substring(1) : phone}'
-            : phone;
-
-        // المزادات التي شارك بها المستخدم
-        final myBidsItems = store.items.where((i) {
-          return i.bids.any((b) => b.bidder == userMe || store.isUserMe(b.bidder));
-        }).toList();
-
-        // المزادات التي يملكها المستخدم
-        final myListedItems = store.items.where((i) {
-          return i.seller == userMe || store.isItemSeller(i);
-        }).toList();
+        final isVerified = store.isUserVerified(userMe);
 
         return RefreshIndicator(
           onRefresh: () => store.pullFromSupabase(),
@@ -120,78 +105,27 @@ class _MyProfileViewState extends State<MyProfileView> {
                   child: Column(
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          buildUserAvatar(userMe, radius: 36),
+                          buildUserAvatar(userMe, radius: 34),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        myName,
-                                        style: const TextStyle(
-                                          fontSize: 19,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                Flexible(
+                                  child: Text(
+                                    myName,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(width: 6),
-                                    const Icon(Icons.verified,
-                                        color: Colors.blueAccent, size: 18),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                if (phoneDisplay.isNotEmpty)
-                                  Text(
-                                    phoneDisplay,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                const SizedBox(height: 6),
-                                // التقييم بالنجوم
-                                InkWell(
-                                  onTap: () => showUserProfileSheet(context, userMe),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4, vertical: 2),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.star_rounded,
-                                            color: Colors.amber, size: 20),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          avgRating > 0
-                                              ? avgRating.toStringAsFixed(1)
-                                              : tr('جديد', 'New'),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13.5,
-                                          ),
-                                        ),
-                                        Text(
-                                          ' (${reviews.length} ${tr('تقييم', 'reviews')})',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: scheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(Icons.arrow_forward_ios,
-                                            size: 11,
-                                            color: scheme.onSurfaceVariant),
-                                      ],
-                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                if (isVerified) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.verified,
+                                      color: Colors.blueAccent, size: 19),
+                                ],
                               ],
                             ),
                           ),
@@ -219,54 +153,17 @@ class _MyProfileViewState extends State<MyProfileView> {
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
-              // 2. إحصائيات سريعة
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: tr('سلعي المعروضة', 'My Listings'),
-                      value: '${myListedItems.length}',
-                      icon: Icons.inventory_2_rounded,
-                      color: Colors.teal,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: tr('التقييم', 'Rating'),
-                      value: avgRating > 0 ? avgRating.toStringAsFixed(1) : '5.0',
-                      icon: Icons.star_rounded,
-                      color: Colors.amber,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: tr('التقييمات', 'Reviews'),
-                      value: '${reviews.length}',
-                      icon: Icons.rate_review_outlined,
-                      color: Colors.indigoAccent,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 18),
-
-              // 3. قسم "سلعي المعروضة" ثابت ودائم
+              // 2. قسم التقييمات والآراء (Customer Reviews)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.teal),
+                    const Icon(Icons.rate_review_outlined, size: 20, color: Colors.amber),
                     const SizedBox(width: 8),
                     Text(
-                      tr('سلعي المعروضة للبيع', 'My Listed Items'),
+                      tr('تقييمات وآراء المتعاملين', 'Customer Reviews'),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -274,18 +171,27 @@ class _MyProfileViewState extends State<MyProfileView> {
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withValues(alpha: 0.12),
+                        color: Colors.amber.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(
-                        '${myListedItems.length}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                          const SizedBox(width: 4),
+                          Text(
+                            avgRating > 0
+                                ? '${avgRating.toStringAsFixed(1)} (${reviews.length})'
+                                : tr('0 تقييم', '0 reviews'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -294,17 +200,17 @@ class _MyProfileViewState extends State<MyProfileView> {
 
               const SizedBox(height: 8),
 
-              if (myListedItems.isEmpty)
+              if (reviews.isEmpty)
                 _buildEmptySection(
-                  icon: Icons.inventory_2_outlined,
+                  icon: Icons.rate_review_outlined,
                   text: tr(
-                    'لم تقم بإضافة أي سلعة للبيع بعد.\nاضغط على (أضف مزاداً) لعرض أول سلعة لك.',
-                    'No listed items yet. Add an auction to start selling.',
+                    'لا توجد أي تقييمات مسجلة لك حتى الآن.\nستظهر تقييمات المشترين وآراؤهم هنا فور إتمام أول معاملة بيع أو شراء.',
+                    'No reviews yet. Customer reviews will appear here after completed transactions.',
                   ),
                 )
               else
-                for (final item in myListedItems)
-                  _buildUserListingCard(context, item),
+                for (final review in reviews)
+                  _buildReviewCard(context, review),
             ],
           ),
         );
@@ -312,34 +218,60 @@ class _MyProfileViewState extends State<MyProfileView> {
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _buildReviewCard(BuildContext context, UserReview review) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        padding: const EdgeInsets.all(12),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                buildUserAvatar(review.reviewer, radius: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName(review.reviewer),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      Text(
+                        formatRelativeTime(review.createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: List.generate(
+                    5,
+                    (i) => Icon(
+                      Icons.star_rounded,
+                      size: 16,
+                      color: i < review.stars
+                          ? Colors.amber
+                          : Colors.grey.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            if (review.comment.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                review.comment,
+                style: const TextStyle(fontSize: 13),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
           ],
         ),
       ),
@@ -360,90 +292,6 @@ class _MyProfileViewState extends State<MyProfileView> {
             style: const TextStyle(fontSize: 13, color: Colors.grey),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildUserListingCard(BuildContext context, Item item) {
-    final isEnded = item.isEnded;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ItemDetailsPage(item: item)),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey.withValues(alpha: 0.2),
-                  child: item.imagePaths.isNotEmpty
-                      ? buildSmartImage(
-                          item.imagePaths.first,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.inventory_2, size: 24),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${tr('السعر الحالي:', 'Current Price:')} ${formatPrice(item.currentPrice)} • (${item.bids.length} ${tr('مزايدة', 'bids')})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.teal,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (isEnded ? Colors.grey : Colors.green)
-                            .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isEnded
-                            ? tr('منتهي', 'Ended')
-                            : tr('مزاد نشط الآن 🟢', 'Active 🟢'),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isEnded ? Colors.grey : Colors.green,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-            ],
-          ),
-        ),
       ),
     );
   }

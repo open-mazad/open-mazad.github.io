@@ -450,6 +450,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                               itemBuilder: (context, i) {
                                 final user = filteredUsers[i];
                                 final isBanned = store.bannedUsers.contains(user);
+                                final isVerified = store.isUserVerified(user);
                                 final warns = store.userWarnings[user] ?? 0;
                                 final rating = store.getUserRating(user);
                                 final isAdmin = store.isUserAdmin(user);
@@ -462,7 +463,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     child: Row(
                                       children: [
                                         CircleAvatar(
-                                          child: Text(displayName(user).characters.first),
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              Center(child: Text(displayName(user).characters.first)),
+                                              if (isVerified)
+                                                const Positioned(
+                                                  bottom: -2,
+                                                  right: -2,
+                                                  child: Icon(Icons.verified, color: Colors.blue, size: 14),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -513,6 +525,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  isVerified ? Icons.verified : Icons.verified_outlined,
+                                                  color: isVerified ? Colors.blueAccent : Colors.grey,
+                                                  size: 20,
+                                                ),
+                                                tooltip: isVerified ? tr('إلغاء التوثيق', 'Unverify') : tr('توثيق الحساب', 'Verify'),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: () => store.toggleUserVerification(user),
+                                              ),
                                               OutlinedButton(
                                                 style: OutlinedButton.styleFrom(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

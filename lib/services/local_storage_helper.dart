@@ -39,6 +39,14 @@ class LocalStorageHelper {
   }
   static void saveBannedUsers(Iterable<String> users) => saveSet('muzaid_admin_banned_users', users);
 
+  /// قائمة المستخدمين الموثقين من الإدارة (Admin Verified Users)
+  static Set<String> getVerifiedUsers() {
+    final set = getSet('muzaid_admin_verified_users');
+    if (set.isNotEmpty) return set;
+    return {};
+  }
+  static void saveVerifiedUsers(Iterable<String> users) => saveSet('muzaid_admin_verified_users', users);
+
   /// قائمة الحظر الشخصية لكل مستخدم (Personal User-to-User Blocks)
   static Set<String> getUserBlockedUsers(String userId) {
     final cleanId = userId.trim();

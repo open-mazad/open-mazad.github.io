@@ -14,6 +14,8 @@ class AuctionStore extends ChangeNotifier {
   final Map<String, int> userWarnings = {};
   /// قائمة الحظر الإداري الشامل للمنصة (Admin Global Ban)
   final Set<String> bannedUsers = {};
+  /// قائمة المستخدمين الموثقين من الإدارة (Admin Verified Users)
+  final Set<String> verifiedUsers = {};
   /// قائمة الحظر الشخصية الخاصة بالمستخدم الحالي (Personal Block List)
   final Set<String> _myBlockedUsers = {};
   /// خريطة الحظر بين المستخدمين (Blocker -> Set of Blocked)
@@ -71,6 +73,7 @@ class AuctionStore extends ChangeNotifier {
     _deletedConversationKeys.addAll(LocalStorageHelper.getDeletedConversationKeys());
     _deletedMessageIds.addAll(LocalStorageHelper.getDeletedMessageIds());
     bannedUsers.addAll(LocalStorageHelper.getBannedUsers());
+    verifiedUsers.addAll(LocalStorageHelper.getVerifiedUsers());
     _loadPersonalBlockedUsers();
 
     if (!_loadFromDisk()) {
@@ -285,6 +288,7 @@ class AuctionStore extends ChangeNotifier {
         ),
         'userWarnings': userWarnings,
         'bannedUsers': bannedUsers.toList(),
+        'verifiedUsers': verifiedUsers.toList(),
         'myBlockedUsers': _myBlockedUsers.toList(),
       };
 
@@ -355,6 +359,11 @@ class AuctionStore extends ChangeNotifier {
       bannedUsers
         ..clear()
         ..addAll((data['bannedUsers'] as List).map((e) => '$e'));
+    }
+    if (data['verifiedUsers'] is List) {
+      verifiedUsers
+        ..clear()
+        ..addAll((data['verifiedUsers'] as List).map((e) => '$e'));
     }
     if (data['myBlockedUsers'] is List) {
       _myBlockedUsers
@@ -3884,6 +3893,34 @@ class AuctionStore extends ChangeNotifier {
     }
 
     _persistAndSync();
+  }
+
+  bool isUserVerified(String user) {
+    if (user.isEmpty) return false;
+    final userUuid = userToUuid(user);
+    final dName = displayName(user).trim().toLowerCase();
+    return verifiedUsers.contains(user) ||
+        verifiedUsers.contains(userUuid) ||
+        (dName.isNotEmpty && verifiedUsers.any((v) => v.trim().toLowerCase() == dName));
+  }
+
+  void toggleUserVerification(String user) {
+    final userUuid = userToUuid(user);
+    final currentlyVerified = isUserVerified(user);
+    if (currentlyVerified) {
+      verifiedUsers.remove(user);
+      verifiedUsers.remove(userUuid);
+      final dName = displayName(user).trim();
+      verifiedUsers.removeWhere((v) => v.trim().toLowerCase() == dName.toLowerCase());
+    } else {
+      verifiedUsers.add(user);
+      verifiedUsers.add(userUuid);
+      final dName = displayName(user).trim();
+      if (dName.isNotEmpty) verifiedUsers.add(dName);
+    }
+    LocalStorageHelper.saveVerifiedUsers(verifiedUsers);
+    _persistAndSync();
+    notifyListeners();
   }
 
   Future<void> deleteUser(String user) async {
