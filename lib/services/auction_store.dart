@@ -3699,8 +3699,42 @@ class AuctionStore extends ChangeNotifier {
     return null;
   }
 
-  List<UserReview> getUserReviews(String user) =>
-      userReviews.putIfAbsent(user, () => []);
+  bool isSameUser(String u1, String u2) {
+    if (u1.isEmpty || u2.isEmpty) return false;
+    if (u1 == u2) return true;
+    if (isUserMe(u1) && isUserMe(u2)) return true;
+    final uuid1 = userToUuid(u1).toLowerCase();
+    final uuid2 = userToUuid(u2).toLowerCase();
+    if (uuid1 == uuid2) return true;
+    final d1 = displayName(u1).trim().toLowerCase();
+    final d2 = displayName(u2).trim().toLowerCase();
+    if (d1.isNotEmpty && d1 == d2) return true;
+    return false;
+  }
+
+  /// التحقق من وجود معاملة بيع أو شراء مكتملة بين الطرفين
+  bool hasTransactionBetween(String user1, String user2) {
+    if (user1.isEmpty || user2.isEmpty || isSameUser(user1, user2)) return false;
+    return items.any((it) {
+      if (!it.isEnded) return false;
+      final winner = it.highestBidder;
+      if (winner == null || winner.isEmpty) return false;
+      final isCase1 = isSameUser(it.seller, user1) && isSameUser(winner, user2);
+      final isCase2 = isSameUser(it.seller, user2) && isSameUser(winner, user1);
+      return isCase1 || isCase2;
+    });
+  }
+
+  List<UserReview> getUserReviews(String user) {
+    final list = userReviews.putIfAbsent(user, () => []);
+    // إزالة التقييمات المكررة القديمة من نفس المستخدم والإبقاء على الأحدث فقط
+    final seenReviewers = <String>{};
+    list.retainWhere((r) {
+      final key = isUserMe(r.reviewer) ? 'me' : userToUuid(r.reviewer);
+      return seenReviewers.add(key);
+    });
+    return list;
+  }
 
   double getUserRating(String user) {
     final list = getUserReviews(user);
@@ -3712,8 +3746,14 @@ class AuctionStore extends ChangeNotifier {
   void addReview(String targetUser, int stars, String comment) {
     if (!settings.isLoggedIn) return;
     final list = getUserReviews(targetUser);
-    list.insert(0, UserReview(me, stars, comment, DateTime.now()));
+    final existingIdx = list.indexWhere((r) => isUserMe(r.reviewer));
+    if (existingIdx != -1) {
+      list[existingIdx] = UserReview(me, stars, comment, DateTime.now());
+    } else {
+      list.insert(0, UserReview(me, stars, comment, DateTime.now()));
+    }
     _persistAndSync();
+    notifyListeners();
   }
 
   void submitReport({
