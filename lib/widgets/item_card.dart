@@ -192,9 +192,7 @@ class ItemCard extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: Card(
         clipBehavior: Clip.antiAlias,
-        elevation: 1,
         margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: InkWell(
           onTap: () => _openItem(context),
           child: Padding(

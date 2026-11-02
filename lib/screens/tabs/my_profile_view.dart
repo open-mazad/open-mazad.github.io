@@ -118,9 +118,6 @@ class _MyProfileViewState extends State<MyProfileView> {
             children: [
               // 1. كارت الملف الشخصي العلوي
               Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -326,8 +323,6 @@ class _MyProfileViewState extends State<MyProfileView> {
     required Color color,
   }) {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         child: Column(

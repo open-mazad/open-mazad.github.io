@@ -1507,14 +1507,6 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(height: 14),
 
                   Card(
-                    elevation: 0,
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
                     child: SwitchListTile.adaptive(
                       secondary: Container(
                         padding: const EdgeInsets.all(8),

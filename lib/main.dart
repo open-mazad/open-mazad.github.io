@@ -145,18 +145,49 @@ class AuctionApp extends StatelessWidget {
           brightness: Brightness.light,
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+          cardColor: Colors.white,
+          canvasColor: const Color(0xFFF8FAFC),
+          dialogBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF0F172A),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Color(0x0A000000),
+          ),
+          cardTheme: CardTheme(
+            color: Colors.white,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+            ),
+          ),
+          dialogTheme: DialogTheme(
+            backgroundColor: Colors.white,
+            elevation: 4,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
           navigationBarTheme: NavigationBarThemeData(
-            indicatorColor: Colors.black.withValues(alpha: 0.08),
+            backgroundColor: Colors.white,
+            elevation: 3,
+            shadowColor: const Color(0x0A000000),
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: Colors.indigo.withValues(alpha: 0.12),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return IconThemeData(
-                color: selected ? Colors.black : Colors.black87,
+                color: selected ? Colors.indigo : const Color(0xFF64748B),
               );
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
-                color: selected ? Colors.black : Colors.black87,
+                color: selected ? Colors.indigo : const Color(0xFF64748B),
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
@@ -167,7 +198,36 @@ class AuctionApp extends StatelessWidget {
           brightness: Brightness.dark,
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFF0F172A),
+          cardColor: const Color(0xFF1E293B),
+          canvasColor: const Color(0xFF0F172A),
+          dialogBackgroundColor: const Color(0xFF1E293B),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF0F172A),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+          ),
+          cardTheme: CardTheme(
+            color: const Color(0xFF1E293B),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFF334155), width: 1),
+            ),
+          ),
+          dialogTheme: DialogTheme(
+            backgroundColor: const Color(0xFF1E293B),
+            elevation: 4,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
           navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFF0F172A),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
             indicatorColor: Colors.white.withValues(alpha: 0.16),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
