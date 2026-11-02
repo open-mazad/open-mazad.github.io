@@ -1629,7 +1629,9 @@ class SettingsPage extends StatelessWidget {
                   label: Text(tr('تسجيل الخروج', 'Logout')),
                 ),
               ],
-            ],
+                ],
+              ),
+            ),
           );
         },
       ),
