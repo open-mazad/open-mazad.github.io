@@ -1544,12 +1544,6 @@ class SettingsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // 2. بطاقة الحساب (تظهر فقط للمستخدم المسجل)
-                  if (settings.isLoggedIn) ...[
-                    profileCard(context),
-                    const SizedBox(height: 24),
-                  ],
-
               // رادار البحث متاح للمستخدم
               if (settings.openSavedRadar != null) ...[
                 Text(tr('الميزات والتنبيهات', 'Features & Alerts'),
