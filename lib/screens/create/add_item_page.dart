@@ -764,11 +764,7 @@ class _AddItemPageState extends State<AddItemPage> {
                                     : Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                               ),
                             ),
-                            border: Border.all(
-                              color: category.isEmpty ? Colors.grey.shade400 : Colors.indigo.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
+                            child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
