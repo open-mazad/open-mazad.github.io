@@ -2698,28 +2698,33 @@ class AuctionStore extends ChangeNotifier {
     final key = _normalizeItemKey(rawItemId);
     final list = directChats.putIfAbsent(key, () => []);
 
-    // 1. مطابقة فورية ودقيقة عبر client_msg_id (id) لمنع التكرار دون حذف الرسائل المتشابهة
-    final idxById = list.indexWhere((em) => em.id == msg.id);
+    // 1. مطابقة فورية ودقيقة عبر المعرف لمنع التكرار
+    final idxById = list.indexWhere((em) =>
+        em.id == msg.id ||
+        (em.id.isNotEmpty && msg.id.isNotEmpty && itemToUuid(em.id) == msg.id) ||
+        (em.id.isNotEmpty && msg.id.isNotEmpty && em.id == itemToUuid(msg.id)));
     if (idxById != -1) {
       list[idxById].isDelivered = true;
+      list[idxById].isRead = list[idxById].isRead || msg.isRead;
       return;
     }
 
-    // 2. مطابقة احتياطية فقط للرسائل المحلية القديمة التي ليس لها UUID قياسي
+    // 2. مطابقة ذكية للرسائل لنفس الطرفين ونفس النص وبنفس التوقيت لمنع التكرار نهائياً
     final existingIdx = list.indexWhere((em) {
-      if (!em.id.startsWith('msg_')) return false;
       final sameSender = (em.sender == msg.sender ||
           userToUuid(em.sender) == userToUuid(msg.sender) ||
           displayName(em.sender) == displayName(msg.sender));
       final sameReceiver = (em.receiver == msg.receiver ||
           userToUuid(em.receiver) == userToUuid(msg.receiver) ||
           displayName(em.receiver) == displayName(msg.receiver));
-      final sameText = em.text == msg.text;
-      final sameTime = em.time.difference(msg.time).abs().inSeconds < 5;
+      final sameText = em.text.trim() == msg.text.trim();
+      final sameTime = em.time.difference(msg.time).abs().inSeconds < 10;
       return sameSender && sameReceiver && sameText && sameTime;
     });
     if (existingIdx != -1) {
+      list[existingIdx].id = msg.id;
       list[existingIdx].isDelivered = true;
+      list[existingIdx].isRead = list[existingIdx].isRead || msg.isRead;
       return;
     }
 
@@ -2744,12 +2749,31 @@ class AuctionStore extends ChangeNotifier {
     if (altKey != key && directChats.containsKey(altKey)) {
       final altList = directChats[altKey]!;
       for (final m in altList) {
-        if (!list.any((x) => x.id == m.id)) {
+        if (!list.any((x) =>
+            x.id == m.id ||
+            (x.text.trim() == m.text.trim() &&
+                (x.sender == m.sender || userToUuid(x.sender) == userToUuid(m.sender)) &&
+                x.time.difference(m.time).abs().inSeconds < 8))) {
           list.add(m);
         }
       }
-      list.sort((a, b) => a.time.compareTo(b.time));
     }
+    // تنظيف أي تكرار متبقٍ من الذاكرة لضمان نقاء السجل
+    final seen = <String>{};
+    final cleaned = <DirectMessage>[];
+    for (final m in list) {
+      final textKey = '${m.sender}_${m.receiver}_${m.text.trim()}_${m.time.millisecondsSinceEpoch ~/ 8000}';
+      if (!seen.add(m.id) || !seen.add(textKey)) {
+        continue;
+      }
+      cleaned.add(m);
+    }
+    if (cleaned.length != list.length) {
+      list
+        ..clear()
+        ..addAll(cleaned);
+    }
+    list.sort((a, b) => a.time.compareTo(b.time));
     return list;
   }
 
@@ -3007,8 +3031,10 @@ class AuctionStore extends ChangeNotifier {
     } catch (_) {}
   }
 
+  bool _isPollingChat = false;
   Future<void> pollMessagesForChat(String rawItemId) async {
-    if (!settings.isCloudConfigured) return;
+    if (!settings.isCloudConfigured || _isPollingChat) return;
+    _isPollingChat = true;
     try {
       final client = supabaseClient;
       if (client == null) return;
@@ -3023,7 +3049,10 @@ class AuctionStore extends ChangeNotifier {
       if (rows.isNotEmpty) {
         _applyMessagesStream(List<Map<String, dynamic>>.from(rows));
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isPollingChat = false;
+    }
   }
 
   void deleteConversation(String itemId, String otherParty) {
@@ -3384,7 +3413,12 @@ class AuctionStore extends ChangeNotifier {
     final senderUuid = msg.senderId ?? userToUuid(me);
     final receiverUuid = msg.receiverId ?? userToUuid(otherParty);
     final itemUuid = itemToUuid(item.id);
-    final msgUuid = itemToUuid(msg.id);
+    
+    // الحفاظ على المعرف الأصلي للرسالة إن كان UUID قياسي لضمان تطابق الـ ID ومنع التكرار
+    final bool isStandardUuid = RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        .hasMatch(msg.id);
+    final msgUuid = isStandardUuid ? msg.id : itemToUuid(msg.id);
 
     final msgRow = {
       'id': msgUuid,
@@ -3396,13 +3430,17 @@ class AuctionStore extends ChangeNotifier {
     };
 
     try {
-      await _ensureProfileExists(senderUuid, me);
-      await _ensureProfileExists(receiverUuid, otherParty);
-      await _ensureItemExists(item);
-
       final client = supabaseClient;
       if (client != null) {
-        await client.from('messages').upsert(msgRow, onConflict: 'id');
+        try {
+          await client.from('messages').upsert(msgRow, onConflict: 'id');
+        } catch (_) {
+          // تأكيد وجود الحساب والسلعة بالسحابة عند حدوث أي خطأ أجنبي وإعادة الحفظ
+          await _ensureProfileExists(senderUuid, me);
+          await _ensureProfileExists(receiverUuid, otherParty);
+          await _ensureItemExists(item);
+          await client.from('messages').upsert(msgRow, onConflict: 'id');
+        }
         // تحديث جداول المحادثات المنفصلة الاحترافية إن كانت مفعلة في قاعدة البيانات
         try {
           final sellerUuid = userToUuid(item.seller);

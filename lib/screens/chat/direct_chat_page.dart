@@ -48,8 +48,8 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
       if (mounted) setState(() {});
     });
 
-    // استطلاع فائق السرعة للرسائل داخل المحادثة النشطة (كل 800 مللي ثانية) لضمان الوصول اللحظي على المتصفح والهاتف
-    _chatPollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) {
+    // استطلاع أمان احتياطي دوري للرسائل داخل المحادثة النشطة (كل 3.5 ثوانٍ) كشبكة أمان بينما الاستقبال فوري عبر Realtime
+    _chatPollTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
       if (mounted) {
         store.pollMessagesForChat(widget.item.id);
       }
