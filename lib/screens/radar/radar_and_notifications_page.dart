@@ -243,9 +243,40 @@ class _RadarAndNotificationsPageState extends State<RadarAndNotificationsPage> {
                                   store.markNotificationRead(n.id);
                                   if (n.itemId != null) {
                                     final target = store.items
-                                        .where((it) => it.id == n.itemId)
-                                        .firstOrNull;
-                                    if (target != null) {
+                                        .cast<Item?>()
+                                        .firstWhere(
+                                          (it) =>
+                                              it?.id == n.itemId ||
+                                              (it != null &&
+                                                  AuctionStore.itemToUuid(it.id) ==
+                                                      AuctionStore.itemToUuid(n.itemId!)),
+                                          orElse: () => null,
+                                        ) ??
+                                        Item(
+                                          id: n.itemId!,
+                                          title: n.title,
+                                          description: '',
+                                          category: 'عام',
+                                          seller: n.sender ?? 'مستخدم',
+                                          startPrice: 0,
+                                          startTime: DateTime.now(),
+                                          endTime: DateTime.now(),
+                                        );
+
+                                    final isChatNotification =
+                                        n.type == 'chat' || n.sender != null;
+                                    if (isChatNotification) {
+                                      final other = n.sender ?? target.seller;
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => DirectChatPage(
+                                            item: target,
+                                            otherParty: other,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(

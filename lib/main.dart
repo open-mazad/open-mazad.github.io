@@ -243,9 +243,39 @@ class AuctionApp extends StatelessWidget {
                                 AuctionStore.outbidAlertNotifier.value = null;
                                 if (itId != null) {
                                   final target = store.items
-                                      .where((it) => it.id == itId)
-                                      .firstOrNull;
-                                  if (target != null) {
+                                      .cast<Item?>()
+                                      .firstWhere(
+                                        (it) =>
+                                            it?.id == itId ||
+                                            (it != null &&
+                                                AuctionStore.itemToUuid(it.id) ==
+                                                    AuctionStore.itemToUuid(itId)),
+                                        orElse: () => null,
+                                      ) ??
+                                      Item(
+                                        id: itId,
+                                        title: alert.title,
+                                        description: '',
+                                        category: 'عام',
+                                        seller: alert.sender ?? 'مستخدم',
+                                        startPrice: 0,
+                                        startTime: DateTime.now(),
+                                        endTime: DateTime.now(),
+                                      );
+
+                                  final isChatNotification =
+                                      alert.type == 'chat' || alert.sender != null;
+                                  if (isChatNotification) {
+                                    final other = alert.sender ?? target.seller;
+                                    rootNavigatorKey.currentState?.push(
+                                      MaterialPageRoute(
+                                        builder: (_) => DirectChatPage(
+                                          item: target,
+                                          otherParty: other,
+                                        ),
+                                      ),
+                                    );
+                                  } else {
                                     rootNavigatorKey.currentState?.push(
                                       MaterialPageRoute(
                                         builder: (_) =>
