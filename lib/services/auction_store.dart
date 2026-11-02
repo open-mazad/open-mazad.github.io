@@ -596,10 +596,10 @@ class AuctionStore extends ChangeNotifier {
         if (full.isNotEmpty) {
           userBlockedMap.putIfAbsent(full, () => <String>{}).addAll(bSet);
         }
-        if (phone.isNotEmpty) {
-          userBlockedMap.putIfAbsent(phone, () => <String>{}).addAll(bSet);
+        if (ph.isNotEmpty) {
+          userBlockedMap.putIfAbsent(ph, () => <String>{}).addAll(bSet);
         }
-        if (id == myUuid || isUserMe(name) || isUserMe(id) || (phone.isNotEmpty && isUserMe(phone))) {
+        if (id == myUuid || isUserMe(name) || isUserMe(id) || (ph.isNotEmpty && isUserMe(ph))) {
           _myBlockedUsers
             ..clear()
             ..addAll(bSet);
@@ -1397,10 +1397,10 @@ class AuctionStore extends ChangeNotifier {
             if (full.isNotEmpty) {
               userBlockedMap.putIfAbsent(full, () => <String>{}).addAll(bSet);
             }
-            if (phone.isNotEmpty) {
-              userBlockedMap.putIfAbsent(phone, () => <String>{}).addAll(bSet);
+            if (ph.isNotEmpty) {
+              userBlockedMap.putIfAbsent(ph, () => <String>{}).addAll(bSet);
             }
-            if (id == myUuid || isUserMe(name) || isUserMe(id) || (phone.isNotEmpty && isUserMe(phone))) {
+            if (id == myUuid || isUserMe(name) || isUserMe(id) || (ph.isNotEmpty && isUserMe(ph))) {
               _myBlockedUsers
                 ..clear()
                 ..addAll(bSet);
