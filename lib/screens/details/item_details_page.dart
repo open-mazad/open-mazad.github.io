@@ -356,8 +356,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         ),
         content: Text(
           tr(
-            'هل أنت متأكد من رغبتك في شراء "${item.title}" فوراً بالسعر النهائي ($priceStr)؟\n\nسيتم حسم الصفقة وإقفال المزاد وتثبيت فوزك بالسلعة مباشرة.',
-            'Are you sure you want to buy "${item.title}" now for $priceStr? The auction will close and you will win immediately.',
+            'هل أنت متأكد من رغبتك في تقديم طلب شراء فوري لـ "${item.title}" بالسعر النهائي ($priceStr)؟\n\nسيتم تسجيلك في صدارة المزاد كأعلى مزايد وإشعار صاحب المزاد لإرساء البيع وإيقاف المزاد متى شاء.',
+            'Are you sure you want to place a Buy Now offer for "${item.title}" at $priceStr? You will be the highest bidder and the seller will be notified to settle the auction.',
           ),
         ),
         actions: [
@@ -369,7 +369,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             style: FilledButton.styleFrom(backgroundColor: Colors.amber.shade800),
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.check_circle),
-            label: Text(tr('نعم، شراء فوري الآن ⚡', 'Yes, Buy Now ⚡')),
+            label: Text(tr('تأكيد الشراء الفوري ⚡', 'Confirm Buy Now ⚡')),
           ),
         ],
       ),
@@ -378,7 +378,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (ok == true && mounted) {
       final err = store.buyNow(item);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err ?? tr('تمت عملية الشراء الفوري وإقفال المزاد بنجاح 🎉', 'Buy Now completed successfully 🎉')),
+        content: Text(err ?? tr('تم تسجيل طلب الشراء الفوري وإشعار صاحب المزاد بنجاح ⚡', 'Buy Now offer submitted and seller notified ⚡')),
         backgroundColor: err == null ? Colors.green.shade700 : Colors.red,
       ));
     }

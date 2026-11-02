@@ -2169,17 +2169,19 @@ class AuctionStore extends ChangeNotifier {
     }
 
     final price = item.buyNowPrice!;
-    item.bids.insert(0, Bid(me, price, DateTime.now()));
-    item.isEndedEarlyBySeller = true;
-    item.isLiveStreaming = false;
-    item.endTime = DateTime.now();
-    item.autoBids.clear();
+    final newBid = Bid(me, price, DateTime.now());
+    item.bids.insert(0, newBid);
+    item.bids.sort((a, b) {
+      final cmp = b.amount.compareTo(a.amount);
+      if (cmp != 0) return cmp;
+      return b.time.compareTo(a.time);
+    });
 
     _pushNotification(
-      title: tr('⚡ تم حسم المزاد بالشراء الفوري!', '⚡ Auction Won via Buy Now!'),
+      title: tr('⚡ طلب شراء فوري بالسعر النهائي!', '⚡ Buy Now Offer Placed!'),
       body: tr(
-        'تم شراء "${item.title}" فوراً بواسطة $me بسعر الشراء الفوري ${formatPrice(price)}.',
-        'Bought "${item.title}" instantly by $me for ${formatPrice(price)}.',
+        'قدّم ${displayName(me)} طلباً للشراء الفوري على "${item.title}" بالسعر النهائي ${formatPrice(price)}. يمكنك مراجعة المزاد وإنهاؤه وترسية البيع متى شئت.',
+        '${displayName(me)} placed a Buy Now offer on "${item.title}" for ${formatPrice(price)}. You can review and end the auction to complete the sale.',
       ),
       icon: Icons.flash_on,
       color: Colors.amber,
@@ -2187,7 +2189,7 @@ class AuctionStore extends ChangeNotifier {
     );
 
     _persistAndSync();
-    _updateItemStatusInCloud(item);
+    _recordBidToCloud(item, newBid);
     return null;
   }
 
