@@ -155,21 +155,21 @@ class AuctionApp extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             shadowColor: Color(0x0A000000),
           ),
-          cardTheme: CardTheme(
+          cardTheme: const CardThemeData(
             color: Colors.white,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+              side: BorderSide(color: Color(0xFFE2E8F0), width: 1),
             ),
           ),
-          dialogTheme: DialogTheme(
+          dialogTheme: const DialogThemeData(
             backgroundColor: Colors.white,
             elevation: 4,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.all(Radius.circular(20)),
             ),
           ),
           navigationBarTheme: NavigationBarThemeData(
@@ -207,21 +207,21 @@ class AuctionApp extends StatelessWidget {
             elevation: 0,
             surfaceTintColor: Colors.transparent,
           ),
-          cardTheme: CardTheme(
-            color: const Color(0xFF1E293B),
+          cardTheme: const CardThemeData(
+            color: Color(0xFF1E293B),
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFF334155), width: 1),
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+              side: BorderSide(color: Color(0xFF334155), width: 1),
             ),
           ),
-          dialogTheme: DialogTheme(
-            backgroundColor: const Color(0xFF1E293B),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Color(0xFF1E293B),
             elevation: 4,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.all(Radius.circular(20)),
             ),
           ),
           navigationBarTheme: NavigationBarThemeData(
