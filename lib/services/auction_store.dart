@@ -234,6 +234,21 @@ class AuctionStore extends ChangeNotifier {
                 _recordUserTyping(rawItemId, sender);
               } catch (_) {}
             },
+          )
+          .onBroadcast(
+            event: 'read',
+            callback: (payload) {
+              try {
+                final reader = '${payload['reader'] ?? ''}';
+                final rawItemId = '${payload['itemId'] ?? ''}';
+                final otherParty = '${payload['otherParty'] ?? ''}';
+                if (isUserMe(reader)) return;
+                final myUuid = userToUuid(me);
+                if (isUserMe(otherParty) || userToUuid(otherParty) == myUuid) {
+                  _applyMessagesReadLocally(rawItemId, reader);
+                }
+              } catch (_) {}
+            },
           );
         _chatBroadcastChannel?.subscribe();
       } catch (e) {
@@ -496,16 +511,16 @@ class AuctionStore extends ChangeNotifier {
 
   bool isUserMe(String identifier) {
     if (identifier.isEmpty) return false;
-    if (identifier == me || identifier == 'أنا') return true;
-    if (settings.userId != null &&
-        settings.userId!.isNotEmpty &&
-        identifier == settings.userId) {
+    final trimmed = identifier.trim();
+    if (trimmed == me || trimmed == 'أنا') return true;
+    final myUuid = settings.userId ?? userToUuid(me);
+    if (trimmed.toLowerCase() == myUuid.toLowerCase()) return true;
+    if (settings.fullName.isNotEmpty &&
+        trimmed.toLowerCase() == settings.fullName.trim().toLowerCase()) {
       return true;
     }
-    if (settings.fullName.isNotEmpty && identifier == settings.fullName) {
-      return true;
-    }
-    if (userToUuid(me) == identifier) return true;
+    if (settings.phone.isNotEmpty && trimmed == settings.phone.trim()) return true;
+    if (userToUuid(trimmed).toLowerCase() == myUuid.toLowerCase()) return true;
     return false;
   }
 
@@ -934,8 +949,7 @@ class AuctionStore extends ChangeNotifier {
 
         final existingList = directChats[itemId] ?? directChats[_normalizeItemKey(itemId)] ?? [];
         final existingMsg = existingList.where((em) => em.id == msgId).firstOrNull;
-        final bool isMsgRead = isUserMe(senderUuid) ||
-            (m['is_read'] == true) ||
+        final bool isMsgRead = (m['is_read'] == true) ||
             (existingMsg != null && existingMsg.isRead);
 
         newDirectChats.putIfAbsent(itemId, () => []).add(
@@ -2608,12 +2622,6 @@ class AuctionStore extends ChangeNotifier {
     final itemKey = _normalizeItemKey(rawItemId);
     final targetUuid = itemToUuid(rawItemId);
 
-    if (_deletedConversationKeys.contains(rawItemId) ||
-        _deletedConversationKeys.contains(itemKey) ||
-        _deletedConversationKeys.contains(targetUuid)) {
-      return true;
-    }
-
     final other = (sender != null && isUserMe(sender))
         ? receiver
         : sender;
@@ -2630,8 +2638,6 @@ class AuctionStore extends ChangeNotifier {
         '$rawItemId:$other',
         '$rawItemId:$oUuid',
         '$rawItemId:$oDisp',
-        other,
-        oUuid,
       ];
       for (final c in checks) {
         if (_deletedConversationKeys.contains(c)) return true;
@@ -2681,6 +2687,28 @@ class AuctionStore extends ChangeNotifier {
   }
 
   void _mergeIncomingDirectMessage(String rawItemId, DirectMessage msg) {
+    // استعادة وتنشيط المحادثة فورياً عند وصول أي رسالة جديدة
+    final itemKey = _normalizeItemKey(rawItemId);
+    final targetUuid = itemToUuid(rawItemId);
+    final otherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
+    final otherUuid = userToUuid(otherParty);
+    final otherDisp = displayName(otherParty);
+    _deletedConversationKeys.removeAll([
+      '$itemKey:$otherParty',
+      '$itemKey:$otherUuid',
+      '$itemKey:$otherDisp',
+      '$targetUuid:$otherParty',
+      '$targetUuid:$otherUuid',
+      '$targetUuid:$otherDisp',
+      '$rawItemId:$otherParty',
+      '$rawItemId:$otherUuid',
+      '$rawItemId:$otherDisp',
+      rawItemId,
+      itemKey,
+      targetUuid,
+    ]);
+    LocalStorageHelper.saveDeletedConversationKeys(_deletedConversationKeys);
+
     if (isConversationOrMessageDeleted(
       rawItemId: rawItemId,
       msgId: msg.id,
@@ -2919,14 +2947,16 @@ class AuctionStore extends ChangeNotifier {
           continue;
         }
 
-        if (isUserMe(msg.sender) || isUserMe(msg.receiver)) {
-          final rawOtherParty = isUserMe(msg.sender) ? msg.receiver : msg.sender;
+        final isSenderMe = isUserMe(msg.sender) || (msg.senderId != null && isUserMe(msg.senderId!));
+        final isReceiverMe = isUserMe(msg.receiver) || (msg.receiverId != null && isUserMe(msg.receiverId!));
+        if (isSenderMe || isReceiverMe) {
+          final rawOtherParty = isSenderMe ? msg.receiver : msg.sender;
           final cleanOther = displayName(rawOtherParty);
           final canonUserUuid = userToUuid(rawOtherParty);
           final canonItemUuid = itemToUuid(item.id);
           final key = '${canonItemUuid}_$canonUserUuid';
 
-          final isUnread = !isUserMe(msg.sender) && !msg.isRead;
+          final isUnread = !isSenderMe && !msg.isRead;
           final existing = convs[key];
           final newCount = (existing?.totalMessages ?? 0) + 1;
           final newUnread = (existing?.unreadCount ?? 0) + (isUnread ? 1 : 0);
@@ -3001,7 +3031,48 @@ class AuctionStore extends ChangeNotifier {
       _saveToDisk();
       notifyListeners();
     }
+    try {
+      _chatBroadcastChannel?.sendBroadcastMessage(
+        event: 'read',
+        payload: {
+          'itemId': itemId,
+          'reader': me,
+          'otherParty': otherParty,
+        },
+      );
+    } catch (_) {}
     _syncConversationReadToCloud(itemId, otherParty);
+  }
+
+  void _applyMessagesReadLocally(String rawItemId, String otherParty) {
+    final key = _normalizeItemKey(rawItemId);
+    final targetUuid = itemToUuid(rawItemId);
+    final otherUuid = userToUuid(otherParty);
+    final otherDisp = displayName(otherParty);
+    bool changed = false;
+
+    for (final entry in directChats.entries) {
+      if (entry.key == rawItemId || entry.key == key || entry.key == targetUuid) {
+        for (final m in entry.value) {
+          if (isUserMe(m.sender) && !m.isRead) {
+            final isToOther = m.receiver == otherParty ||
+                m.receiverId == otherParty ||
+                m.receiverId == otherUuid ||
+                userToUuid(m.receiver) == otherUuid ||
+                displayName(m.receiver) == otherDisp;
+            if (isToOther) {
+              m.isRead = true;
+              m.isDelivered = true;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+    if (changed) {
+      _saveToDisk();
+      notifyListeners();
+    }
   }
 
   Future<void> _syncConversationReadToCloud(String itemId, String otherParty) async {
