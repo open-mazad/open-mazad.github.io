@@ -1500,12 +1500,19 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     final lastBidder = item.highestBidder ??
         (item.bids.isNotEmpty ? item.bids.first.bidder : null);
     final isMeHighestBidder = lastBidder != null && store.isUserMe(lastBidder);
+    final isSeller = store.isItemSeller(item);
+    final hasActiveBuyNow = item.buyNowPrice != null &&
+        item.buyNowPrice! > 0 &&
+        item.bids.any((b) => b.amount >= item.buyNowPrice!);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // السعر النهائي (إذا كان محدداً من قبل البائع) يظهر كزر وليبل أنيق فوق حقل المزايدة
-        if (item.buyNowPrice != null && item.buyNowPrice! > 0 && !item.isEnded) ...[
+        // السعر النهائي (إذا كان محدداً من قبل البائع) يظهر كزر وليبل أنيق فقط إذا لم يسبق لأحد طلبه
+        if (item.buyNowPrice != null &&
+            item.buyNowPrice! > 0 &&
+            !item.isEnded &&
+            !hasActiveBuyNow) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             margin: const EdgeInsets.only(bottom: 12),
@@ -1540,7 +1547,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     ],
                   ),
                 ),
-                if (!item.isScheduled)
+                if (!item.isScheduled && !isSeller)
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.amber.shade800,
@@ -1560,57 +1567,107 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
             ),
           ),
         ],
-        Text(
-          item.bids.isEmpty
-              ? '${tr("أدخل مبلغ مزايدتك (سعر البداية", "Starting bid")} ${formatPrice(item.startPrice)}):'
-              : '${tr("أدخل مبلغ مزايدتك (أعلى من", "Enter your bid above")} ${formatPrice(current)}):',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: amountCtrl,
-          enabled: !isMeHighestBidder,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            labelText: tr('مبلغ مزايدتك (دينار)', 'Your Bid Amount (IQD)'),
-            helperText: (item.buyNowPrice != null && item.buyNowPrice! > 0)
-                ? '${tr("الحد الأقصى للمزايدة هو السعر النهائي:", "Max bid is final price:")} ${formatPrice(item.buyNowPrice!)}'
-                : null,
-            border: const OutlineInputBorder(),
-            prefixIcon: const Icon(Icons.gavel),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            for (final step in [1000, 5000, 10000, 50000])
-              if (item.buyNowPrice == null ||
-                  item.buyNowPrice! <= 0 ||
-                  (current + step) <= item.buyNowPrice!)
-                ActionChip(
-                  label: Text('+$step (${formatPrice(current + step)})'),
-                  onPressed: isMeHighestBidder
-                      ? null
-                      : () => amountCtrl.text = '${current + step}',
+        if (hasActiveBuyNow) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade900.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade700, width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.flash_on, color: Colors.amber.shade800, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    tr(
+                      'تم الوصول للسعر النهائي بالشراء الفوري وبانتظار قرار صاحب المزاد',
+                      'Final buy-now price reached, awaiting auction owner decision',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: isMeHighestBidder ? null : submitManualBid,
-            icon: Icon(isMeHighestBidder ? Icons.lock : Icons.gavel),
-            label: Text(
-              isMeHighestBidder
-                  ? tr('أنت صاحب أعلى مزايدة حالياً 🥇', 'You are highest bidder 🥇')
-                  : tr('زايد الآن', 'Place Bid Now'),
+              ],
             ),
           ),
-        ),
+          if (isSeller) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => confirmAcceptHighestBid(),
+                icon: const Icon(Icons.check_circle),
+                label: Text(
+                  tr('قبول الشراء الفوري وإنهاء المزاد الآن ⚡', 'Accept Buy Now & End Auction ⚡'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ] else ...[
+          Text(
+            item.bids.isEmpty
+                ? '${tr("أدخل مبلغ مزايدتك (سعر البداية", "Starting bid")} ${formatPrice(item.startPrice)}):'
+                : '${tr("أدخل مبلغ مزايدتك (أعلى من", "Enter your bid above")} ${formatPrice(current)}):',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: amountCtrl,
+            enabled: !isMeHighestBidder,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: tr('مبلغ مزايدتك (دينار)', 'Your Bid Amount (IQD)'),
+              helperText: (item.buyNowPrice != null && item.buyNowPrice! > 0)
+                  ? '${tr("الحد الأقصى للمزايدة هو السعر النهائي:", "Max bid is final price:")} ${formatPrice(item.buyNowPrice!)}'
+                  : null,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.gavel),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final step in [1000, 5000, 10000, 50000])
+                if (item.buyNowPrice == null ||
+                    item.buyNowPrice! <= 0 ||
+                    (current + step) <= item.buyNowPrice!)
+                  ActionChip(
+                    label: Text('+$step (${formatPrice(current + step)})'),
+                    onPressed: isMeHighestBidder
+                        ? null
+                        : () => amountCtrl.text = '${current + step}',
+                  ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: isMeHighestBidder ? null : submitManualBid,
+              icon: Icon(isMeHighestBidder ? Icons.lock : Icons.gavel),
+              label: Text(
+                isMeHighestBidder
+                    ? tr('أنت صاحب أعلى مزايدة حالياً 🥇', 'You are highest bidder 🥇')
+                    : tr('زايد الآن', 'Place Bid Now'),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

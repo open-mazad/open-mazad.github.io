@@ -2167,6 +2167,12 @@ class AuctionStore extends ChangeNotifier {
     if (item.isPrivate && !isPrivateUnlocked(item)) {
       return tr('هذا المزاد خاص، أدخل رمز PIN أولاً', 'Private auction: enter PIN code first');
     }
+    if (item.bids.any((b) => b.amount >= item.buyNowPrice!)) {
+      return tr(
+        'تم الوصول للسعر النهائي بالشراء الفوري وبانتظار قرار صاحب المزاد',
+        'Final buy-now price already reached, awaiting seller decision',
+      );
+    }
 
     final price = item.buyNowPrice!;
     final newBid = Bid(me, price, DateTime.now());
