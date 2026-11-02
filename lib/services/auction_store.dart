@@ -589,10 +589,17 @@ class AuctionStore extends ChangeNotifier {
       final rawBlocked = row['blocked_users'];
       if (rawBlocked is List) {
         final bSet = rawBlocked.map((e) => '$e').toSet();
-        userBlockedMap[id] = bSet;
-        userBlockedMap[name] = bSet;
-        if (full.isNotEmpty) userBlockedMap[full] = bSet;
-        if (id == myUuid) {
+        userBlockedMap.putIfAbsent(id, () => <String>{}).addAll(bSet);
+        if (name.isNotEmpty) {
+          userBlockedMap.putIfAbsent(name, () => <String>{}).addAll(bSet);
+        }
+        if (full.isNotEmpty) {
+          userBlockedMap.putIfAbsent(full, () => <String>{}).addAll(bSet);
+        }
+        if (phone.isNotEmpty) {
+          userBlockedMap.putIfAbsent(phone, () => <String>{}).addAll(bSet);
+        }
+        if (id == myUuid || isUserMe(name) || isUserMe(id) || (phone.isNotEmpty && isUserMe(phone))) {
           _myBlockedUsers
             ..clear()
             ..addAll(bSet);
@@ -1383,10 +1390,17 @@ class AuctionStore extends ChangeNotifier {
           final rawBlocked = row['blocked_users'];
           if (rawBlocked is List) {
             final bSet = rawBlocked.map((e) => '$e').toSet();
-            userBlockedMap[id] = bSet;
-            userBlockedMap[name] = bSet;
-            if (full.isNotEmpty) userBlockedMap[full] = bSet;
-            if (id == myUuid) {
+            userBlockedMap.putIfAbsent(id, () => <String>{}).addAll(bSet);
+            if (name.isNotEmpty) {
+              userBlockedMap.putIfAbsent(name, () => <String>{}).addAll(bSet);
+            }
+            if (full.isNotEmpty) {
+              userBlockedMap.putIfAbsent(full, () => <String>{}).addAll(bSet);
+            }
+            if (phone.isNotEmpty) {
+              userBlockedMap.putIfAbsent(phone, () => <String>{}).addAll(bSet);
+            }
+            if (id == myUuid || isUserMe(name) || isUserMe(id) || (phone.isNotEmpty && isUserMe(phone))) {
               _myBlockedUsers
                 ..clear()
                 ..addAll(bSet);
@@ -3196,16 +3210,35 @@ class AuctionStore extends ChangeNotifier {
     if (blocker.isEmpty || target.isEmpty) return false;
     if (isUserMe(blocker)) return isUserBlockedByMe(target);
 
-    final blockerId = userToUuid(blocker);
-    final targetId = userToUuid(target);
-    final targetName = displayName(target);
+    final blockerClean = blocker.trim().toLowerCase();
+    final blockerId = userToUuid(blocker).trim().toLowerCase();
+    final blockerName = displayName(blocker).trim().toLowerCase();
 
-    final blockedSet = userBlockedMap[blocker] ?? userBlockedMap[blockerId];
-    if (blockedSet != null) {
-      if (blockedSet.contains(target) ||
-          blockedSet.contains(targetId) ||
-          (targetName.isNotEmpty && blockedSet.contains(targetName))) {
-        return true;
+    final targetClean = target.trim().toLowerCase();
+    final targetId = userToUuid(target).trim().toLowerCase();
+    final targetName = displayName(target).trim().toLowerCase();
+
+    final candidateSets = <Set<String>>[
+      if (userBlockedMap.containsKey(blocker)) userBlockedMap[blocker]!,
+      if (userBlockedMap.containsKey(blockerClean)) userBlockedMap[blockerClean]!,
+      if (blockerId.isNotEmpty && userBlockedMap.containsKey(blockerId)) userBlockedMap[blockerId]!,
+      if (blockerName.isNotEmpty && userBlockedMap.containsKey(blockerName)) userBlockedMap[blockerName]!,
+    ];
+
+    for (final blockedSet in candidateSets) {
+      for (final b in blockedSet) {
+        final bClean = b.trim().toLowerCase();
+        final bUuid = userToUuid(b).trim().toLowerCase();
+        final bName = displayName(b).trim().toLowerCase();
+
+        if (bClean == targetClean ||
+            bClean == targetId ||
+            bClean == targetName ||
+            (targetId.isNotEmpty && (bUuid == targetId || bClean == targetId)) ||
+            (targetName.isNotEmpty && (bName == targetName || bClean == targetName)) ||
+            (targetClean.isNotEmpty && (bUuid == targetClean || bName == targetClean))) {
+          return true;
+        }
       }
     }
     return false;
@@ -3224,6 +3257,21 @@ class AuctionStore extends ChangeNotifier {
       await client.from('profiles').update({
         'blocked_users': _myBlockedUsers.toList(),
       }).eq('id', currentId);
+      if (settings.phone.isNotEmpty) {
+        await client.from('profiles').update({
+          'blocked_users': _myBlockedUsers.toList(),
+        }).eq('phone', settings.phone);
+      }
+      if (settings.fullName.isNotEmpty) {
+        final parts = settings.fullName.trim().split(RegExp(r'\s+'));
+        if (parts.isNotEmpty) {
+          final first = parts[0];
+          final second = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+          await client.from('profiles').update({
+            'blocked_users': _myBlockedUsers.toList(),
+          }).match({'first_name': first, 'second_name': second});
+        }
+      }
     } catch (_) {}
   }
 
