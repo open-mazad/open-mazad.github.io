@@ -513,14 +513,18 @@ class AuctionStore extends ChangeNotifier {
     if (identifier.isEmpty) return false;
     final trimmed = identifier.trim();
     if (trimmed == me || trimmed == 'أنا') return true;
-    final myUuid = settings.userId ?? userToUuid(me);
-    if (trimmed.toLowerCase() == myUuid.toLowerCase()) return true;
-    if (settings.fullName.isNotEmpty &&
-        trimmed.toLowerCase() == settings.fullName.trim().toLowerCase()) {
-      return true;
-    }
+    final myUuid = (settings.userId ?? userToUuid(me)).toLowerCase();
+    if (trimmed.toLowerCase() == myUuid) return true;
+    final myFull = settings.fullName.trim().toLowerCase();
+    if (myFull.isNotEmpty && trimmed.toLowerCase() == myFull) return true;
+    final myFirst = settings.firstName.trim().toLowerCase();
+    if (myFirst.isNotEmpty && trimmed.toLowerCase() == myFirst) return true;
     if (settings.phone.isNotEmpty && trimmed == settings.phone.trim()) return true;
-    if (userToUuid(trimmed).toLowerCase() == myUuid.toLowerCase()) return true;
+    if (nameToUuidMap[trimmed]?.toLowerCase() == myUuid) return true;
+    if (userDisplayNames[trimmed]?.trim().toLowerCase() == myFull) return true;
+    if (userToUuid(trimmed).toLowerCase() == myUuid) return true;
+    if (myFull.isNotEmpty && trimmed.toLowerCase() == _toUuid('user_$myFull').toLowerCase()) return true;
+    if (myFirst.isNotEmpty && trimmed.toLowerCase() == _toUuid('user_$myFirst').toLowerCase()) return true;
     return false;
   }
 
@@ -723,6 +727,9 @@ class AuctionStore extends ChangeNotifier {
       final itemId = '${row['id'] ?? ''}';
       final sellerUuid = '${row['seller_id'] ?? ''}';
       final sellerName = userDisplayNames[sellerUuid] ?? 'مستخدم';
+      if (sellerName != 'مستخدم' && sellerUuid.isNotEmpty) {
+        nameToUuidMap[sellerName] = sellerUuid;
+      }
 
       final rawAttrs = <String, String>{};
       if (row['attributes'] is Map) {
@@ -775,6 +782,7 @@ class AuctionStore extends ChangeNotifier {
         description: '${row['description'] ?? ''}',
         category: '${row['category'] ?? 'إلكترونيات وأجهزة'}',
         seller: sellerName,
+        sellerId: sellerUuid,
         condition: '${row['condition'] ?? 'شبه جديد'}',
         location: '${row['location'] ?? 'بغداد'}',
         area: area,
@@ -928,8 +936,13 @@ class AuctionStore extends ChangeNotifier {
           }
         }
       } else {
-        // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً)
-        if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
+        // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها (مرسلاً أو مستقبلاً أو بائع السلعة)
+        final targetItem = items.cast<Item?>().firstWhere(
+              (it) => it?.id == itemId || (it != null && itemToUuid(it.id) == itemToUuid(itemId)),
+              orElse: () => null,
+            );
+        final isForMyItem = targetItem != null && isItemSeller(targetItem);
+        if (!isUserMe(senderUuid) && !isUserMe(receiverUuid) && !isForMyItem) continue;
         recordUserActivity(senderUuid, activityTime: time);
         final sender = isUserMe(senderUuid)
             ? me
@@ -1432,6 +1445,9 @@ class AuctionStore extends ChangeNotifier {
           final itemId = '${row['id'] ?? ''}';
           final sellerUuid = '${row['seller_id'] ?? ''}';
           final sellerName = userUuidToName[sellerUuid] ?? 'مستخدم';
+          if (sellerName != 'مستخدم' && sellerUuid.isNotEmpty) {
+            nameToUuidMap[sellerName] = sellerUuid;
+          }
 
           final rawAttrs = <String, String>{};
           if (row['attributes'] is Map) {
@@ -1484,6 +1500,7 @@ class AuctionStore extends ChangeNotifier {
             description: '${row['description'] ?? ''}',
             category: '${row['category'] ?? 'إلكترونيات وأجهزة'}',
             seller: sellerName,
+            sellerId: sellerUuid,
             condition: '${row['condition'] ?? 'شبه جديد'}',
             location: '${row['location'] ?? 'بغداد'}',
             area: area,
@@ -1573,7 +1590,8 @@ class AuctionStore extends ChangeNotifier {
                 }
               } else {
                 // الخصوصية: لا نستقبل إلا الرسائل التي يكون المستخدم الحالي طرفاً فيها
-                if (!isUserMe(senderUuid) && !isUserMe(receiverUuid)) continue;
+                final isForMyItem = item != null && isItemSeller(item);
+                if (!isUserMe(senderUuid) && !isUserMe(receiverUuid) && !isForMyItem) continue;
                 final sender = isUserMe(senderUuid)
                     ? me
                     : (userUuidToName[senderUuid] ?? senderUuid);
@@ -1582,8 +1600,7 @@ class AuctionStore extends ChangeNotifier {
                     : (userUuidToName[receiverUuid] ?? receiverUuid);
                 final existingList = directChats[itemId] ?? directChats[_normalizeItemKey(itemId)] ?? [];
                 final existingMsg = existingList.where((em) => em.id == msgId).firstOrNull;
-                final bool isMsgRead = isUserMe(senderUuid) ||
-                    (m['is_read'] == true) ||
+                final bool isMsgRead = (m['is_read'] == true) ||
                     (existingMsg != null && existingMsg.isRead);
 
                 _mergeIncomingDirectMessage(
@@ -2842,7 +2859,12 @@ class AuctionStore extends ChangeNotifier {
     LocalStorageHelper.saveDeletedConversationKeys(_deletedConversationKeys);
 
     final senderUuid = userToUuid(me);
-    final receiverUuid = userToUuid(otherParty);
+    final isToSeller = otherParty == item.seller ||
+        displayName(otherParty) == displayName(item.seller) ||
+        userToUuid(otherParty) == item.sellerId;
+    final receiverUuid = (isToSeller && item.sellerId != null && item.sellerId!.isNotEmpty)
+        ? item.sellerId!
+        : userToUuid(otherParty);
     final msg = DirectMessage(
       me,
       otherParty,
@@ -2948,7 +2970,9 @@ class AuctionStore extends ChangeNotifier {
         }
 
         final isSenderMe = isUserMe(msg.sender) || (msg.senderId != null && isUserMe(msg.senderId!));
-        final isReceiverMe = isUserMe(msg.receiver) || (msg.receiverId != null && isUserMe(msg.receiverId!));
+        final isReceiverMe = isUserMe(msg.receiver) ||
+            (msg.receiverId != null && isUserMe(msg.receiverId!)) ||
+            (isItemSeller(item) && (msg.receiver == item.seller || displayName(msg.receiver) == displayName(item.seller)));
         if (isSenderMe || isReceiverMe) {
           final rawOtherParty = isSenderMe ? msg.receiver : msg.sender;
           final cleanOther = displayName(rawOtherParty);

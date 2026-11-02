@@ -218,6 +218,7 @@ class Item {
   final String description;
   final String category;
   final String seller;
+  final String? sellerId;
   final String condition;
   final String location;
   final String area;
@@ -264,6 +265,7 @@ class Item {
     required this.description,
     required this.category,
     required this.seller,
+    this.sellerId,
     required this.startPrice,
     required this.endTime,
     DateTime? startTime,
@@ -290,6 +292,7 @@ class Item {
         'description': description,
         'category': category,
         'seller': seller,
+        if (sellerId != null) 'sellerId': sellerId,
         'condition': condition,
         'location': location,
         'area': area,
@@ -321,6 +324,7 @@ class Item {
       description: j['description'] as String? ?? '',
       category: j['category'] as String? ?? 'إلكترونيات وأجهزة',
       seller: j['seller'] as String? ?? '',
+      sellerId: j['sellerId'] as String?,
       condition: j['condition'] as String? ?? 'شبه جديد',
       location: j['location'] as String? ?? 'بغداد',
       area: j['area'] as String? ?? 'المركز',

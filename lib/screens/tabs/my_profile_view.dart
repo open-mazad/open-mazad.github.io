@@ -11,8 +11,6 @@ class MyProfileView extends StatefulWidget {
 }
 
 class _MyProfileViewState extends State<MyProfileView> {
-  int _selectedSection = 0; // 0: مزايداتي, 1: سلعي المعروضة
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -223,22 +221,6 @@ class _MyProfileViewState extends State<MyProfileView> {
                               ],
                             ),
                           ),
-                          // زر الإعدادات السريع
-                          IconButton(
-                            icon: const Icon(Icons.settings_outlined),
-                            tooltip: tr('الإعدادات', 'Settings'),
-                            onPressed: () {
-                              if (widget.onGoToSettings != null) {
-                                widget.onGoToSettings!();
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const SettingsPage()),
-                                );
-                              }
-                            },
-                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -246,7 +228,10 @@ class _MyProfileViewState extends State<MyProfileView> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => showCompleteProfileDialog(context),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EditProfilePage()),
+                          ),
                           icon: const Icon(Icons.edit_outlined, size: 17),
                           label: Text(tr('تعديل الملف الشخصي', 'Edit Profile')),
                           style: OutlinedButton.styleFrom(
@@ -268,16 +253,6 @@ class _MyProfileViewState extends State<MyProfileView> {
                   Expanded(
                     child: _buildStatCard(
                       context,
-                      title: tr('مزايداتي', 'My Bids'),
-                      value: '${myBidsItems.length}',
-                      icon: Icons.gavel_rounded,
-                      color: Colors.indigoAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
                       title: tr('سلعي المعروضة', 'My Listings'),
                       value: '${myListedItems.length}',
                       icon: Icons.inventory_2_rounded,
@@ -294,59 +269,68 @@ class _MyProfileViewState extends State<MyProfileView> {
                       color: Colors.amber,
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      title: tr('التقييمات', 'Reviews'),
+                      value: '${reviews.length}',
+                      icon: Icons.rate_review_outlined,
+                      color: Colors.indigoAccent,
+                    ),
+                  ),
                 ],
               ),
 
               const SizedBox(height: 18),
 
-              // 3. التبديل بين (مزايداتي) و (سلعي المعروضة)
-              SegmentedButton<int>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                    value: 0,
-                    icon: const Icon(Icons.gavel_outlined, size: 16),
-                    label: Text('${tr('مزايداتي', 'My Bids')} (${myBidsItems.length})'),
-                  ),
-                  ButtonSegment(
-                    value: 1,
-                    icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                    label: Text('${tr('سلعي', 'My Listings')} (${myListedItems.length})'),
-                  ),
-                ],
-                selected: {_selectedSection},
-                onSelectionChanged: (set) =>
-                    setState(() => _selectedSection = set.first),
+              // 3. قسم "سلعي المعروضة" ثابت ودائم
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.teal),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('سلعي المعروضة للبيع', 'My Listed Items'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${myListedItems.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              // 4. عرض القائمة حسب التبويب المختار
-              if (_selectedSection == 0) ...[
-                if (myBidsItems.isEmpty)
-                  _buildEmptySection(
-                    icon: Icons.gavel_outlined,
-                    text: tr(
-                      'لم تشارك في أي مزايدة بعد.\nتصفح المزادات الحية واشترك في المزايدة لتظهر هنا.',
-                      'No bids yet. Browse auctions to participate.',
-                    ),
-                  )
-                else
-                  for (final item in myBidsItems)
-                    _buildUserBidCard(context, item, userMe),
-              ] else ...[
-                if (myListedItems.isEmpty)
-                  _buildEmptySection(
-                    icon: Icons.inventory_2_outlined,
-                    text: tr(
-                      'لم تقم بإضافة أي سلعة للبيع بعد.\nاضغط على (أضف مزاداً) لعرض أول سلعة لك.',
-                      'No listed items yet. Add an auction to start selling.',
-                    ),
-                  )
-                else
-                  for (final item in myListedItems)
-                    _buildUserListingCard(context, item),
-              ],
+              if (myListedItems.isEmpty)
+                _buildEmptySection(
+                  icon: Icons.inventory_2_outlined,
+                  text: tr(
+                    'لم تقم بإضافة أي سلعة للبيع بعد.\nاضغط على (أضف مزاداً) لعرض أول سلعة لك.',
+                    'No listed items yet. Add an auction to start selling.',
+                  ),
+                )
+              else
+                for (final item in myListedItems)
+                  _buildUserListingCard(context, item),
             ],
           ),
         );
@@ -404,143 +388,6 @@ class _MyProfileViewState extends State<MyProfileView> {
             style: const TextStyle(fontSize: 13, color: Colors.grey),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildUserBidCard(BuildContext context, Item item, String userMe) {
-    final scheme = Theme.of(context).colorScheme;
-    final myTopBid = item.bids
-        .where((b) => b.bidder == userMe || store.isUserMe(b.bidder))
-        .map((b) => b.amount)
-        .fold<int>(0, (prev, amt) => amt > prev ? amt : prev);
-
-    final isWinning = item.highestBidder == userMe ||
-        (item.highestBidder != null && store.isUserMe(item.highestBidder!));
-    final isEnded = item.isEnded;
-
-    Color badgeColor;
-    String badgeText;
-    IconData badgeIcon;
-
-    if (isEnded) {
-      if (isWinning) {
-        badgeColor = Colors.amber.shade700;
-        badgeText = tr('فائز بالمزاد 🏆', 'Winner 🏆');
-        badgeIcon = Icons.emoji_events;
-      } else {
-        badgeColor = Colors.grey;
-        badgeText = tr('منتهي', 'Ended');
-        badgeIcon = Icons.timer_off;
-      }
-    } else {
-      if (isWinning) {
-        badgeColor = Colors.green;
-        badgeText = tr('أنت أعلى مزايد', 'Highest Bidder');
-        badgeIcon = Icons.check_circle_outline;
-      } else {
-        badgeColor = Colors.redAccent;
-        badgeText = tr('تم تجاوز عرضك', 'Outbid');
-        badgeIcon = Icons.arrow_upward;
-      }
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ItemDetailsPage(item: item)),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // صورة السلعة
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey.withValues(alpha: 0.2),
-                  child: item.imagePaths.isNotEmpty
-                      ? buildSmartImage(
-                          item.imagePaths.first,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.gavel, size: 24),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // تفاصيل السلعة والمزايدة
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '${tr('مزايدتك:', 'Your bid:')} ${formatPrice(myTopBid)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '(${tr('الحالي:', 'Current:')} ${formatPrice(item.currentPrice)})',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(badgeIcon, size: 13, color: badgeColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            badgeText,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: badgeColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-            ],
-          ),
-        ),
       ),
     );
   }

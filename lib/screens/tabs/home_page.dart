@@ -937,12 +937,10 @@ class _HomePageState extends State<HomePage> {
                         ButtonSegment(
                           value: 0,
                           label: Text(tr('الكل', 'All')),
-                          icon: const Icon(Icons.all_inbox_outlined, size: 16),
                         ),
                         ButtonSegment(
                           value: 1,
                           label: Text(tr('مزايداتي', 'My Bids')),
-                          icon: const Icon(Icons.gavel_outlined, size: 16),
                         ),
                         ButtonSegment(
                           value: 3,
@@ -951,12 +949,10 @@ class _HomePageState extends State<HomePage> {
                                 ? '${tr('المفضلة', 'Favorites')} (${store.favorites.length})'
                                 : tr('المفضلة', 'Favorites'),
                           ),
-                          icon: const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 16),
                         ),
                         ButtonSegment(
                           value: 2,
                           label: Text(tr('سلعي', 'My Listings')),
-                          icon: const Icon(Icons.inventory_2_outlined, size: 16),
                         ),
                       ],
                       selected: {myBidsSubTab},

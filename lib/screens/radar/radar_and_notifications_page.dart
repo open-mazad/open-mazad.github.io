@@ -32,14 +32,11 @@ class _RadarAndNotificationsPageState extends State<RadarAndNotificationsPage> {
     final scheme = Theme.of(context).colorScheme;
 
     return DefaultTabController(
-      length: 3,
-      initialIndex: widget.initialTab.clamp(0, 2),
+      length: 2,
+      initialIndex: widget.initialTab.clamp(0, 1),
       child: ListenableBuilder(
         listenable: store,
         builder: (context, _) {
-          final favItems =
-              store.items.where((i) => store.isFavorite(i.id)).toList();
-
           return Scaffold(
             appBar: AppBar(
               title: Text(tr('مركز المتابعة الذكي', 'Tracking Center')),
@@ -48,35 +45,6 @@ class _RadarAndNotificationsPageState extends State<RadarAndNotificationsPage> {
                   TextButton(
                     onPressed: store.markAllNotificationsRead,
                     child: Text(tr('قراءة الإشعارات', 'Read All Alerts')),
-                  ),
-                if (favItems.isNotEmpty)
-                  IconButton(
-                    tooltip: tr('مسح المفضلة', 'Clear Watchlist'),
-                    icon: const Icon(Icons.delete_sweep_outlined),
-                    onPressed: () async {
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: Text(tr('مسح المفضلة', 'Clear Watchlist')),
-                          content: Text(tr(
-                              'هل تريد إزالة جميع السلع من قائمة المفضلة؟',
-                              'Remove all items from watchlist?')),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: Text(tr('إلغاء', 'Cancel')),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: Text(tr('مسح', 'Clear')),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (ok == true) {
-                        store.clearFavorites();
-                      }
-                    },
                   ),
               ],
               bottom: TabBar(
@@ -95,15 +63,6 @@ class _RadarAndNotificationsPageState extends State<RadarAndNotificationsPage> {
                     ),
                     text:
                         '${tr("الإشعارات", "Alerts")} (${store.unreadNotificationsCount})',
-                  ),
-                  Tab(
-                    icon: Badge(
-                      isLabelVisible: favItems.isNotEmpty,
-                      label: Text('${favItems.length}'),
-                      child: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
-                    ),
-                    text:
-                        '${tr("المفضلة", "Watchlist")} (${favItems.length})',
                   ),
                 ],
               ),
@@ -289,48 +248,6 @@ class _RadarAndNotificationsPageState extends State<RadarAndNotificationsPage> {
                                 },
                               );
                             },
-                          ),
-
-                    // =================== التبويب 2: المفضلة ===================
-                    favItems.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.favorite_border,
-                                  size: 64,
-                                  color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  tr('قائمة المفضلة فارغة', 'Watchlist is empty'),
-                                  style: const TextStyle(
-                                      fontSize: 17, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                                  child: Text(
-                                    tr(
-                                      'اضغط على أيقونة القلب على أي سلعة لحفظها والوصول إليها بسرعة هنا.',
-                                      'Tap the heart icon on any item to save it here for quick access.',
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: scheme.onSurfaceVariant,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
-                            itemCount: favItems.length,
-                            itemBuilder: (context, i) =>
-                                ItemCard(item: favItems[i]),
                           ),
                   ],
                 ),

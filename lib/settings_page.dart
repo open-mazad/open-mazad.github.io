@@ -1458,82 +1458,95 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: settings,
-      builder: (context, _) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              children: [
-                settings.isLoggedIn ? profileCard(context) : guestCard(context),
-              const SizedBox(height: 24),
-              Text(tr('المظهر', 'Appearance'),
-                  style:
-                      const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                    value: ThemeMode.light,
-                    icon: const Icon(Icons.light_mode),
-                    label: Text(tr('فاتح', 'Light')),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr('الإعدادات', 'Settings')),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+      ),
+      body: ListenableBuilder(
+        listenable: settings,
+        builder: (context, _) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                children: [
+                  // 1. قسم المظهر في البداية
+                  Text(tr('المظهر', 'Appearance'),
+                      style:
+                          const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: const Icon(Icons.light_mode),
+                        label: Text(tr('فاتح', 'Light')),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: const Icon(Icons.dark_mode),
+                        label: Text(tr('داكن', 'Dark')),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: const Icon(Icons.phone_android),
+                        label: Text(tr('النظام', 'System')),
+                      ),
+                    ],
+                    selected: {settings.themeMode},
+                    onSelectionChanged: (s) => settings.setTheme(s.first),
                   ),
-                  ButtonSegment(
-                    value: ThemeMode.dark,
-                    icon: const Icon(Icons.dark_mode),
-                    label: Text(tr('داكن', 'Dark')),
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.system,
-                    icon: const Icon(Icons.phone_android),
-                    label: Text(tr('النظام', 'System')),
-                  ),
-                ],
-                selected: {settings.themeMode},
-                onSelectionChanged: (s) => settings.setTheme(s.first),
-              ),
-              const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-              Card(
-                elevation: 0,
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-                child: SwitchListTile.adaptive(
-                  secondary: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
+                  Card(
+                    elevation: 0,
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      ),
                     ),
-                    child: const Icon(Icons.network_check_rounded, color: Colors.teal, size: 22),
-                  ),
-                  title: Text(
-                    tr('وضع توفير البيانات (للإنترنت الضعيف)', 'Data Saver Mode (Weak Connection)'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    tr(
-                      'تسريع تصفح المزادات وإيقاف التحريك التلقائي للصور لتقليل استهلاك الإنترنت',
-                      'Speeds up browsing and stops auto-sliders to save data',
+                    child: SwitchListTile.adaptive(
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.network_check_rounded, color: Colors.teal, size: 22),
+                      ),
+                      title: Text(
+                        tr('وضع توفير البيانات (للإنترنت الضعيف)', 'Data Saver Mode (Weak Connection)'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        tr(
+                          'تسريع تصفح المزادات وإيقاف التحريك التلقائي للصور لتقليل استهلاك الإنترنت',
+                          'Speeds up browsing and stops auto-sliders to save data',
+                        ),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      value: settings.dataSaverMode,
+                      onChanged: (v) => settings.toggleDataSaver(v),
                     ),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
                   ),
-                  value: settings.dataSaverMode,
-                  onChanged: (v) => settings.toggleDataSaver(v),
-                ),
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 24),
+
+                  // 2. بطاقة الحساب (تسجيل الدخول / الملف)
+                  settings.isLoggedIn ? profileCard(context) : guestCard(context),
+                  const SizedBox(height: 24),
 
               // رادار البحث متاح للمستخدم
               if (settings.openSavedRadar != null) ...[
@@ -1617,12 +1630,11 @@ class SettingsPage extends StatelessWidget {
                 ),
               ],
             ],
-          ),
-        ),
-      );
-    },
-  );
-}
+          );
+        },
+      ),
+    );
+  }
 }
 
 // ======================= نموذج الملف الشخصي (يُستخدم في التسجيل والتعديل) =======================
