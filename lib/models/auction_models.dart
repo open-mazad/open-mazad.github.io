@@ -159,7 +159,7 @@ class AppNotification {
     required this.body,
     required this.time,
     this.icon = Icons.notifications,
-    this.color = Colors.indigo,
+    this.color = const Color(0xFF2F80ED),
     this.itemId,
     this.sender,
     this.type,

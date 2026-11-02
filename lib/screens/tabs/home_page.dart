@@ -608,8 +608,8 @@ class _HomePageState extends State<HomePage> {
       listenable: Listenable.merge([store, settings]),
       builder: (context, _) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final navColor = isDark ? Colors.white : Colors.black;
-        final unselectedNavColor = isDark ? Colors.white70 : Colors.black87;
+        const navColor = Color(0xFF2F80ED);
+        final unselectedNavColor = isDark ? const Color(0xFFA0A0A0) : const Color(0xFF666666);
 
         return Scaffold(
         appBar: AppBar(
@@ -772,8 +772,8 @@ class _HomePageState extends State<HomePage> {
           data: NavigationBarThemeData(
             height: 56,
             indicatorColor: isDark
-                ? Colors.white.withValues(alpha: 0.16)
-                : Colors.black.withValues(alpha: 0.08),
+                ? const Color(0xFF2F80ED).withValues(alpha: 0.18)
+                : const Color(0xFF2F80ED).withValues(alpha: 0.12),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
@@ -793,7 +793,7 @@ class _HomePageState extends State<HomePage> {
           ),
           child: NavigationBar(
             height: 56,
-            backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+            backgroundColor: isDark ? const Color(0xFF000000) : Colors.white,
             selectedIndex: tab,
             onDestinationSelected: (i) {
               if (i == 2) {
@@ -835,18 +835,18 @@ class _HomePageState extends State<HomePage> {
                 icon: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.14) : Colors.black.withValues(alpha: 0.08),
+                    color: isDark ? const Color(0xFF242424) : const Color(0xFFE5E5E5),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.add, color: navColor, size: 22),
+                  child: const Icon(Icons.add, color: navColor, size: 22),
                 ),
                 selectedIcon: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: navColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.add, color: isDark ? Colors.black : Colors.white, size: 22),
+                  child: const Icon(Icons.add, color: Colors.white, size: 22),
                 ),
                 label: tr('أضف مزاداً', 'Add Auction'),
               ),

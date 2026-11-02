@@ -930,7 +930,7 @@ class AuctionStore extends ChangeNotifier {
               title: tr('💬 استفسار جديد على سلعتك', '💬 New inquiry on your item'),
               body: '${displayName(sender)}: $text',
               icon: Icons.comment,
-              color: Colors.indigo,
+              color: const Color(0xFF2F80ED),
               itemId: itemId,
             );
           }
@@ -1740,7 +1740,7 @@ class AuctionStore extends ChangeNotifier {
     required String title,
     required String body,
     IconData icon = Icons.notifications,
-    Color color = Colors.indigo,
+    Color color = const Color(0xFF2F80ED),
     String? itemId,
     String? sender,
     String? type,
@@ -2584,7 +2584,7 @@ class AuctionStore extends ChangeNotifier {
             'New auction matching "$kw": $title',
           ),
           icon: Icons.radar,
-          color: Colors.indigo,
+          color: const Color(0xFF2F80ED),
           itemId: newItem.id,
         );
       }

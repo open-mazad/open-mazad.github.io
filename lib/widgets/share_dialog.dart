@@ -61,8 +61,8 @@ void showShareDialog(BuildContext context, Item item) {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF334155)
-                      : const Color(0xFFE2E8F0),
+                      ? const Color(0xFF2A2A2A)
+                      : const Color(0xFFE5E5E5),
                 ),
               ),
               child: Row(

@@ -141,53 +141,75 @@ class AuctionApp extends StatelessWidget {
         locale: const Locale('ar'),
         themeMode: settings.themeMode,
         theme: ThemeData(
-          colorSchemeSeed: Colors.indigo,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2F80ED),
+            brightness: Brightness.light,
+            primary: const Color(0xFF2F80ED),
+            surface: Colors.white,
+            onSurface: const Color(0xFF111111),
+            outline: const Color(0xFFE5E5E5),
+            outlineVariant: const Color(0xFFE5E5E5),
+          ),
           brightness: Brightness.light,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+          scaffoldBackgroundColor: const Color(0xFFF5F5F5),
           cardColor: Colors.white,
-          canvasColor: const Color(0xFFF8FAFC),
+          canvasColor: const Color(0xFFF5F5F5),
           dialogBackgroundColor: Colors.white,
+          dividerTheme: const DividerThemeData(
+            color: Color(0xFFE5E5E5),
+            thickness: 1,
+            space: 1,
+          ),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
-            foregroundColor: Color(0xFF0F172A),
+            foregroundColor: Color(0xFF111111),
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shadowColor: Color(0x0A000000),
           ),
-          cardTheme: const CardThemeData(
+          cardTheme: CardThemeData(
             color: Colors.white,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-              side: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
             ),
           ),
-          dialogTheme: const DialogThemeData(
+          dialogTheme: DialogThemeData(
             backgroundColor: Colors.white,
             elevation: 4,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
+            ),
+          ),
+          popupMenuTheme: PopupMenuThemeData(
+            color: Colors.white,
+            elevation: 4,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
             ),
           ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: Colors.white,
-            elevation: 3,
-            shadowColor: const Color(0x0A000000),
+            elevation: 0,
             surfaceTintColor: Colors.transparent,
-            indicatorColor: Colors.indigo.withValues(alpha: 0.12),
+            indicatorColor: const Color(0xFF2F80ED).withValues(alpha: 0.12),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return IconThemeData(
-                color: selected ? Colors.indigo : const Color(0xFF64748B),
+                color: selected ? const Color(0xFF2F80ED) : const Color(0xFF666666),
               );
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
-                color: selected ? Colors.indigo : const Color(0xFF64748B),
+                color: selected ? const Color(0xFF2F80ED) : const Color(0xFF666666),
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
@@ -195,72 +217,127 @@ class AuctionApp extends StatelessWidget {
           segmentedButtonTheme: SegmentedButtonThemeData(
             style: SegmentedButton.styleFrom(
               backgroundColor: Colors.white,
-              selectedBackgroundColor: Colors.indigo.withValues(alpha: 0.12),
-              selectedForegroundColor: Colors.indigo,
-              foregroundColor: const Color(0xFF64748B),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              selectedBackgroundColor: const Color(0xFF2F80ED).withValues(alpha: 0.12),
+              selectedForegroundColor: const Color(0xFF2F80ED),
+              foregroundColor: const Color(0xFF666666),
+              side: const BorderSide(color: Color(0xFFE5E5E5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E5E5)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2F80ED), width: 1.5),
             ),
           ),
         ),
         darkTheme: ThemeData(
-          colorSchemeSeed: Colors.indigo,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2F80ED),
+            brightness: Brightness.dark,
+            primary: const Color(0xFF2F80ED),
+            surface: const Color(0xFF1A1A1A),
+            onSurface: const Color(0xFFF5F5F5),
+            outline: const Color(0xFF2A2A2A),
+            outlineVariant: const Color(0xFF2A2A2A),
+          ),
           brightness: Brightness.dark,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF0F172A),
-          cardColor: const Color(0xFF1E293B),
-          canvasColor: const Color(0xFF0F172A),
-          dialogBackgroundColor: const Color(0xFF1E293B),
+          scaffoldBackgroundColor: const Color(0xFF000000),
+          cardColor: const Color(0xFF1A1A1A),
+          canvasColor: const Color(0xFF000000),
+          dialogBackgroundColor: const Color(0xFF242424),
+          dividerTheme: const DividerThemeData(
+            color: Color(0xFF2A2A2A),
+            thickness: 1,
+            space: 1,
+          ),
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0F172A),
-            foregroundColor: Colors.white,
+            backgroundColor: Color(0xFF000000),
+            foregroundColor: Color(0xFFF5F5F5),
             elevation: 0,
             surfaceTintColor: Colors.transparent,
           ),
-          cardTheme: const CardThemeData(
-            color: Color(0xFF1E293B),
+          cardTheme: CardThemeData(
+            color: const Color(0xFF1A1A1A),
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-              side: BorderSide(color: Color(0xFF334155), width: 1),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF2A2A2A), width: 1),
             ),
           ),
-          dialogTheme: const DialogThemeData(
-            backgroundColor: Color(0xFF1E293B),
+          dialogTheme: DialogThemeData(
+            backgroundColor: const Color(0xFF242424),
             elevation: 4,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF2A2A2A), width: 1),
+            ),
+          ),
+          popupMenuTheme: PopupMenuThemeData(
+            color: const Color(0xFF242424),
+            elevation: 4,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF2A2A2A), width: 1),
             ),
           ),
           navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: const Color(0xFF0F172A),
+            backgroundColor: const Color(0xFF000000),
             elevation: 0,
             surfaceTintColor: Colors.transparent,
-            indicatorColor: Colors.white.withValues(alpha: 0.16),
+            indicatorColor: const Color(0xFF2F80ED).withValues(alpha: 0.18),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return IconThemeData(
-                color: selected ? Colors.white : Colors.white70,
+                color: selected ? const Color(0xFF2F80ED) : const Color(0xFFA0A0A0),
               );
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
-                color: selected ? Colors.white : Colors.white70,
+                color: selected ? const Color(0xFF2F80ED) : const Color(0xFFA0A0A0),
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
           ),
           segmentedButtonTheme: SegmentedButtonThemeData(
             style: SegmentedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E293B),
-              selectedBackgroundColor: Colors.white.withValues(alpha: 0.16),
-              selectedForegroundColor: Colors.white,
-              foregroundColor: Colors.white70,
-              side: const BorderSide(color: Color(0xFF334155)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: const Color(0xFF1A1A1A),
+              selectedBackgroundColor: const Color(0xFF2F80ED).withValues(alpha: 0.22),
+              selectedForegroundColor: const Color(0xFF2F80ED),
+              foregroundColor: const Color(0xFFA0A0A0),
+              side: const BorderSide(color: Color(0xFF2A2A2A)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: const Color(0xFF1A1A1A),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2F80ED), width: 1.5),
             ),
           ),
         ),
@@ -297,7 +374,7 @@ class AuctionApp extends StatelessWidget {
           final isDark = settings.themeMode == ThemeMode.dark ||
               (settings.themeMode == ThemeMode.system &&
                   mq.platformBrightness == Brightness.dark);
-          final appBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+          final appBg = isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F5);
 
           return MediaQuery(
             data: responsiveMQ,

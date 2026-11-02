@@ -1295,7 +1295,7 @@ Future<void> _handleGoogleSignIn(BuildContext context) async {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       duration: const Duration(seconds: 4),
-      backgroundColor: Colors.indigo.shade700,
+      backgroundColor: const Color(0xFF2F80ED),
       content: Row(
         children: [
           const SizedBox(
@@ -1340,7 +1340,7 @@ class SettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Icon(Icons.account_circle_outlined, size: 64, color: Colors.indigo),
+            const Icon(Icons.account_circle_outlined, size: 64, color: Color(0xFF2F80ED)),
             const SizedBox(height: 12),
             Text(tr('حساب المستخدم والربط السحابي', 'User Account & Cloud Sync'),
                 style:
@@ -1544,7 +1544,7 @@ class SettingsPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.radar, color: Colors.indigo),
+                    leading: const Icon(Icons.radar, color: Color(0xFF2F80ED)),
                     title: Text(tr('رادار البحث الذكي والتنبيهات',
                         'Smart Search Radar & Alerts')),
                     subtitle: Text(tr(
