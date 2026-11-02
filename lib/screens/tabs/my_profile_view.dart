@@ -467,12 +467,12 @@ class _MyProfileViewState extends State<MyProfileView> {
                   width: 60,
                   height: 60,
                   color: Colors.grey.withValues(alpha: 0.2),
-                  child: item.images.isNotEmpty
-                      ? Image.network(
-                          item.images.first,
+                  child: item.imagePaths.isNotEmpty
+                      ? buildSmartImage(
+                          item.imagePaths.first,
+                          width: 60,
+                          height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.broken_image, size: 24),
                         )
                       : const Icon(Icons.gavel, size: 24),
                 ),
@@ -568,12 +568,12 @@ class _MyProfileViewState extends State<MyProfileView> {
                   width: 60,
                   height: 60,
                   color: Colors.grey.withValues(alpha: 0.2),
-                  child: item.images.isNotEmpty
-                      ? Image.network(
-                          item.images.first,
+                  child: item.imagePaths.isNotEmpty
+                      ? buildSmartImage(
+                          item.imagePaths.first,
+                          width: 60,
+                          height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.broken_image, size: 24),
                         )
                       : const Icon(Icons.inventory_2, size: 24),
                 ),
