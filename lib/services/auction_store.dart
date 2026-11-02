@@ -538,6 +538,7 @@ class AuctionStore extends ChangeNotifier {
         'video_url': item.videoPath,
         'start_price': item.startPrice,
         'current_price': item.currentPrice,
+        'buy_now_price': item.buyNowPrice,
         'highest_bidder_id': item.highestBidder == null
             ? null
             : userToUuid(item.highestBidder!),

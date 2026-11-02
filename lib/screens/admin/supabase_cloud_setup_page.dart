@@ -51,6 +51,7 @@ create table if not exists public.items (
   video_url text,
   start_price bigint not null,
   current_price bigint not null,
+  buy_now_price bigint,
   highest_bidder_id uuid references public.profiles(id),
   start_time timestamp with time zone default now(),
   end_time timestamp with time zone not null,
@@ -248,6 +249,14 @@ alter table public.reports replica identity full;
 alter table public.conversations replica identity full;
 alter table public.conversation_members replica identity full;
 alter table public.direct_messages replica identity full;
+
+-- فهارس تحسين السرعة الفائقة
+create index if not exists idx_bids_item_amount on public.bids(item_id, amount desc);
+create index if not exists idx_messages_item_id on public.messages(item_id, created_at asc);
+create index if not exists idx_items_seller on public.items(seller_id);
+create index if not exists idx_items_active on public.items(end_time desc);
+create index if not exists idx_conversations_buyer_seller on public.conversations(buyer_id, seller_id);
+alter table public.items add column if not exists buy_now_price bigint;
 ''';
 
   @override
