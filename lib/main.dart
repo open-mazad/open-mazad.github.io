@@ -33,6 +33,7 @@ part 'screens/chat/direct_chat_page.dart';
 part 'screens/radar/radar_and_notifications_page.dart';
 part 'screens/admin/admin_dashboard_page.dart';
 part 'screens/admin/supabase_cloud_setup_page.dart';
+part 'screens/tabs/my_profile_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

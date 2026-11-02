@@ -120,7 +120,7 @@ class _HomePageState extends State<HomePage> {
         tr('الرسائل', 'Messages'),
         tr('أضف مزاداً', 'List Auction'),
         tr('المزايدات', 'Bids & Auctions'),
-        tr('الإعدادات', 'Settings'),
+        tr('ملفي', 'My Profile'),
       ];
 
   List<Item> getVisibleItems({required bool isMyBidsTab}) {
@@ -128,17 +128,21 @@ class _HomePageState extends State<HomePage> {
 
     if (isMyBidsTab) {
       // تبويب المزايدات المدمج:
-      // 0: الكل (مزايداتي وسلعي مرتبة زمنياً حسب الإضافة/النشر)
+      // 0: الكل (مزايداتي وسلعي والمفضلة)
       // 1: مزايداتي (التي شارك بها المستخدم)
+      // 3: المفضلة (التي أضافها للمفضلة)
       // 2: سلعي (التي طرحها للبيع)
       if (myBidsSubTab == 1) {
         list = list.where((i) => i.bids.any((b) => b.bidder == me || store.isUserMe(b.bidder)));
       } else if (myBidsSubTab == 2) {
         list = list.where((i) => i.seller == me || store.isItemSeller(i));
+      } else if (myBidsSubTab == 3) {
+        list = list.where((i) => store.isFavorite(i.id));
       } else {
         list = list.where((i) =>
             i.seller == me ||
             store.isItemSeller(i) ||
+            store.isFavorite(i.id) ||
             i.bids.any((b) => b.bidder == me || store.isUserMe(b.bidder)));
       }
     } else {
@@ -212,7 +216,9 @@ class _HomePageState extends State<HomePage> {
               isMyBidsTab
                   ? (myBidsSubTab == 2
                       ? Icons.inventory_2_outlined
-                      : Icons.gavel_outlined)
+                      : (myBidsSubTab == 3
+                          ? Icons.favorite_border
+                          : Icons.gavel_outlined))
                   : Icons.inventory_2_outlined,
               size: 64,
               color: Colors.grey,
@@ -225,15 +231,20 @@ class _HomePageState extends State<HomePage> {
                           'لم تقم بإضافة أي سلعة بعد\nاضغط على (أضف مزاداً) لعرض سلعك للبيع',
                           'You have not listed any items yet.',
                         )
-                      : myBidsSubTab == 1
+                      : myBidsSubTab == 3
                           ? tr(
-                              'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
-                              'No bids yet. Browse items and place bids to see them here.',
+                              'قائمة المفضلة فارغة\nاضغط على أيقونة القلب على أي سلعة لإضافتها هنا',
+                              'Watchlist is empty. Tap the heart icon on any item to save it here.',
                             )
-                          : tr(
-                              'لا توجد مشاركات أو سلع حتى الآن\nابدأ بالمزايدة أو اعرض سلعة جديدة',
-                              'No bids or listings yet. Start bidding or list an item.',
-                            ))
+                          : myBidsSubTab == 1
+                              ? tr(
+                                  'لم تشارك في أي مزايدة بعد\nتصفح المزادات وشارك في المزايدة لتظهر هنا',
+                                  'No bids yet. Browse items and place bids to see them here.',
+                                )
+                              : tr(
+                                  'لا توجد مشاركات أو سلع حتى الآن\nابدأ بالمزايدة أو اعرض سلعة جديدة',
+                                  'No bids or listings yet. Start bidding or list an item.',
+                                ))
                   : tr('لا توجد عناصر مطابقة للبحث',
                       'No matching items found'),
               textAlign: TextAlign.center,
@@ -875,21 +886,16 @@ class _HomePageState extends State<HomePage> {
                 child: const Icon(Icons.notifications_outlined),
               ),
             ),
-            // 3. اليسار: المفضلة (أيقونة القلب)
+            // 3. اليسار: الإعدادات (استبدال موقع المفضلة السابق)
             IconButton(
-              tooltip: tr('المفضلة', 'Watchlist'),
+              tooltip: tr('الإعدادات', 'Settings'),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const RadarAndNotificationsPage(initialTab: 2),
+                  builder: (_) => const SettingsPage(),
                 ),
               ),
-              icon: Badge(
-                isLabelVisible: store.favorites.isNotEmpty,
-                label: Text('${store.favorites.length}'),
-                child: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
-              ),
+              icon: const Icon(Icons.settings_outlined),
             ),
           ],
         ),
@@ -939,6 +945,15 @@ class _HomePageState extends State<HomePage> {
                           icon: const Icon(Icons.gavel_outlined, size: 16),
                         ),
                         ButtonSegment(
+                          value: 3,
+                          label: Text(
+                            store.favorites.isNotEmpty
+                                ? '${tr('المفضلة', 'Favorites')} (${store.favorites.length})'
+                                : tr('المفضلة', 'Favorites'),
+                          ),
+                          icon: const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 16),
+                        ),
+                        ButtonSegment(
                           value: 2,
                           label: Text(tr('سلعي', 'My Listings')),
                           icon: const Icon(Icons.inventory_2_outlined, size: 16),
@@ -952,8 +967,13 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            const _KeepAlivePage(
-              child: SettingsPage(),
+            _KeepAlivePage(
+              child: MyProfileView(
+                onGoToSettings: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                ),
+              ),
             ),
           ],
         ),
@@ -1045,9 +1065,9 @@ class _HomePageState extends State<HomePage> {
                 label: tr('المزايدات', 'Bids & Auctions'),
               ),
               NavigationDestination(
-                icon: Icon(Icons.settings_outlined, color: unselectedNavColor),
-                selectedIcon: Icon(Icons.settings, color: navColor),
-                label: tr('الإعدادات', 'Settings'),
+                icon: Icon(Icons.person_outline, color: unselectedNavColor),
+                selectedIcon: Icon(Icons.person, color: navColor),
+                label: tr('ملفي', 'My Profile'),
               ),
             ],
           ),
