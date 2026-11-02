@@ -145,33 +145,18 @@ class AuctionApp extends StatelessWidget {
           brightness: Brightness.light,
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFFFFFFFF),
-            foregroundColor: Color(0xFF0F172A),
-            elevation: 0.5,
-            surfaceTintColor: Colors.transparent,
-          ),
-          cardTheme: CardTheme(
-            color: Colors.white,
-            elevation: 0.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-          ),
           navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: Colors.white,
-            indicatorColor: Colors.indigo.withValues(alpha: 0.12),
+            indicatorColor: Colors.black.withValues(alpha: 0.08),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return IconThemeData(
-                color: selected ? Colors.indigo : const Color(0xFF64748B),
+                color: selected ? Colors.black : Colors.black87,
               );
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               final selected = states.contains(WidgetState.selected);
               return TextStyle(
-                color: selected ? Colors.indigo : const Color(0xFF64748B),
+                color: selected ? Colors.black : Colors.black87,
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
               );
             }),
@@ -229,12 +214,17 @@ class AuctionApp extends StatelessWidget {
             textScaler: TextScaler.linear(fontScale),
           );
 
+          final isDark = settings.themeMode == ThemeMode.dark ||
+              (settings.themeMode == ThemeMode.system &&
+                  mq.platformBrightness == Brightness.dark);
+          final appBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+
           return MediaQuery(
             data: responsiveMQ,
             child: Directionality(
               textDirection: TextDirection.rtl,
               child: ColoredBox(
-                color: Theme.of(context).scaffoldBackgroundColor,
+                color: appBg,
                 child: IconTheme(
                   data: IconThemeData(size: iconSize),
                   child: Stack(
