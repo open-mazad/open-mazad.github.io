@@ -1452,9 +1452,6 @@ class _DirectChatPageState extends State<DirectChatPage> with WidgetsBindingObse
             constraints: const BoxConstraints(maxWidth: 480),
             child: Card(
               margin: const EdgeInsets.all(20),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -2167,9 +2164,6 @@ class _MessagesInboxViewState extends State<MessagesInboxView> {
           constraints: const BoxConstraints(maxWidth: 480),
           child: Card(
             margin: const EdgeInsets.all(20),
-            elevation: 2,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(

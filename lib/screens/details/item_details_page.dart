@@ -1651,10 +1651,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 3,
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
