@@ -42,10 +42,12 @@ class LocalStorageHelper {
   /// قائمة الحظر الشخصية لكل مستخدم (Personal User-to-User Blocks)
   static Set<String> getUserBlockedUsers(String userId) {
     final cleanId = userId.trim();
-    if (cleanId.isEmpty) return getSet('muzaid_user_blocks_default');
-    final set = getSet('muzaid_user_blocks_$cleanId');
-    if (set.isNotEmpty) return set;
-    // استعادة قائمة الحظر الشخصية السابقة إن وُجدت
+    final key = cleanId.isEmpty ? 'muzaid_user_blocks_default' : 'muzaid_user_blocks_$cleanId';
+    final raw = read(key);
+    if (raw != null) {
+      return getSet(key);
+    }
+    // استعادة قائمة الحظر الشخصية السابقة إن وُجدت ولم يُعيّن مفتاح مخصص بعد
     final legacy = getSet('muzaid_blocked_users');
     if (legacy.isNotEmpty) return legacy;
     return {};
@@ -54,6 +56,8 @@ class LocalStorageHelper {
     final cleanId = userId.trim();
     final key = cleanId.isEmpty ? 'muzaid_user_blocks_default' : 'muzaid_user_blocks_$cleanId';
     saveSet(key, users);
+    // تحديث القائمة العامة السابقة لتتطابق تماماً وتمنع أي استرجاع عشوائي للمحظورين
+    saveSet('muzaid_blocked_users', users);
   }
 
   static Set<String> getBlockedUsers() => getSet('muzaid_blocked_users');

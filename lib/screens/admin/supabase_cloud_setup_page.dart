@@ -30,9 +30,11 @@ create table if not exists public.profiles (
   photo_url text,
   rating numeric default 5.0,
   is_banned boolean default false,
+  blocked_users jsonb default '[]'::jsonb,
   created_at timestamp with time zone default now()
 );
 alter table public.profiles drop constraint if exists profiles_id_fkey;
+alter table public.profiles add column if not exists blocked_users jsonb default '[]'::jsonb;
 
 -- 2. جدول المزادات والسلع (Auctions / Items)
 create table if not exists public.items (

@@ -592,7 +592,9 @@ class AuctionStore extends ChangeNotifier {
         userBlockedMap[name] = bSet;
         if (full.isNotEmpty) userBlockedMap[full] = bSet;
         if (id == myUuid) {
-          _myBlockedUsers.addAll(bSet);
+          _myBlockedUsers
+            ..clear()
+            ..addAll(bSet);
           LocalStorageHelper.saveUserBlockedUsers(id, _myBlockedUsers);
         }
       }
@@ -1384,7 +1386,9 @@ class AuctionStore extends ChangeNotifier {
             userBlockedMap[name] = bSet;
             if (full.isNotEmpty) userBlockedMap[full] = bSet;
             if (id == myUuid) {
-              _myBlockedUsers.addAll(bSet);
+              _myBlockedUsers
+                ..clear()
+                ..addAll(bSet);
             }
           }
         }
@@ -3136,10 +3140,22 @@ class AuctionStore extends ChangeNotifier {
     final cleanUser = user.trim();
     if (cleanUser.isEmpty) return;
 
-    _myBlockedUsers.remove(cleanUser);
-    final mapped = userDisplayNames[cleanUser];
-    if (mapped != null) _myBlockedUsers.remove(mapped);
-    _myBlockedUsers.remove(userToUuid(cleanUser));
+    final targetUuid = userToUuid(cleanUser).trim().toLowerCase();
+    final targetName = displayName(cleanUser).trim().toLowerCase();
+    final cleanLower = cleanUser.toLowerCase();
+
+    _myBlockedUsers.removeWhere((u) {
+      final uClean = u.trim().toLowerCase();
+      final uUuid = userToUuid(u).trim().toLowerCase();
+      final uName = displayName(u).trim().toLowerCase();
+      return uClean == cleanLower ||
+          uClean == targetUuid ||
+          uClean == targetName ||
+          (targetUuid.isNotEmpty && uUuid == targetUuid) ||
+          (targetName.isNotEmpty && uName == targetName) ||
+          (targetName.isNotEmpty && uClean == targetName) ||
+          (cleanLower.isNotEmpty && uName == cleanLower);
+    });
 
     final currentId = settings.userId ?? userToUuid(me);
     userBlockedMap[currentId] = Set<String>.from(_myBlockedUsers);
@@ -3152,10 +3168,25 @@ class AuctionStore extends ChangeNotifier {
 
   bool isUserBlockedByMe(String user) {
     if (user.isEmpty) return false;
-    if (_myBlockedUsers.contains(user)) return true;
-    final mapped = userDisplayNames[user];
-    if (mapped != null && _myBlockedUsers.contains(mapped)) return true;
-    return _myBlockedUsers.contains(userToUuid(user));
+    final clean = user.trim().toLowerCase();
+    final targetUuid = userToUuid(user).trim().toLowerCase();
+    final targetName = displayName(user).trim().toLowerCase();
+
+    for (final b in _myBlockedUsers) {
+      final bClean = b.trim().toLowerCase();
+      if (bClean == clean) return true;
+      if (targetUuid.isNotEmpty &&
+          (bClean == targetUuid ||
+              userToUuid(b).trim().toLowerCase() == targetUuid)) {
+        return true;
+      }
+      if (targetName.isNotEmpty &&
+          (bClean == targetName ||
+              displayName(b).trim().toLowerCase() == targetName)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool isUserBlocked(String user) => isUserBlockedByMe(user);
